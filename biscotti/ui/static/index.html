@@ -64,6 +64,9 @@
             :class="'badge-' + ($store.app.currentVersion?.status || 'draft')"
             x-text="$store.app.currentVersion?.status"></span>
     </button>
+    <button class="toolbar-key-btn" @click="$store.app.openKeyManager()" title="API Keys">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+    </button>
     <button class="theme-toggle" @click="$store.app.toggleTheme()" :title="$store.app.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
       <span x-show="$store.app.theme === 'dark'">&#9788;</span>
       <span x-show="$store.app.theme === 'light'">&#9790;</span>
@@ -441,49 +444,6 @@
       <div class="tab-panel" id="panel-evals" :class="{ active: $store.app.activeTab === 'evals' }">
         <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
 
-          <!-- Provider keys bar — compact inline -->
-          <div class="eval-key-bar">
-            <template x-for="p in $store.app.connectedProviders" :key="p">
-              <span class="provider-pill">
-                <span class="provider-pill-dot"></span>
-                <span x-text="p.charAt(0).toUpperCase() + p.slice(1)"></span>
-                <button class="provider-pill-x" @click="$store.app.disconnectProvider(p)" title="Disconnect">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </span>
-            </template>
-            <!-- Inline add key -->
-            <div x-show="$store.app.addKeyOpen" class="add-key-row" style="margin:0;">
-              <div class="provider-select-wrap" @click.outside="$store.app.providerDropdownOpen = false">
-                <button class="provider-select-trigger" @click="$store.app.providerDropdownOpen = !$store.app.providerDropdownOpen">
-                  <span x-text="$store.app.addKeyProvider.charAt(0).toUpperCase() + $store.app.addKeyProvider.slice(1)"></span>
-                  <svg class="tc-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </button>
-                <div class="provider-select-dropdown" :class="{ open: $store.app.providerDropdownOpen }">
-                  <template x-for="prov in $store.app.disconnectedProviders" :key="prov">
-                    <div class="provider-select-item"
-                         :class="{ selected: $store.app.addKeyProvider === prov }"
-                         @click="$store.app.addKeyProvider = prov; $store.app.providerDropdownOpen = false"
-                         x-text="prov.charAt(0).toUpperCase() + prov.slice(1)"></div>
-                  </template>
-                </div>
-              </div>
-              <input type="password" id="add-key-input" class="key-input"
-                     x-model="$store.app.addKeyValue"
-                     :placeholder="$store.app.addKeyProvider === 'anthropic' ? 'sk-ant-...' : 'sk-...'"
-                     @keydown.enter="$store.app.submitProviderKey()"
-                     @keydown.escape="$store.app.addKeyOpen = false">
-              <button class="btn btn-primary btn-sm" @click="$store.app.submitProviderKey()">Connect</button>
-              <button class="provider-disconnect" @click="$store.app.addKeyOpen = false" title="Cancel">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <button class="btn btn-ghost btn-sm" x-show="!$store.app.addKeyOpen && $store.app.disconnectedProviders.length"
-                    @click="$store.app.openAddKey()" style="padding:4px 12px;font-size:11px;border:1px solid var(--border2);">
-              + Add Key
-            </button>
-          </div>
-
           <!-- Accordion -->
           <div class="accordion">
 
@@ -717,6 +677,68 @@
       <button class="btn-confirm" :class="{ destructive: $store.app.confirmDestructive }"
               @click="$store.app.resolveConfirm(true)"
               x-text="$store.app.confirmDestructive ? 'Delete' : 'Confirm'"></button>
+    </div>
+  </div>
+</div>
+
+<!-- API Key Modal -->
+<div id="key-modal-overlay" x-show="$store.app.keyModalOpen" x-transition.opacity.duration.150ms
+     @click.self="$store.app.closeKeyModal()" style="display:none;">
+  <div id="key-modal">
+    <div class="key-modal-header">
+      <h3 x-show="$store.app.keyModalCallback">API Key Required</h3>
+      <h3 x-show="!$store.app.keyModalCallback">API Keys</h3>
+    </div>
+    <div class="key-modal-body">
+      <p x-show="$store.app.keyModalCallback" style="font-size:12px;color:var(--text2);margin:0;">
+        Connect your <span x-text="$store.app.keyModalProvider.charAt(0).toUpperCase() + $store.app.keyModalProvider.slice(1)" style="font-weight:600;"></span> API key to use this feature.
+      </p>
+
+      <!-- Connected providers list -->
+      <template x-if="$store.app.connectedProviders.length">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
+          <template x-for="p in $store.app.connectedProviders" :key="p">
+            <span class="provider-pill">
+              <span class="provider-pill-dot"></span>
+              <span x-text="p.charAt(0).toUpperCase() + p.slice(1)"></span>
+              <button class="provider-pill-x" @click="$store.app.disconnectProvider(p)" title="Disconnect">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </span>
+          </template>
+        </div>
+      </template>
+
+      <!-- Add key form -->
+      <template x-if="$store.app.disconnectedProviders.length">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="provider-select-wrap" @click.outside="$store.app.keyModalProviderDropdownOpen = false">
+            <button class="provider-select-trigger" @click="$store.app.keyModalProviderDropdownOpen = !$store.app.keyModalProviderDropdownOpen">
+              <span x-text="$store.app.keyModalProvider.charAt(0).toUpperCase() + $store.app.keyModalProvider.slice(1)"></span>
+              <svg class="tc-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="provider-select-dropdown" :class="{ open: $store.app.keyModalProviderDropdownOpen }">
+              <template x-for="prov in $store.app.disconnectedProviders" :key="prov">
+                <div class="provider-select-item"
+                     :class="{ selected: $store.app.keyModalProvider === prov }"
+                     @click="$store.app.keyModalProvider = prov; $store.app.keyModalProviderDropdownOpen = false"
+                     x-text="prov.charAt(0).toUpperCase() + prov.slice(1)"></div>
+              </template>
+            </div>
+          </div>
+          <input type="password" class="key-input" style="flex:1;"
+                 x-model="$store.app.keyModalValue"
+                 :placeholder="$store.app.keyModalProvider === 'anthropic' ? 'sk-ant-...' : 'sk-...'"
+                 @keydown.enter="$store.app.submitModalKey()"
+                 @keydown.escape="$store.app.closeKeyModal()">
+          <button class="btn btn-primary btn-sm" @click="$store.app.submitModalKey()">Connect</button>
+        </div>
+      </template>
+    </div>
+    <div class="key-modal-footer">
+      <button class="btn btn-ghost btn-sm" @click="$store.app.closeKeyModal()">
+        <span x-text="$store.app.keyModalCallback ? 'Cancel' : 'Done'"></span>
+      </button>
     </div>
   </div>
 </div>

@@ -242,6 +242,19 @@
   #sidebar-footer a { color: var(--accent); text-decoration: none; }
 
   /* Theme toggle */
+  .toolbar-key-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+  }
+  .toolbar-key-btn:hover { color: var(--text); }
+
   .theme-toggle {
     background: none;
     border: 1px solid var(--border2);
@@ -251,7 +264,7 @@
     padding: 4px 6px;
     font-size: 14px;
     line-height: 1;
-    margin-left: auto;
+    margin-left: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1286,6 +1299,45 @@
   #confirm-modal .btn-confirm.destructive:hover {
     background: linear-gradient(135deg, rgba(224,112,112,0.25) 0%, rgba(224,112,112,0.12) 100%);
     border-color: rgba(224,112,112,0.35);
+  }
+
+  /* API Key modal */
+  #key-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(4px);
+    z-index: 150;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #key-modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    width: 420px;
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: var(--shadow-md);
+    animation: slideUp 0.2s ease;
+  }
+  .key-modal-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+  }
+  .key-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .key-modal-footer {
+    display: flex;
+    justify-content: flex-end;
   }
 
   /* Keyboard shortcut hints */

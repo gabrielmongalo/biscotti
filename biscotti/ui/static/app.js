@@ -132,10 +132,6 @@ document.addEventListener('alpine:init', () => {
     // --- Evals ---
     judgeConfigOpen: false,
     providerStatus: {},
-    addKeyOpen: false,
-    addKeyProvider: 'anthropic',
-    addKeyValue: '',
-    providerDropdownOpen: false,
     judgeModel: 'anthropic:claude-sonnet-4-6',
     judgeModelDropdownOpen: false,
     judgeModelHighlightIdx: -1,
@@ -160,6 +156,14 @@ document.addEventListener('alpine:init', () => {
     coachError: null,
     coachOpen: false,
     coachPanelOpen: false,
+    coachModel: '',
+
+    // --- API Key Modal ---
+    keyModalOpen: false,
+    keyModalProvider: 'anthropic',
+    keyModalValue: '',
+    keyModalCallback: null,
+    keyModalProviderDropdownOpen: false,
 
     // --- Computed ---
     get evalSettingsDirty() {
@@ -581,9 +585,54 @@ document.addEventListener('alpine:init', () => {
       this.judgeModelHighlightIdx = -1;
     },
 
-    openAddKey() {
-      this.addKeyOpen = true;
-      this.addKeyProvider = this.disconnectedProviders.length ? this.disconnectedProviders[0] : 'anthropic';
+    // --- API Key Modal ---
+    extractProvider(modelStr) {
+      if (!modelStr) return '';
+      return modelStr.split(':')[0] || '';
+    },
+
+    requireKey(provider, callback) {
+      if (this.providerStatus[provider]) {
+        callback();
+        return;
+      }
+      this.keyModalProvider = provider;
+      this.keyModalValue = '';
+      this.keyModalCallback = callback;
+      this.keyModalOpen = true;
+    },
+
+    openKeyManager() {
+      this.keyModalProvider = this.disconnectedProviders.length ? this.disconnectedProviders[0] : 'anthropic';
+      this.keyModalValue = '';
+      this.keyModalCallback = null;
+      this.keyModalOpen = true;
+    },
+
+    async submitModalKey() {
+      const key = (this.keyModalValue || '').trim();
+      if (!key) { showToast('Enter an API key', 'error'); return; }
+      try {
+        await api('/api/settings/api-key', 'POST', { provider: this.keyModalProvider, key });
+        this.keyModalValue = '';
+        const label = this.keyModalProvider.charAt(0).toUpperCase() + this.keyModalProvider.slice(1);
+        showToast(`${label} key saved`, 'success');
+        await this.loadEvalSettings();
+        this.keyModalOpen = false;
+        if (this.keyModalCallback) {
+          const cb = this.keyModalCallback;
+          this.keyModalCallback = null;
+          cb();
+        }
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
+    },
+
+    closeKeyModal() {
+      this.keyModalOpen = false;
+      this.keyModalCallback = null;
+      this.keyModalValue = '';
     },
 
     async disconnectProvider(provider) {
@@ -591,21 +640,6 @@ document.addEventListener('alpine:init', () => {
       try {
         await api(`/api/settings/api-key/${encodeURIComponent(provider)}`, 'DELETE');
         showToast(`${provider.charAt(0).toUpperCase() + provider.slice(1)} disconnected`, 'success');
-        await this.loadEvalSettings();
-      } catch (e) {
-        showToast('Failed: ' + e.message, 'error');
-      }
-    },
-
-    async submitProviderKey() {
-      const key = (this.addKeyValue || '').trim();
-      if (!key) { showToast('Enter an API key', 'error'); return; }
-      try {
-        await api('/api/settings/api-key', 'POST', { provider: this.addKeyProvider, key });
-        this.addKeyValue = '';
-        this.addKeyOpen = false;
-        const label = this.addKeyProvider.charAt(0).toUpperCase() + this.addKeyProvider.slice(1);
-        showToast(`${label} key saved`, 'success');
         await this.loadEvalSettings();
       } catch (e) {
         showToast('Failed: ' + e.message, 'error');
@@ -645,6 +679,11 @@ document.addEventListener('alpine:init', () => {
     async runEval() {
       if (!this.currentAgent) return;
       if (!this.judgeCriteria.trim()) { showToast('Set judge criteria first', 'error'); return; }
+      const provider = this.extractProvider(this.judgeModel);
+      this.requireKey(provider, () => this._doRunEval());
+    },
+
+    async _doRunEval() {
       this.evalRunning = true;
       try {
         await this.saveEvalSettings(true);
@@ -684,11 +723,22 @@ document.addEventListener('alpine:init', () => {
     // --- Coach ---
     async runCoach() {
       if (!this.currentAgent || !this.prompt.trim()) return;
+      const model = this.coachModel || this.judgeModel;
+      if (!model) {
+        showToast('Select a model first', 'error');
+        return;
+      }
+      const provider = this.extractProvider(model);
+      this.requireKey(provider, () => this._doRunCoach());
+    },
+
+    async _doRunCoach() {
       this.coachLoading = true;
       this.coachError = null;
       this.coachPanelOpen = true;
       try {
         const body = { prompt: this.prompt };
+        if (this.coachModel) body.coach_model = this.coachModel;
         if (this.evalResult?.id) body.eval_id = this.evalResult.id;
         this.coachResult = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/coach`, 'POST', body);
       } catch (e) {
@@ -767,5 +817,6 @@ document.addEventListener('keydown', (e) => {
     store.tcSaving = false;
     store.notesModalOpen = false;
     store.resolveConfirm(false);
+    if (store.keyModalOpen) store.closeKeyModal();
   }
 });
