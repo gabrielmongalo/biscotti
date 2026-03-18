@@ -382,6 +382,11 @@ def build_router(store: PromptStore) -> APIRouter:
         """Get AI coaching suggestions. Works with or without eval results."""
         _require_agent(agent_name)
         settings = await store.get_agent_settings(agent_name)
+
+        coach_model = (body or {}).get("coach_model") or settings.coach_model
+        if not coach_model:
+            raise HTTPException(400, "No coach model configured. Select a model in the Coach panel.")
+
         eval_id = (body or {}).get("eval_id")
         prompt_text = (body or {}).get("prompt")
 
@@ -406,14 +411,14 @@ def build_router(store: PromptStore) -> APIRouter:
                 criteria_text=settings.judge_criteria,
                 case_details=case_details,
                 test_cases=test_cases,
-                model=settings.judge_model,
+                model=coach_model,
             )
         else:
             # Prompt-only coaching (no eval needed)
             from .eval import coach_prompt
             coach_result = await coach_prompt(
                 system_prompt=system_prompt,
-                model=settings.judge_model,
+                model=coach_model,
             )
 
         return coach_result.model_dump()

@@ -185,6 +185,7 @@ class AgentSettings(BaseModel):
     agent_name: str
     judge_criteria: str = ""
     judge_model: str = "anthropic:claude-sonnet-4-6"
+    coach_model: str = ""  # empty = not configured yet
     coach_enabled: bool = True
 
 

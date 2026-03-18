@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS agent_settings (
     agent_name      TEXT PRIMARY KEY,
     judge_criteria  TEXT NOT NULL DEFAULT '',
     judge_model     TEXT NOT NULL DEFAULT 'anthropic:claude-sonnet-4-6',
+    coach_model     TEXT NOT NULL DEFAULT '',
     coach_enabled   INTEGER NOT NULL DEFAULT 1
 );
 
@@ -122,6 +123,13 @@ class PromptStore:
         except Exception:
             await self._db.execute(
                 "ALTER TABLE eval_runs ADD COLUMN case_details TEXT"
+            )
+        # Migrate: add coach_model column if missing
+        try:
+            await self._db.execute("SELECT coach_model FROM agent_settings LIMIT 0")
+        except Exception:
+            await self._db.execute(
+                "ALTER TABLE agent_settings ADD COLUMN coach_model TEXT NOT NULL DEFAULT ''"
             )
         await self._db.commit()
 
@@ -384,14 +392,16 @@ class PromptStore:
             "agent_name": agent_name,
             "judge_criteria": kwargs.get("judge_criteria", current.judge_criteria),
             "judge_model": kwargs.get("judge_model", current.judge_model),
+            "coach_model": kwargs.get("coach_model", current.coach_model),
             "coach_enabled": 1 if kwargs.get("coach_enabled", current.coach_enabled) else 0,
         }
         await self.db.execute(
-            """INSERT INTO agent_settings (agent_name, judge_criteria, judge_model, coach_enabled)
-               VALUES (:agent_name, :judge_criteria, :judge_model, :coach_enabled)
+            """INSERT INTO agent_settings (agent_name, judge_criteria, judge_model, coach_model, coach_enabled)
+               VALUES (:agent_name, :judge_criteria, :judge_model, :coach_model, :coach_enabled)
                ON CONFLICT(agent_name) DO UPDATE SET
                    judge_criteria = excluded.judge_criteria,
                    judge_model = excluded.judge_model,
+                   coach_model = excluded.coach_model,
                    coach_enabled = excluded.coach_enabled""",
             merged,
         )
