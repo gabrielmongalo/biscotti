@@ -159,6 +159,7 @@ document.addEventListener('alpine:init', () => {
     coachLoading: false,
     coachError: null,
     coachOpen: false,
+    coachPanelOpen: false,
 
     // --- Computed ---
     get evalSettingsDirty() {
@@ -707,9 +708,8 @@ document.addEventListener('alpine:init', () => {
       this.prompt = this.coachResult.revised_prompt;
       this.isDirty = true;
       this.diffActive = true;
-      this.coachOpen = false;
-      this.switchTab('run');
-      showToast('Coach suggestions applied -- review and save when ready', 'success');
+      this.coachPanelOpen = false;
+      showToast('Coach suggestions applied -- review the diff and save when ready', 'success');
     },
 
     // --- Theme ---
