@@ -6,7 +6,7 @@ Pydantic models shared across the library.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -54,7 +54,7 @@ class PromptVersion(BaseModel):
     system_prompt: str
     variables: list[str] = Field(default_factory=list)
     notes: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str = "unknown"
 
     @model_validator(mode="after")
@@ -90,7 +90,7 @@ class TestCase(BaseModel):
     name: str
     user_message: str
     variable_values: dict[str, str] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TestCaseCreate(BaseModel):
@@ -125,7 +125,7 @@ class RunLog(BaseModel):
     temperature: float | None = None
     reasoning_effort: str | None = None
     estimated_cost: float | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class RunRequest(BaseModel):
@@ -184,7 +184,7 @@ class EvalScore(BaseModel):
 class AgentSettings(BaseModel):
     agent_name: str
     judge_criteria: str = ""
-    judge_model: str = "anthropic:claude-sonnet-4-20250514"
+    judge_model: str = "anthropic:claude-sonnet-4-6"
     coach_enabled: bool = True
 
 
@@ -199,4 +199,5 @@ class EvalRun(BaseModel):
     max_score: float | None = None
     pass_count: int = 0
     fail_count: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    case_details: list[dict] | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

@@ -1,0 +1,734 @@
+/**
+ * biscotti — Alpine.js UI application
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * Reactive prompt playground powered by Alpine.js.
+ * No build step required.
+ */
+
+// ================================================================
+// API helper
+// ================================================================
+const BASE = window.location.pathname.replace(/\/+$/, '');
+
+async function api(path, method = 'GET', body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(BASE + path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+}
+
+// ================================================================
+// Utilities
+// ================================================================
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return iso; }
+}
+
+function estimateTokens(text) {
+  if (!text || !text.trim()) return 0;
+  return Math.ceil(text.length / 4);
+}
+
+function formatCost(cost) {
+  if (cost === null || cost === undefined) return '\u2014';
+  if (cost < 0.001) return '<$0.001';
+  if (cost < 0.01) return '$' + cost.toFixed(4);
+  return '$' + cost.toFixed(3);
+}
+
+function scoreColor(score) {
+  if (score >= 3.5) return 'var(--green)';
+  if (score >= 2.5) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+// ================================================================
+// Toast (global, lightweight)
+// ================================================================
+function showToast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  setTimeout(() => el.className = '', 2800);
+}
+
+// ================================================================
+// Main Alpine store
+// ================================================================
+document.addEventListener('alpine:init', () => {
+
+  Alpine.store('app', {
+    // --- Agents ---
+    agents: [],
+    currentAgent: null,
+
+    // --- Versions ---
+    versions: [],
+    currentVersionId: null,
+    currentVersion: null,
+    originalPrompt: '',
+    prompt: '',
+
+    // --- UI state ---
+    sidebarCollapsed: false,
+    activeTab: 'run',
+    isDirty: false,
+    diffActive: false,
+    theme: localStorage.getItem('biscotti-theme') || 'dark',
+    compareTarget: null,
+
+    // --- Test cases ---
+    testCases: [],
+    selectedTestCase: '',
+    tcDropdownOpen: false,
+    tcSaving: false,
+    tcName: '',
+
+    // --- Test run ---
+    userMessage: '',
+    varValues: {},
+    running: false,
+    runElapsed: 0,
+    _runTimer: null,
+    output: '',
+    outputState: 'empty', // 'empty' | 'success' | 'error'
+    metrics: null,
+    runHistory: [],
+    runHistoryOpen: false,
+
+    // --- Model settings ---
+    settingsOpen: true,
+    modelInput: '',
+    modelPlaceholder: 'default (auto)',
+    modelDropdownOpen: false,
+    availableModels: [],
+    highlightedModelIdx: -1,
+    temperature: 1.0,
+    reasoningEffort: null,
+
+    // --- Notes modal ---
+    notesModalOpen: false,
+    saveNotes: '',
+
+    // --- Confirm modal ---
+    confirmOpen: false,
+    confirmMsg: '',
+    confirmDestructive: false,
+    _confirmResolve: null,
+
+    // --- Evals ---
+    judgeConfigOpen: false,
+    providerStatus: {},
+    addKeyOpen: false,
+    addKeyProvider: 'anthropic',
+    addKeyValue: '',
+    providerDropdownOpen: false,
+    judgeModel: 'anthropic:claude-sonnet-4-6',
+    judgeModelDropdownOpen: false,
+    judgeModelHighlightIdx: -1,
+    judgeCriteria: '',
+    _savedJudgeModel: '',
+    _savedJudgeCriteria: '',
+    criteriaEditing: false,
+    evalRunning: false,
+    evalGenerating: false,
+    evalTestCasesOpen: true,
+    evalResultsOpen: true,
+    evalHistoryOpen: false,
+    evalResult: null,
+    evalHistory: [],
+    evalAddTcOpen: false,
+    evalAddTcName: '',
+    evalAddTcMsg: '',
+
+    // --- Computed ---
+    get evalSettingsDirty() {
+      return this.judgeModel !== this._savedJudgeModel || this.judgeCriteria !== this._savedJudgeCriteria;
+    },
+    get variables() {
+      return [...new Set([...this.prompt.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]))];
+    },
+    get promptTokens() { return estimateTokens(this.prompt); },
+    get msgTokens() { return estimateTokens(this.userMessage); },
+    get connectedProviders() {
+      return Object.entries(this.providerStatus).filter(([, ok]) => ok).map(([id]) => id);
+    },
+    get disconnectedProviders() {
+      return Object.entries(this.providerStatus).filter(([, ok]) => !ok).map(([id]) => id);
+    },
+    get judgeModelOptions() {
+      const models = {
+        anthropic: ['anthropic:claude-sonnet-4-6', 'anthropic:claude-opus-4-6', 'anthropic:claude-haiku-4-5'],
+        openai: ['openai:gpt-4o', 'openai:gpt-4o-mini', 'openai:gpt-4.1', 'openai:gpt-4.1-mini', 'openai:o3', 'openai:o3-mini'],
+      };
+      const connected = this.connectedProviders;
+      let all = [];
+      for (const p of connected) {
+        if (models[p]) all = all.concat(models[p]);
+      }
+      if (!all.length) all = models.anthropic.concat(models.openai);
+      const q = (this.judgeModel || '').toLowerCase();
+      return all.filter(m => !q || m.toLowerCase().includes(q));
+    },
+    get judgeModelGrouped() {
+      const groups = {};
+      for (const m of this.judgeModelOptions) {
+        const provider = m.split(':')[0] || 'other';
+        if (!groups[provider]) groups[provider] = [];
+        groups[provider].push(m);
+      }
+      return groups;
+    },
+    get formattedCriteria() {
+      if (!this.judgeCriteria) return '';
+      return this.judgeCriteria.split('\n').map(line => {
+        line = escHtml(line);
+        // "- Name (weight X): Description" → 3 grid cells
+        const match = line.match(/^-\s+(.+?)\s*\(weight\s+([\d.]+)\)\s*:\s*(.+)$/);
+        if (match) {
+          return `<span class="criteria-item-name">${match[1]}</span><span class="criteria-item-weight">${match[2]}x</span><span class="criteria-item-desc">${match[3]}</span>`;
+        }
+        // "- Name: Description" (no weight) → 3 grid cells, empty weight
+        const match2 = line.match(/^-\s+(.+?):\s*(.+)$/);
+        if (match2) {
+          return `<span class="criteria-item-name">${match2[1]}</span><span class="criteria-item-weight"></span><span class="criteria-item-desc">${match2[2]}</span>`;
+        }
+        // Plain line — spans all columns
+        if (line.trim()) return `<div class="criteria-plain">${line}</div>`;
+        return '';
+      }).filter(Boolean).join('');
+    },
+
+    // --- Init ---
+    async init() {
+      // Apply saved theme
+      if (this.theme !== 'dark') {
+        document.documentElement.setAttribute('data-theme', this.theme);
+      }
+      try {
+        this.agents = await api('/api/agents');
+      } catch {
+        return;
+      }
+      if (this.agents.length) {
+        await this.selectAgent(this.agents[0].name);
+      }
+    },
+
+    // --- Agent selection ---
+    async selectAgent(name) {
+      if (this.isDirty) {
+        const ok = await this.showConfirm('You have unsaved changes. Discard?', true);
+        if (!ok) return;
+      }
+      this.currentAgent = name;
+      try {
+        await Promise.all([
+          this.loadVersions(),
+          this.loadTestCases(),
+          this.loadModels(),
+          this.loadRunHistory(),
+        ]);
+      } catch (e) {
+        this.showToast('Failed to load agent: ' + e.message, true);
+        return;
+      }
+
+      const cur = this.versions.find(v => v.status === 'current');
+      if (cur) {
+        this.loadVersion(cur);
+      } else if (this.versions.length) {
+        this.loadVersion(this.versions[0]);
+      } else {
+        const meta = await api(`/api/agents/${encodeURIComponent(name)}`);
+        this.prompt = meta.default_system_prompt || '';
+        this.originalPrompt = this.prompt;
+      }
+      this.isDirty = false;
+      this.output = '';
+      this.outputState = 'empty';
+      this.metrics = null;
+      this.selectedTestCase = '';
+      if (this.activeTab === 'evals') {
+        this.loadEvalSettings();
+        this.loadEvalHistory();
+      }
+    },
+
+    // --- Versions ---
+    async loadVersions() {
+      this.versions = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/versions`);
+    },
+
+    loadVersion(pv) {
+      this.currentVersionId = pv.id;
+      this.currentVersion = pv;
+      this.prompt = pv.system_prompt;
+      this.originalPrompt = pv.system_prompt;
+      this.isDirty = false;
+    },
+
+    async saveVersion() {
+      if (!this.prompt.trim()) { showToast('Prompt cannot be empty', 'error'); return; }
+      this.saveNotes = '';
+      this.notesModalOpen = true;
+    },
+
+    async confirmSaveVersion() {
+      const notes = this.saveNotes.trim();
+      this.notesModalOpen = false;
+      try {
+        const pv = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/versions`, 'POST', {
+          agent_name: this.currentAgent,
+          system_prompt: this.prompt.trim(),
+          notes,
+          created_by: 'user',
+        });
+        await this.loadVersions();
+        const saved = this.versions.find(v => v.id === pv.id);
+        if (saved) this.loadVersion(saved);
+        showToast(`Saved as v${pv.version}`, 'success');
+      } catch (e) {
+        showToast('Failed to save: ' + e.message, 'error');
+      }
+    },
+
+    async promoteVersion(id = null) {
+      const targetId = id || this.currentVersionId;
+      if (!targetId) return;
+      if (!id) {
+        if (!await this.showConfirm('Set this version as current? The previous current version will be archived.')) return;
+      } else {
+        if (!await this.showConfirm('Set this version as current?')) return;
+      }
+      await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/versions/${targetId}/promote`, 'POST');
+      await this.loadVersions();
+      if (!id && this.currentVersion) this.currentVersion.status = 'current';
+      showToast('Set as current', 'success');
+    },
+
+    async deleteVersion(id) {
+      if (!await this.showConfirm('Delete this version? This cannot be undone.', true)) return;
+      try {
+        await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/versions/${id}`, 'DELETE');
+        await this.loadVersions();
+        if (this.currentVersionId === id && this.versions.length) {
+          this.loadVersion(this.versions[0]);
+        }
+        showToast('Version deleted', 'success');
+      } catch (e) {
+        showToast(e.message || 'Failed to delete', 'error');
+      }
+    },
+
+    discardChanges() {
+      this.prompt = this.originalPrompt;
+      this.isDirty = false;
+      this.diffActive = false;
+    },
+
+    compareVersion(v) {
+      this.compareTarget = v;
+    },
+
+    get versionDiffLines() {
+      if (!this.compareTarget || !this.currentVersion) return [];
+      const oldLines = (this.currentVersion.system_prompt || '').split('\n');
+      const newLines = (this.compareTarget.system_prompt || '').split('\n');
+      const result = [];
+      const maxLen = Math.max(oldLines.length, newLines.length);
+      // Simple line-by-line comparison (shows changes clearly for adjacent versions)
+      for (let i = 0; i < maxLen; i++) {
+        const oldL = i < oldLines.length ? oldLines[i] : null;
+        const newL = i < newLines.length ? newLines[i] : null;
+        if (oldL === newL) {
+          result.push({ type: 'same', text: oldL });
+        } else {
+          if (oldL != null) result.push({ type: 'remove', text: oldL });
+          if (newL != null) result.push({ type: 'add', text: newL });
+        }
+      }
+      return result;
+    },
+
+    onPromptInput() {
+      this.isDirty = this.prompt !== this.originalPrompt;
+      if (!this.isDirty) this.diffActive = false;
+    },
+
+    // --- Test cases ---
+    async loadTestCases() {
+      this.testCases = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/test-cases`);
+    },
+
+    selectTestCase(name) {
+      this.selectedTestCase = name;
+      this.tcDropdownOpen = false;
+      if (name) {
+        const tc = this.testCases.find(t => t.name === name);
+        if (tc) {
+          this.userMessage = tc.user_message;
+          const vals = {};
+          this.variables.forEach(v => { vals[v] = (tc.variable_values || {})[v] || ''; });
+          this.varValues = vals;
+        }
+      }
+    },
+
+    startSaveTestCase() {
+      this.tcSaving = true;
+      this.tcName = '';
+    },
+
+    async confirmSaveTestCase() {
+      if (!this.tcName.trim()) { showToast('Give it a name', 'error'); return; }
+      await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/test-cases`, 'POST', {
+        agent_name: this.currentAgent,
+        name: this.tcName.trim(),
+        user_message: this.userMessage,
+        variable_values: { ...this.varValues },
+      });
+      this.tcSaving = false;
+      await this.loadTestCases();
+      showToast('Test case saved', 'success');
+    },
+
+    async deleteTestCase() {
+      if (!this.selectedTestCase) return;
+      await this.deleteTestCaseByName(this.selectedTestCase);
+      this.selectedTestCase = '';
+    },
+
+    async deleteTestCaseByName(name) {
+      if (!await this.showConfirm(`Delete test case "${name}"?`, true)) return;
+      await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/test-cases/${encodeURIComponent(name)}`, 'DELETE');
+      if (this.selectedTestCase === name) this.selectedTestCase = '';
+      await this.loadTestCases();
+      showToast('Test case deleted', 'success');
+    },
+
+    async saveEvalTestCase() {
+      const name = this.evalAddTcName.trim();
+      const msg = this.evalAddTcMsg.trim();
+      if (!name || !msg) return;
+      try {
+        await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/test-cases`, 'POST', {
+          agent_name: this.currentAgent, name, user_message: msg, variable_values: {},
+        });
+        this.evalAddTcName = '';
+        this.evalAddTcMsg = '';
+        this.evalAddTcOpen = false;
+        await this.loadTestCases();
+        showToast('Test case added', 'success');
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
+    },
+
+    // --- Models ---
+    async loadModels() {
+      try {
+        const data = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/models`);
+        this.availableModels = data.all || [];
+        this.modelPlaceholder = data.detected ? data.detected + ' (detected)' : 'default (auto)';
+      } catch {
+        this.availableModels = [];
+      }
+    },
+
+    get filteredModels() {
+      const q = (this.modelInput || '').toLowerCase().trim();
+      return this.availableModels.filter(m => !q || m.toLowerCase().includes(q));
+    },
+
+    get groupedModels() {
+      const groups = {};
+      for (const m of this.filteredModels) {
+        let provider = 'other';
+        if (m.startsWith('gpt-') || m.startsWith('o3') || m.startsWith('o4')) provider = 'openai';
+        else if (m.startsWith('claude-')) provider = 'anthropic';
+        else if (m.startsWith('gemini-')) provider = 'google';
+        if (!groups[provider]) groups[provider] = [];
+        groups[provider].push(m);
+      }
+      return groups;
+    },
+
+    selectModel(name) {
+      this.modelInput = name;
+      this.modelDropdownOpen = false;
+      this.highlightedModelIdx = -1;
+    },
+
+    stepTemp(delta) {
+      let val = Math.round((parseFloat(this.temperature || 0) + delta) * 10) / 10;
+      this.temperature = Math.max(0, Math.min(2, val));
+    },
+
+    setEffort(level) {
+      this.reasoningEffort = level;
+    },
+
+    // --- Run test ---
+    async runTest() {
+      if (!this.userMessage.trim()) { showToast('Enter a user message first', 'error'); return; }
+      this.running = true;
+      this.runElapsed = 0;
+      this._runTimer = setInterval(() => { this.runElapsed++; }, 1000);
+      this.output = '';
+      this.outputState = 'empty';
+      this.metrics = null;
+
+      try {
+        const body = {
+          agent_name: this.currentAgent,
+          prompt_version_id: this.currentVersionId || null,
+          user_message: this.userMessage,
+          variable_values: { ...this.varValues },
+        };
+        if (this.modelInput) body.model = this.modelInput;
+        if (this.temperature !== null) body.temperature = this.temperature;
+        if (this.reasoningEffort) body.reasoning_effort = this.reasoningEffort;
+
+        const result = await api('/api/run', 'POST', body);
+
+        if (result.outcome === 'error') {
+          this.outputState = 'error';
+          this.output = result.error_message || 'An error occurred.';
+        } else {
+          this.outputState = 'success';
+          this.output = result.output;
+        }
+
+        const inTok = result.input_tokens || 0;
+        const outTok = result.output_tokens || 0;
+        this.metrics = {
+          latency: result.latency_ms,
+          totalTokens: inTok + outTok,
+          inTokens: inTok,
+          outTokens: outTok,
+          model: result.model_used && result.model_used !== 'unknown' ? result.model_used : null,
+          cost: result.estimated_cost,
+        };
+      } catch (e) {
+        this.outputState = 'error';
+        this.output = 'Request failed: ' + e.message;
+      } finally {
+        clearInterval(this._runTimer);
+        this._runTimer = null;
+        this.running = false;
+        this.loadRunHistory();
+      }
+    },
+
+    async loadRunHistory() {
+      if (!this.currentAgent) return;
+      try {
+        this.runHistory = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/runs?limit=20`);
+      } catch { /* ignore */ }
+    },
+
+    // --- Confirm modal ---
+    showConfirm(msg, destructive = false) {
+      if (this._confirmResolve) this._confirmResolve(false);
+      this.confirmMsg = msg;
+      this.confirmDestructive = destructive;
+      this.confirmOpen = true;
+      return new Promise(r => { this._confirmResolve = r; });
+    },
+
+    resolveConfirm(val) {
+      this.confirmOpen = false;
+      if (this._confirmResolve) { this._confirmResolve(val); this._confirmResolve = null; }
+    },
+
+    // --- Evals ---
+    async loadEvalSettings() {
+      if (!this.currentAgent) return;
+      try {
+        const s = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/settings`);
+        this.judgeModel = s.judge_model || 'anthropic:claude-sonnet-4-6';
+        this.judgeCriteria = s.judge_criteria || '';
+        this._savedJudgeModel = this.judgeModel;
+        this._savedJudgeCriteria = this.judgeCriteria;
+        this.providerStatus = await api('/api/settings/status');
+      } catch { /* ignore on first load */ }
+    },
+
+    selectJudgeModel(name) {
+      this.judgeModel = name;
+      this.judgeModelDropdownOpen = false;
+      this.judgeModelHighlightIdx = -1;
+    },
+
+    openAddKey() {
+      this.addKeyOpen = true;
+      this.addKeyProvider = this.disconnectedProviders.length ? this.disconnectedProviders[0] : 'anthropic';
+    },
+
+    async disconnectProvider(provider) {
+      if (!await this.showConfirm(`Disconnect ${provider.charAt(0).toUpperCase() + provider.slice(1)}? The API key will be removed from memory.`, true)) return;
+      try {
+        await api(`/api/settings/api-key/${encodeURIComponent(provider)}`, 'DELETE');
+        showToast(`${provider.charAt(0).toUpperCase() + provider.slice(1)} disconnected`, 'success');
+        await this.loadEvalSettings();
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
+    },
+
+    async submitProviderKey() {
+      const key = (this.addKeyValue || '').trim();
+      if (!key) { showToast('Enter an API key', 'error'); return; }
+      try {
+        await api('/api/settings/api-key', 'POST', { provider: this.addKeyProvider, key });
+        this.addKeyValue = '';
+        this.addKeyOpen = false;
+        const label = this.addKeyProvider.charAt(0).toUpperCase() + this.addKeyProvider.slice(1);
+        showToast(`${label} key saved`, 'success');
+        await this.loadEvalSettings();
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
+    },
+
+    async saveEvalSettings(silent = false) {
+      if (!this.currentAgent) return;
+      try {
+        await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/settings`, 'PUT', {
+          judge_model: this.judgeModel,
+          judge_criteria: this.judgeCriteria,
+        });
+        this._savedJudgeModel = this.judgeModel;
+        this._savedJudgeCriteria = this.judgeCriteria;
+        if (!silent) showToast('Settings saved', 'success');
+      } catch (e) {
+        showToast('Failed to save: ' + e.message, 'error');
+      }
+    },
+
+    async generateJudge() {
+      if (!this.currentAgent) return;
+      this.evalGenerating = true;
+      try {
+        await this.saveEvalSettings(true);
+        const result = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/generate-judge`, 'POST');
+        this.judgeCriteria = result.criteria;
+        showToast('Judge criteria generated', 'success');
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      } finally {
+        this.evalGenerating = false;
+      }
+    },
+
+    async runEval() {
+      if (!this.currentAgent) return;
+      if (!this.judgeCriteria.trim()) { showToast('Set judge criteria first', 'error'); return; }
+      this.evalRunning = true;
+      try {
+        await this.saveEvalSettings(true);
+        const result = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/eval`, 'POST', {
+          prompt_version_id: this.currentVersionId || null,
+        });
+        this.evalResult = result;
+        await this.loadEvalHistory();
+        showToast('Eval complete', 'success');
+      } catch (e) {
+        showToast('Eval failed: ' + e.message, 'error');
+      } finally {
+        this.evalRunning = false;
+      }
+    },
+
+    async loadEvalHistory() {
+      if (!this.currentAgent) return;
+      try {
+        this.evalHistory = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/evals`);
+      } catch { /* ignore */ }
+    },
+
+    async loadEvalRun(evalId) {
+      if (!this.currentAgent) return;
+      try {
+        this.evalResult = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/evals/${evalId}`);
+        this.evalResultsOpen = true;
+      } catch (e) {
+        showToast('Failed to load eval: ' + e.message, 'error');
+      }
+    },
+
+    // --- Theme ---
+    toggleTheme() {
+      this.theme = this.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', this.theme);
+      localStorage.setItem('biscotti-theme', this.theme);
+    },
+
+    // --- Tab switching ---
+    switchTab(name) {
+      this.activeTab = name;
+      if (name === 'evals') { this.loadEvalSettings(); this.loadEvalHistory(); }
+    },
+
+    // --- Diff ---
+    get diffLines() {
+      if (!this.diffActive) return [];
+      const oldLines = this.originalPrompt.split('\n');
+      const newLines = this.prompt.split('\n');
+      const lines = [];
+      const maxLen = Math.max(oldLines.length, newLines.length);
+      for (let i = 0; i < maxLen; i++) {
+        const o = oldLines[i], n = newLines[i];
+        if (o === n) {
+          if (o !== undefined) lines.push({ type: 'ctx', text: o });
+        } else {
+          if (o !== undefined) lines.push({ type: 'removed', text: o });
+          if (n !== undefined) lines.push({ type: 'added', text: n });
+        }
+      }
+      return lines;
+    },
+
+    // --- Clipboard ---
+    async copyToClipboard(text, event) {
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+      const btn = event.currentTarget;
+      btn.classList.add('copied');
+      setTimeout(() => btn.classList.remove('copied'), 1200);
+    },
+  });
+});
+
+// ================================================================
+// Keyboard shortcuts (global)
+// ================================================================
+document.addEventListener('keydown', (e) => {
+  const store = Alpine.store('app');
+  if (!store) return;
+
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    if (store.activeTab === 'run') store.runTest();
+    else if (store.activeTab === 'evals') store.runEval();
+  }
+  if (e.key === 'Escape') {
+    store.tcSaving = false;
+    store.notesModalOpen = false;
+    store.resolveConfirm(false);
+  }
+});
