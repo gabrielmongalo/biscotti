@@ -25,6 +25,12 @@ pip install biscotti
 biscotti dev
 ```
 
+Or with uv:
+
+```bash
+uvx biscotti dev
+```
+
 Opens a demo playground at `http://localhost:8000/biscotti` with a sample agent.
 
 ---
@@ -33,6 +39,8 @@ Opens a demo playground at `http://localhost:8000/biscotti` with a sample agent.
 
 ```bash
 pip install biscotti
+# or
+uv add biscotti
 ```
 
 ### 1. Decorate your agents
@@ -244,6 +252,8 @@ Resolution order: environment variable > in-memory UI key > None.
 git clone https://github.com/gabrielmongalo/biscotti
 cd biscotti
 pip install -e ".[dev]"
+# or
+uv pip install -e ".[dev]"
 pytest
 ```
 
