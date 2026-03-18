@@ -7,7 +7,7 @@ Uses aiosqlite directly — no ORM dependency.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncGenerator
 
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS run_logs (
 CREATE TABLE IF NOT EXISTS agent_settings (
     agent_name      TEXT PRIMARY KEY,
     judge_criteria  TEXT NOT NULL DEFAULT '',
-    judge_model     TEXT NOT NULL DEFAULT 'anthropic:claude-sonnet-4-20250514',
+    judge_model     TEXT NOT NULL DEFAULT 'anthropic:claude-sonnet-4-6',
     coach_enabled   INTEGER NOT NULL DEFAULT 1
 );
 
@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS eval_runs (
     max_score       REAL,
     pass_count      INTEGER NOT NULL DEFAULT 0,
     fail_count      INTEGER NOT NULL DEFAULT 0,
+    case_details    TEXT,
     created_at      TEXT NOT NULL
 );
 """
@@ -115,6 +116,13 @@ class PromptStore:
         await self._db.execute(
             "UPDATE prompt_versions SET status = 'current' WHERE status = 'live'"
         )
+        # Migrate: add case_details column if missing (added in 0.1.1)
+        try:
+            await self._db.execute("SELECT case_details FROM eval_runs LIMIT 0")
+        except Exception:
+            await self._db.execute(
+                "ALTER TABLE eval_runs ADD COLUMN case_details TEXT"
+            )
         await self._db.commit()
 
     async def close(self) -> None:
@@ -145,28 +153,29 @@ class PromptStore:
             return row[0]
 
     async def create_prompt_version(self, data: PromptVersionCreate) -> PromptVersion:
-        version = await self.next_version(data.agent_name)
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
-        # Build a PromptVersion to run validators (auto-detects variables)
+        # Build a temporary PromptVersion to run validators (auto-detects variables)
         pv = PromptVersion(
             agent_name=data.agent_name,
-            version=version,
+            version=0,  # placeholder; actual version assigned atomically below
             status=PromptStatus.draft,
             system_prompt=data.system_prompt,
             variables=data.variables,
             notes=data.notes,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             created_by=data.created_by,
         )
 
+        # Atomic version assignment: SELECT MAX + 1 inside the INSERT to prevent races
         async with self.db.execute(
             """INSERT INTO prompt_versions
                (agent_name, version, status, system_prompt, variables, notes, created_at, created_by)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, (SELECT COALESCE(MAX(version), 0) + 1 FROM prompt_versions WHERE agent_name = ?),
+                       ?, ?, ?, ?, ?, ?)""",
             (
                 pv.agent_name,
-                pv.version,
+                pv.agent_name,
                 pv.status.value,
                 pv.system_prompt,
                 json.dumps(pv.variables),
@@ -177,7 +186,10 @@ class PromptStore:
         ) as cur:
             pv.id = cur.lastrowid
         await self.db.commit()
-        return pv
+
+        # Re-fetch to get the actual version number assigned by the subquery
+        created = await self.get_prompt_version(pv.id)
+        return created
 
     async def get_prompt_version(self, id: int) -> PromptVersion | None:
         async with self.db.execute(
@@ -236,7 +248,7 @@ class PromptStore:
     # ------------------------------------------------------------------
 
     async def upsert_test_case(self, data: TestCaseCreate) -> TestCase:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         async with self.db.execute(
             """INSERT INTO test_cases (agent_name, name, user_message, variable_values, created_at)
                VALUES (?, ?, ?, ?, ?)
@@ -283,7 +295,7 @@ class PromptStore:
     # ------------------------------------------------------------------
 
     async def save_run(self, run: RunLog) -> RunLog:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         async with self.db.execute(
             """INSERT INTO run_logs
                (agent_name, prompt_version, test_case_name, user_message,
@@ -390,15 +402,17 @@ class PromptStore:
     # ------------------------------------------------------------------
 
     async def save_eval_run(self, er: EvalRun) -> EvalRun:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
+        details_json = json.dumps(er.case_details) if er.case_details else None
         async with self.db.execute(
             """INSERT INTO eval_runs
                (agent_name, prompt_version, judge_model, test_case_count,
-                avg_score, min_score, max_score, pass_count, fail_count, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                avg_score, min_score, max_score, pass_count, fail_count,
+                case_details, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
             (er.agent_name, er.prompt_version, er.judge_model,
              er.test_case_count, er.avg_score, er.min_score, er.max_score,
-             er.pass_count, er.fail_count, now),
+             er.pass_count, er.fail_count, details_json, now),
         ) as cur:
             er.id = cur.lastrowid
         await self.db.commit()
@@ -411,6 +425,23 @@ class PromptStore:
         ) as cur:
             rows = await cur.fetchall()
         return [_row_to_eval_run(r) for r in rows]
+
+    async def get_eval_run(self, agent_name: str, eval_id: int) -> dict | None:
+        """Fetch a single eval run by ID and agent_name (O(1) instead of linear scan)."""
+        async with self.db.execute(
+            "SELECT * FROM eval_runs WHERE id = ? AND agent_name = ?",
+            (eval_id, agent_name),
+        ) as cur:
+            row = await cur.fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["created_at"] = datetime.fromisoformat(d["created_at"])
+        if d.get("case_details") and isinstance(d["case_details"], str):
+            d["case_details"] = json.loads(d["case_details"])
+        else:
+            d["case_details"] = []
+        return d
 
     async def update_run_score(self, run_id: int, score: float, reasoning: str) -> None:
         await self.db.execute(
@@ -448,4 +479,6 @@ def _row_to_run(row: aiosqlite.Row) -> RunLog:
 def _row_to_eval_run(row: aiosqlite.Row) -> EvalRun:
     d = dict(row)
     d["created_at"] = datetime.fromisoformat(d["created_at"])
+    if d.get("case_details") and isinstance(d["case_details"], str):
+        d["case_details"] = json.loads(d["case_details"])
     return EvalRun(**d)

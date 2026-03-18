@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .models import (
@@ -46,6 +48,10 @@ def build_router(store: PromptStore) -> APIRouter:
     @router.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def ui_root() -> FileResponse:
         return FileResponse(_UI_DIR / "index.html")
+
+    @router.get("/landing", response_class=HTMLResponse, include_in_schema=False)
+    async def ui_landing() -> FileResponse:
+        return FileResponse(_UI_DIR / "landing.html")
 
     @router.get("/app.js", include_in_schema=False)
     async def ui_js() -> FileResponse:
@@ -154,9 +160,10 @@ def build_router(store: PromptStore) -> APIRouter:
     )
     async def promote_version(agent_name: str, version_id: int) -> PromptVersion:
         _require_agent(agent_name)
-        pv = await store.set_status(version_id, PromptStatus.current)
-        if pv is None:
+        pv = await store.get_prompt_version(version_id)
+        if pv is None or pv.agent_name != agent_name:
             raise HTTPException(404, "Version not found")
+        pv = await store.set_status(version_id, PromptStatus.current)
         return pv
 
     # ==================================================================
@@ -299,6 +306,7 @@ def build_router(store: PromptStore) -> APIRouter:
         from .eval import judge_output
 
         scores: list[float | None] = []
+        case_details: list[dict] = []
         for tc in test_cases:
             req = RunRequest(
                 agent_name=agent_name,
@@ -311,6 +319,13 @@ def build_router(store: PromptStore) -> APIRouter:
 
             if run_resp.outcome == "error":
                 scores.append(None)
+                case_details.append({
+                    "test_case": tc.name,
+                    "error": run_resp.error_message or "Run failed",
+                    "score": None,
+                    "criteria_results": [],
+                    "reasoning": "",
+                })
                 continue
 
             pv = (await store.get_prompt_version(version_id)) if version_id else (await store.get_current_version(agent_name))
@@ -324,6 +339,12 @@ def build_router(store: PromptStore) -> APIRouter:
 
             await store.update_run_score(run_resp.run_id, eval_result.score, eval_result.reasoning)
             scores.append(eval_result.score)
+            case_details.append({
+                "test_case": tc.name,
+                "score": eval_result.score,
+                "reasoning": eval_result.reasoning,
+                "criteria_results": [cr.model_dump() for cr in eval_result.criteria_results],
+            })
 
         valid = [s for s in scores if s is not None]
         avg = sum(valid) / len(valid) if valid else None
@@ -341,6 +362,7 @@ def build_router(store: PromptStore) -> APIRouter:
             max_score=max(valid) if valid else None,
             pass_count=pass_count,
             fail_count=len(valid) - pass_count,
+            case_details=case_details,
         ))
 
         return eval_run.model_dump(mode="json")
@@ -349,7 +371,90 @@ def build_router(store: PromptStore) -> APIRouter:
     async def list_evals(agent_name: str) -> list[dict]:
         _require_agent(agent_name)
         runs = await store.list_eval_runs(agent_name)
-        return [r.model_dump(mode="json") for r in runs]
+        # Exclude case_details from list to keep it lightweight
+        return [
+            {k: v for k, v in r.model_dump(mode="json").items() if k != "case_details"}
+            for r in runs
+        ]
+
+    @router.get("/api/agents/{agent_name}/evals/{eval_id}", tags=["eval"])
+    async def get_eval(agent_name: str, eval_id: int) -> dict:
+        """Get a specific eval run with full case details."""
+        _require_agent(agent_name)
+        result = await store.get_eval_run(agent_name, eval_id)
+        if result is None:
+            raise HTTPException(404, "Eval run not found")
+        return result
+
+    # ==================================================================
+    # Export / Import
+    # ==================================================================
+
+    @router.get("/api/agents/{agent_name}/export", tags=["export-import"])
+    async def export_agent(agent_name: str) -> JSONResponse:
+        """Export agent config (versions, test cases, settings) as a downloadable JSON bundle."""
+        _require_agent(agent_name)
+
+        versions = await store.list_versions(agent_name)
+        test_cases = await store.list_test_cases(agent_name)
+        settings = await store.get_agent_settings(agent_name)
+
+        bundle = {
+            "agent_name": agent_name,
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "versions": [v.model_dump(mode="json") for v in versions],
+            "test_cases": [tc.model_dump(mode="json") for tc in test_cases],
+            "settings": settings.model_dump(mode="json"),
+        }
+
+        return JSONResponse(
+            content=bundle,
+            headers={
+                "Content-Disposition": f'attachment; filename="{agent_name}-export.json"',
+            },
+        )
+
+    @router.post("/api/agents/{agent_name}/import", tags=["export-import"])
+    async def import_agent(agent_name: str, body: dict) -> dict:
+        """Import versions, test cases, and settings from a JSON bundle."""
+        _require_agent(agent_name)
+
+        versions_imported = 0
+        test_cases_imported = 0
+
+        for v in body.get("versions", []):
+            await store.create_prompt_version(PromptVersionCreate(
+                agent_name=agent_name,
+                system_prompt=v["system_prompt"],
+                variables=v.get("variables", []),
+                notes=v.get("notes", ""),
+                created_by=v.get("created_by", "import"),
+            ))
+            versions_imported += 1
+
+        for tc in body.get("test_cases", []):
+            await store.upsert_test_case(TestCaseCreate(
+                agent_name=agent_name,
+                name=tc["name"],
+                user_message=tc["user_message"],
+                variable_values=tc.get("variable_values", {}),
+            ))
+            test_cases_imported += 1
+
+        if "settings" in body:
+            s = body["settings"]
+            await store.update_agent_settings(
+                agent_name,
+                judge_criteria=s.get("judge_criteria", ""),
+                judge_model=s.get("judge_model", "anthropic:claude-sonnet-4-6"),
+                coach_enabled=s.get("coach_enabled", True),
+            )
+
+        return {
+            "status": "ok",
+            "versions_imported": versions_imported,
+            "test_cases_imported": test_cases_imported,
+        }
 
     # ==================================================================
     # Settings: API key management
@@ -370,6 +475,14 @@ def build_router(store: PromptStore) -> APIRouter:
         if not key:
             raise HTTPException(400, "Key cannot be empty")
         set_key(provider, key)
+        return {"status": "ok", "providers": available_providers()}
+
+    @router.delete("/api/settings/api-key/{provider}", tags=["settings"])
+    async def remove_api_key(provider: str) -> dict:
+        from .key_store import remove_key, available_providers
+        if provider not in ("anthropic", "openai"):
+            raise HTTPException(400, "Provider must be 'anthropic' or 'openai'")
+        remove_key(provider)
         return {"status": "ok", "providers": available_providers()}
 
     # ==================================================================

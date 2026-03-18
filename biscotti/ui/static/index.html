@@ -6,1190 +6,68 @@
 <title>biscotti</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #16181d;
-    --bg-warm: #1a1d23;
-    --surface: #1e2128;
-    --surface2: #252830;
-    --surface3: #2c3039;
-    --border: rgba(200,210,230,0.06);
-    --border2: rgba(200,210,230,0.10);
-    --border3: rgba(200,210,230,0.16);
-    --text: #e2e4e9;
-    --text2: #b0b4be;
-    --muted: #6b7080;
-    --accent: #c9a06c;
-    --accent2: #ddb88a;
-    --accent-dim: rgba(201,160,108,0.10);
-    --accent-border: rgba(201,160,108,0.25);
-    --green: #6fcf97;
-    --green-dim: rgba(111,207,151,0.10);
-    --green-border: rgba(111,207,151,0.22);
-    --amber: #f0c05a;
-    --amber-dim: rgba(240,192,90,0.10);
-    --red: #e07070;
-    --red-dim: rgba(224,112,112,0.08);
-    --red-border: rgba(224,112,112,0.20);
-    --mono: 'DM Mono', 'Menlo', monospace;
-    --sans: 'DM Sans', system-ui, sans-serif;
-    --display: 'Fraunces', Georgia, serif;
-    --radius: 10px;
-    --radius-sm: 6px;
-    --radius-lg: 14px;
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.20);
-    --shadow-md: 0 4px 16px rgba(0,0,0,0.25);
-    --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: var(--sans);
-    background: var(--bg);
-    color: var(--text);
-    font-size: 13.5px;
-    line-height: 1.6;
-    height: 100vh;
-    display: flex;
-    overflow: hidden;
-  }
-
-  /* ================================================================
-     SIDEBAR — agent list
-     ================================================================ */
-  #sidebar {
-    width: 220px;
-    min-width: 220px;
-    background: var(--bg-warm);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    overflow: hidden;
-    transition: width 0.2s ease, min-width 0.2s ease;
-  }
-  #sidebar.collapsed {
-    width: 52px;
-    min-width: 52px;
-  }
-  #sidebar.collapsed .sidebar-label,
-  #sidebar.collapsed .agent-desc,
-  #sidebar.collapsed #sidebar-footer span,
-  #sidebar.collapsed .logo,
-  #sidebar.collapsed .agent-name { display: none; }
-  #sidebar.collapsed .agent-avatar { display: flex; }
-  #sidebar.collapsed #sidebar-header {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    padding: 14px 8px 10px;
-    gap: 6px;
-  }
-  #sidebar.collapsed #agent-list { padding: 0 8px; }
-  #sidebar.collapsed .agent-item {
-    padding: 0;
-    align-items: center;
-    justify-content: center;
-    height: 36px;
-  }
-  #sidebar.collapsed #sidebar-footer { justify-content: center; }
-
-  .sidebar-collapse-btn {
-    background: none;
-    border: none;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 4px;
-    margin-left: auto;
-    font-size: 14px;
-    line-height: 1;
-    transition: color var(--transition);
-    flex-shrink: 0;
-  }
-  .sidebar-collapse-btn:hover { color: var(--text2); }
-  #sidebar.collapsed .sidebar-collapse-btn { margin: 0; }
-
-  #sidebar-header {
-    padding: 20px 18px 16px;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-  }
-  .logo {
-    font-family: var(--display);
-    font-size: 19px;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: -0.3px;
-    font-style: italic;
-  }
-  .logo-icon {
-    width: 26px;
-    height: 26px;
-    border-radius: 7px;
-    background: linear-gradient(135deg, var(--accent) 0%, #c4915e 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    box-shadow: 0 2px 8px rgba(201,160,108,0.25);
-    flex-shrink: 0;
-  }
-  .sidebar-label {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 0 18px 8px;
-  }
-  #agent-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .agent-item {
-    padding: 9px 12px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all var(--transition);
-    border: 1px solid transparent;
-    background: transparent;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    text-align: left;
-    font-family: var(--sans);
-    color: var(--text2);
-    font-size: 13px;
-    width: 100%;
-  }
-  .agent-item:hover { background: var(--surface); color: var(--text); }
-  .agent-item.active {
-    background: var(--accent-dim);
-    border-color: var(--accent-border);
-    color: var(--text);
-  }
-  .agent-avatar {
-    display: none;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    background: var(--surface3);
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text2);
-    text-transform: uppercase;
-    flex-shrink: 0;
-    letter-spacing: -0.5px;
-  }
-  .agent-item.active .agent-avatar { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-border); }
-  .agent-item .agent-name { font-weight: 500; }
-  .agent-item .agent-desc {
-    font-size: 11px;
-    color: var(--muted);
-    line-height: 1.4;
-  }
-  .agent-item.active .agent-desc { color: var(--text2); }
-
-  #sidebar-footer {
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    font-size: 10px;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  #sidebar-footer a { color: var(--accent); text-decoration: none; }
-
-  /* ================================================================
-     MAIN CONTENT AREA
-     ================================================================ */
-  #content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-width: 0;
-  }
-
-  /* Top toolbar */
-  #toolbar {
-    height: 52px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    padding: 0 20px;
-    gap: 10px;
-    flex-shrink: 0;
-    background: var(--surface);
-  }
-  #toolbar-title {
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--text);
-    flex: 1;
-  }
-  #version-select {
-    padding: 5px 28px 5px 10px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border2);
-    background: var(--surface2);
-    color: var(--text);
-    font-size: 12px;
-    font-family: var(--sans);
-    cursor: pointer;
-    outline: none;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238a8176' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    min-width: 110px;
-    transition: border-color var(--transition);
-  }
-  #version-select:hover { border-color: var(--border3); }
-  #version-select:focus { border-color: var(--accent-border); }
-
-  .status-badge {
-    font-size: 10px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-  }
-  .badge-current { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
-  .badge-draft { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(224,184,85,0.2); }
-  .badge-archived { background: var(--surface); color: var(--muted); border: 1px solid var(--border2); }
-
-  #unsaved-indicator {
-    font-size: 11px;
-    color: var(--amber);
-    display: none;
-    align-items: center;
-    gap: 5px;
-    animation: fadeIn 0.2s ease;
-  }
-  .unsaved-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--amber);
-  }
-
-  /* ================================================================
-     SPLIT PANELS
-     ================================================================ */
-  #panels {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-  }
-
-  /* Left panel — prompt editor */
-  #editor-panel {
-    flex: 1;
-    min-width: 280px;
-    border-right: none;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  /* Resize handle */
-  .panel-resize-handle {
-    width: 5px;
-    background: var(--border);
-    cursor: col-resize;
-    flex-shrink: 0;
-    position: relative;
-    transition: background 0.15s;
-  }
-  .panel-resize-handle:hover,
-  .panel-resize-handle.dragging { background: var(--accent); }
-  .panel-resize-handle::after {
-    content: '';
-    position: absolute;
-    inset: 0 -3px;
-  }
-
-  /* Right panel */
-  #right-panel {
-    flex: 1;
-    min-width: 320px;
-  }
-  .panel-header {
-    padding: 14px 20px 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
-  .panel-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  /* Diff toggle */
-  .diff-toggle {
-    font-size: 10px;
-    font-family: var(--mono);
-    font-weight: 700;
-    color: #16181d;
-    background: var(--green);
-    border: none;
-    border-radius: 10px;
-    padding: 3px 11px;
-    cursor: pointer;
-    transition: all var(--transition);
-    letter-spacing: 0.02em;
-  }
-  .diff-toggle:hover { background: #85dba8; }
-  .diff-toggle.active { background: #85dba8; color: #16181d; }
-
-  /* Diff overlay */
-  #diff-overlay {
-    position: absolute;
-    inset: 0;
-    padding: 4px 20px 20px;
-    font-family: var(--mono);
-    font-size: 13px;
-    line-height: 1.8;
-    background: var(--bg-warm);
-    overflow-y: auto;
-    display: none;
-    z-index: 5;
-  }
-  #diff-overlay.visible { display: block; }
-  .diff-line { white-space: pre-wrap; word-wrap: break-word; }
-  .diff-line.added { color: var(--green); background: var(--green-dim); border-radius: 3px; padding: 0 4px; }
-  .diff-line.removed { color: var(--red); background: var(--red-dim); border-radius: 3px; padding: 0 4px; text-decoration: line-through; opacity: 0.7; }
-  .diff-line.ctx { color: var(--muted); }
-
-  /* Prompt editor with highlight overlay */
-  .editor-wrap {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-  }
-  #prompt-backdrop {
-    position: absolute;
-    inset: 0;
-    padding: 4px 20px 20px;
-    font-family: var(--mono);
-    font-size: 13px;
-    line-height: 1.8;
-    tab-size: 2;
-    color: var(--text);
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-y: auto;
-    pointer-events: none;
-  }
-  #prompt-backdrop .var-token {
-    color: var(--accent2);
-    background: var(--accent-dim);
-    border: 1px solid var(--accent-border);
-    border-radius: 4px;
-    padding: 1px 5px;
-    margin: 0 1px;
-    font-weight: 500;
-  }
-  #prompt-editor {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    resize: none;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: transparent;
-    caret-color: var(--text);
-    font-family: var(--mono);
-    font-size: 13px;
-    line-height: 1.8;
-    padding: 4px 20px 20px;
-    overflow-y: auto;
-    tab-size: 2;
-    z-index: 1;
-  }
-  #prompt-editor::placeholder { color: var(--muted); font-style: italic; }
-  /* Selection needs visible text */
-  #prompt-editor::selection { color: var(--text); background: rgba(201,160,108,0.25); }
-
-  /* Diff strip */
-
-  /* Action bar */
-
-  /* Buttons */
-  .btn {
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border2);
-    background: transparent;
-    color: var(--text2);
-    font-size: 12.5px;
-    font-family: var(--sans);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-  }
-  .btn:hover { background: var(--surface2); border-color: var(--border3); color: var(--text); }
-  .btn:active { transform: scale(0.98); }
-  .btn-ghost { color: var(--muted); border-color: transparent; }
-  .btn-ghost:hover { color: var(--text2); background: var(--surface2); border-color: transparent; }
-  .btn-primary {
-    background: var(--accent-dim);
-    border-color: var(--accent-border);
-    color: var(--accent2);
-  }
-  .btn-primary:hover { background: rgba(201,160,108,0.18); border-color: rgba(201,160,108,0.4); }
-  .btn-promote {
-    background: var(--green-dim);
-    border-color: var(--green-border);
-    color: var(--green);
-  }
-  .btn-promote:hover { background: rgba(126,200,159,0.16); }
-  .btn-danger { border-color: var(--red-border); color: var(--red); }
-  .btn-danger:hover { background: var(--red-dim); }
-  .btn-sm { padding: 5px 10px; font-size: 11px; }
-  .btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
-
-  .copy-btn {
-    background: none;
-    border: none;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 3px;
-    line-height: 1;
-    border-radius: 4px;
-    transition: color var(--transition);
-    display: inline-flex;
-    align-items: center;
-  }
-  .copy-btn:hover { color: var(--text2); }
-  .copy-btn.copied { color: var(--green); }
-
-  .textarea-wrap {
-    position: relative;
-  }
-  .copy-btn-inside {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    opacity: 0;
-    transition: opacity var(--transition), color var(--transition);
-  }
-  .textarea-wrap:hover .copy-btn-inside,
-  .copy-btn-inside.copied { opacity: 1; }
-
-  /* ================================================================
-     RIGHT PANEL — test, history, versions
-     ================================================================ */
-  #right-panel {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: var(--bg-warm);
-  }
-
-  /* Right tabs */
-  #tab-bar {
-    display: flex;
-    gap: 0;
-    padding: 0 20px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .tab-btn {
-    padding: 12px 16px 10px;
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    font-size: 12.5px;
-    font-family: var(--sans);
-    font-weight: 500;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all var(--transition);
-    position: relative;
-  }
-  .tab-btn:hover { color: var(--text2); }
-  .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
-
-  .tab-panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
-  .tab-panel.active { display: flex; }
-
-  /* ---- Test run panel ---- */
-  #panel-run { padding: 20px; overflow-y: auto; gap: 16px; }
-
-  .field-group { display: flex; flex-direction: column; gap: 6px; }
-  .field-label {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  /* Test cases — compact row with custom dropdown + actions */
-  .tc-row { display: flex; align-items: center; gap: 6px; }
-  .tc-dropdown-wrap { position: relative; flex: 1; }
-  .tc-trigger {
-    width: 100%;
-    padding: 6px 10px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border2);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 12px;
-    font-family: var(--sans);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transition: border-color var(--transition);
-  }
-  .tc-trigger:hover { border-color: var(--border3); }
-  .tc-trigger.open { border-color: var(--accent-border); }
-  .tc-trigger .tc-trigger-label { color: var(--text); }
-  .tc-trigger .tc-trigger-label.placeholder { color: var(--muted); }
-  .tc-trigger .tc-chevron { color: var(--muted); transition: transform var(--transition); flex-shrink: 0; }
-  .tc-trigger.open .tc-chevron { transform: rotate(180deg); }
-  .tc-dropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0; right: 0;
-    background: var(--surface2);
-    border: 1px solid var(--border3);
-    border-radius: var(--radius-sm);
-    max-height: 180px;
-    overflow-y: auto;
-    z-index: 100;
-    display: none;
-    box-shadow: var(--shadow-md);
-  }
-  .tc-dropdown.open { display: block; }
-  .tc-dropdown-item {
-    padding: 7px 12px;
-    font-size: 12px;
-    font-family: var(--sans);
-    color: var(--text2);
-    cursor: pointer;
-    transition: background var(--transition), color var(--transition);
-  }
-  .tc-dropdown-item:hover { background: var(--accent-dim); color: var(--text); }
-  .tc-dropdown-item.selected { color: var(--accent2); }
-  .tc-dropdown-item.none-opt { color: var(--muted); font-style: italic; }
-  .tc-icon-btn {
-    background: none;
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    padding: 5px;
-    line-height: 1;
-    color: var(--muted);
-    transition: all var(--transition);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .tc-icon-btn:hover { color: var(--text); border-color: var(--border3); background: var(--surface); }
-  .tc-icon-btn.delete:hover { color: var(--red); border-color: var(--red-border); background: var(--red-dim); }
-  .tc-inline-save {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-  }
-  .tc-name-input {
-    flex: 1;
-    padding: 5px 12px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--accent-border);
-    background: var(--accent-dim);
-    color: var(--text);
-    font-size: 12px;
-    font-family: var(--sans);
-    outline: none;
-  }
-  .tc-name-input:focus { border-color: var(--accent); }
-  .tc-save-btn, .tc-cancel-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    line-height: 1;
-    border-radius: 4px;
-    transition: color var(--transition);
-  }
-  .tc-save-btn { color: var(--green); }
-  .tc-save-btn:hover { color: #85dba8; }
-  .tc-cancel-btn { color: var(--muted); }
-  .tc-cancel-btn:hover { color: var(--text2); }
-
-  /* Inputs */
-  input[type=text], textarea.msg-input {
-    width: 100%;
-    padding: 10px 14px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border2);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 13px;
-    font-family: var(--sans);
-    outline: none;
-    transition: border-color var(--transition), box-shadow var(--transition);
-  }
-  input[type=text]:focus, textarea.msg-input:focus {
-    border-color: var(--accent-border);
-    box-shadow: 0 0 0 3px var(--accent-dim);
-  }
-  input[type=text]::placeholder, textarea.msg-input::placeholder { color: var(--muted); }
-  textarea.msg-input { resize: none; min-height: 48px; max-height: 200px; line-height: 1.6; overflow-y: auto; }
-
-  /* Variable inputs */
-  #var-inputs { display: flex; flex-direction: column; gap: 6px; }
-  .var-row { display: grid; grid-template-columns: 180px 1fr; gap: 8px; align-items: center; }
-  .var-key {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--accent2);
-    background: var(--accent-dim);
-    border: 1px solid var(--accent-border);
-    border-radius: 4px;
-    padding: 6px 10px;
-    text-align: center;
-    white-space: nowrap;
-    font-weight: 500;
-  }
-
-  /* Model settings */
-  .settings-toggle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--muted);
-    background: none;
-    border: none;
-    font-family: var(--sans);
-    padding: 0;
-    transition: color var(--transition);
-  }
-  .settings-toggle:hover { color: var(--text2); }
-  .settings-toggle .chevron {
-    transition: transform var(--transition);
-    font-size: 9px;
-  }
-  .settings-toggle.open .chevron { transform: rotate(90deg); }
-  .settings-body {
-    display: none;
-    flex-direction: column;
-    gap: 10px;
-    padding-top: 8px;
-  }
-  .settings-body.open { display: flex; }
-  .settings-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-  .settings-label {
-    font-size: 11px;
-    color: var(--muted);
-    font-weight: 500;
-    text-align: left;
-  }
-  .model-input {
-    width: 180px;
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border2);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 12.5px;
-    font-family: var(--sans);
-    outline: none;
-    transition: border-color var(--transition), box-shadow var(--transition);
-  }
-  .model-input:focus { border-color: var(--accent-border); box-shadow: 0 0 0 3px var(--accent-dim); }
-  .model-input::placeholder { color: var(--muted); }
-
-  /* Custom typeahead dropdown */
-  .typeahead-wrap { position: relative; }
-  .typeahead-dropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0; right: 0;
-    background: var(--surface2);
-    border: 1px solid var(--border3);
-    border-radius: var(--radius-sm);
-    max-height: 220px;
-    overflow-y: auto;
-    z-index: 100;
-    display: none;
-    box-shadow: var(--shadow-md);
-  }
-  .typeahead-dropdown.open { display: block; }
-  .typeahead-group {
-    padding: 6px 10px 3px;
-    font-size: 9.5px;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .typeahead-item {
-    padding: 7px 12px;
-    font-size: 12.5px;
-    font-family: var(--mono);
-    color: var(--text2);
-    cursor: pointer;
-    transition: background var(--transition), color var(--transition);
-  }
-  .typeahead-item:hover, .typeahead-item.highlighted {
-    background: var(--accent-dim);
-    color: var(--text);
-  }
-  .typeahead-item .provider-badge {
-    font-family: var(--sans);
-    font-size: 9px;
-    color: var(--muted);
-    margin-left: 6px;
-    opacity: 0.7;
-  }
-  .typeahead-empty {
-    padding: 12px;
-    font-size: 11px;
-    color: var(--muted);
-    text-align: center;
-    font-style: italic;
-  }
-
-  input[type="number"].model-input {
-    -moz-appearance: textfield;
-    color-scheme: dark;
-  }
-  input[type="number"].model-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    display: none;
-  }
-  .temp-wrap {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    flex: none;
-  }
-  .temp-wrap .temp-arrows {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-    gap: 0;
-  }
-  .temp-arrows button {
-    background: none;
-    border: none;
-    color: var(--accent);
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 11px;
-  }
-  .temp-arrows button:hover { color: var(--accent2); }
-  .effort-toggle {
-    display: flex;
-    gap: 0;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border2);
-    overflow: hidden;
-  }
-  .effort-btn {
-    flex: 1;
-    padding: 6px 14px;
-    font-size: 11px;
-    font-family: var(--sans);
-    font-weight: 500;
-    background: var(--surface);
-    color: var(--muted);
-    border: none;
-    cursor: pointer;
-    transition: all var(--transition);
-    border-right: 1px solid var(--border2);
-  }
-  .effort-btn:last-child { border-right: none; }
-  .effort-btn:hover { color: var(--text2); background: var(--surface2); }
-  .effort-btn.active { color: var(--accent2); background: var(--accent-dim); }
-  .effort-btn.none-btn.active { color: var(--muted); background: var(--surface2); }
-
-  /* Run button */
-  #run-btn {
-    padding: 8px 20px;
-    font-size: 12.5px;
-    font-weight: 600;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--accent-border);
-    background: linear-gradient(135deg, rgba(201,160,108,0.12) 0%, rgba(201,160,108,0.04) 100%);
-    color: var(--accent2);
-    cursor: pointer;
-    font-family: var(--sans);
-    transition: all var(--transition);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    letter-spacing: 0.01em;
-    width: 260px;
-    align-self: center;
-  }
-  #run-btn:hover {
-    background: linear-gradient(135deg, rgba(201,160,108,0.22) 0%, rgba(201,160,108,0.10) 100%);
-    border-color: rgba(201,160,108,0.4);
-    box-shadow: 0 2px 12px rgba(201,160,108,0.12);
-  }
-  #run-btn:active { transform: scale(0.99); }
-  #run-btn.running { opacity: 0.6; cursor: not-allowed; }
-
-  /* Output box */
-  #output-box {
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    font-size: 13px;
-    line-height: 1.8;
-    color: var(--text);
-    min-height: 60px;
-    white-space: pre-wrap;
-    word-break: break-word;
-    transition: border-color var(--transition);
-  }
-  #output-box.empty { color: var(--muted); font-style: italic; }
-  #output-box.error { color: var(--red); border-color: var(--red-border); background: var(--red-dim); }
-  #output-box.success { border-color: var(--green-border); }
-
-  /* Inline token counters */
-  .token-hint {
-    font-size: 10px;
-    font-family: var(--mono);
-    color: var(--muted);
-    font-weight: 500;
-    transition: color 0.3s ease;
-  }
-  .token-hint .token-count {
-    color: var(--accent);
-  }
-
-  /* Metrics */
-  #metrics {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
-  .metric {
-    background: var(--surface);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    padding: 10px 12px;
-    text-align: center;
-  }
-  .metric-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
-  .metric-value { font-size: 17px; font-weight: 600; margin-top: 2px; font-family: var(--mono); }
-  .metric-sub { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
-  .metric-value.good { color: var(--green); }
-  .metric-value.warn { color: var(--amber); }
-  .metric-value.na { color: var(--muted); }
-
-  /* ---- History panel ---- */
-  .ver-badge {
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    font-family: var(--mono);
-    font-weight: 500;
-  }
-
-  /* ---- Evals panel ---- */
-  .eval-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .eval-section-header {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: 0.01em;
-    margin-bottom: 4px;
-  }
-
-  /* ---- Versions panel ---- */
-  #panel-versions { overflow-y: auto; padding: 16px 20px; gap: 10px; flex-direction: column; }
-  .version-card {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    background: var(--surface);
-    cursor: pointer;
-    transition: all var(--transition);
-  }
-  .version-card:hover { border-color: var(--border2); background: var(--surface2); }
-  .version-card.selected { border-color: var(--accent-border); background: var(--accent-dim); }
-  .version-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .version-num { font-size: 14px; font-weight: 600; font-family: var(--mono); }
-  .version-status {
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-weight: 600;
-  }
-  .status-current { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
-  .status-draft { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(224,184,85,0.2); }
-  .status-archived { background: var(--surface); color: var(--muted); border: 1px solid var(--border2); }
-  .version-notes { font-size: 12.5px; color: var(--text2); }
-  .version-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
-  .version-prompt-preview {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 8px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 6px 8px;
-    background: var(--bg-warm);
-    border-radius: 4px;
-  }
-
-  /* ---- Empty & loading states ---- */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    gap: 10px;
-    color: var(--muted);
-    font-size: 13px;
-    padding: 48px;
-    text-align: center;
-  }
-  .empty-state .empty-icon { opacity: 0.35; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; }
-  .empty-state .empty-title { font-size: 14px; font-weight: 500; color: var(--text2); }
-
-  .spinner {
-    width: 16px; height: 16px;
-    border: 2px solid var(--border3);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    display: inline-block;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--border3); }
-
-  /* Toast */
-  #toast {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    padding: 10px 18px;
-    border-radius: var(--radius);
-    font-size: 12.5px;
-    font-weight: 500;
-    font-family: var(--sans);
-    opacity: 0;
-    transform: translateY(8px);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    pointer-events: none;
-    z-index: 200;
-    box-shadow: var(--shadow-md);
-  }
-  #toast.show { opacity: 1; transform: translateY(0); }
-  #toast.success { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
-  #toast.error { background: var(--red-dim); color: var(--red); border: 1px solid var(--red-border); }
-  #toast.info { background: var(--accent-dim); color: var(--accent2); border: 1px solid var(--accent-border); }
-
-  /* Modal */
-  /* Notes modal */
-  #notes-modal-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.55);
-    backdrop-filter: blur(4px);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-  }
-  #notes-modal-overlay.open { display: flex; }
-  #notes-modal {
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    width: 420px;
-    max-width: 90vw;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    box-shadow: var(--shadow-md);
-    animation: slideUp 0.2s ease;
-  }
-  #notes-modal h3 { font-size: 15px; font-weight: 600; color: var(--text); }
-
-  /* Confirm modal */
-  #confirm-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.55);
-    backdrop-filter: blur(4px);
-    z-index: 200;
-    align-items: center;
-    justify-content: center;
-  }
-  #confirm-overlay.open { display: flex; }
-  #confirm-modal {
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    width: 360px;
-    max-width: 90vw;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    box-shadow: var(--shadow-md);
-    animation: slideUp 0.2s ease;
-  }
-  #confirm-modal p {
-    font-size: 14px;
-    color: var(--text);
-    line-height: 1.5;
-  }
-  #confirm-modal .confirm-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-  }
-  #confirm-modal .confirm-actions button {
-    padding: 7px 18px;
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    font-weight: 500;
-    font-family: var(--sans);
-    cursor: pointer;
-    transition: all var(--transition);
-  }
-  #confirm-modal .btn-cancel {
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    color: var(--text2);
-  }
-  #confirm-modal .btn-cancel:hover {
-    background: var(--surface3);
-    border-color: var(--border3);
-  }
-  #confirm-modal .btn-confirm {
-    background: linear-gradient(135deg, rgba(201,160,108,0.18) 0%, rgba(201,160,108,0.08) 100%);
-    border: 1px solid var(--accent-border);
-    color: var(--accent2);
-  }
-  #confirm-modal .btn-confirm:hover {
-    background: linear-gradient(135deg, rgba(201,160,108,0.28) 0%, rgba(201,160,108,0.14) 100%);
-    border-color: rgba(201,160,108,0.4);
-  }
-  #confirm-modal .btn-confirm.destructive {
-    background: linear-gradient(135deg, rgba(224,112,112,0.15) 0%, rgba(224,112,112,0.06) 100%);
-    border: 1px solid var(--red-border);
-    color: var(--red);
-  }
-  #confirm-modal .btn-confirm.destructive:hover {
-    background: linear-gradient(135deg, rgba(224,112,112,0.25) 0%, rgba(224,112,112,0.12) 100%);
-    border-color: rgba(224,112,112,0.35);
-  }
-
-  /* Keyboard shortcut hints */
-  .kbd-hint {
-    font-size: 10px;
-    color: var(--muted);
-    padding: 2px 5px;
-    border-radius: 3px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    font-family: var(--mono);
-    font-weight: 500;
-  }
-</style>
+<link rel="stylesheet" href="style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+<script src="app.js"></script>
 </head>
-<body>
+<body x-data x-init="$store.app.init()">
 
-<!-- Sidebar -->
-<div id="sidebar">
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<div id="sidebar" :class="{ collapsed: $store.app.sidebarCollapsed }">
   <div id="sidebar-header">
     <div class="logo-icon">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16181d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
     </div>
     <span class="logo">biscotti</span>
-    <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+    <button class="sidebar-collapse-btn" @click="$store.app.sidebarCollapsed = !$store.app.sidebarCollapsed" title="Toggle sidebar">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
     </button>
   </div>
-  <div class="sidebar-label">agents</div>
+  <div class="sidebar-label">Agents</div>
   <div id="agent-list">
-    <div class="empty-state" style="padding:20px;font-size:12px;gap:6px;">
-      <div class="spinner"></div>
-      loading...
-    </div>
+    <template x-if="!$store.app.agents.length">
+      <div class="empty-state" style="padding:20px;font-size:12px;gap:6px;">
+        <div class="spinner"></div>
+        Loading...
+      </div>
+    </template>
+    <template x-for="agent in $store.app.agents" :key="agent.name">
+      <button class="agent-item"
+              :class="{ active: agent.name === $store.app.currentAgent }"
+              @click="$store.app.selectAgent(agent.name)">
+        <span class="agent-avatar" x-text="agent.name.split(/[\s_-]+/).map(w=>w[0]).join('').slice(0,2)"></span>
+        <span class="agent-name" x-text="agent.name"></span>
+        <span class="agent-desc" x-show="agent.description" x-text="agent.description"></span>
+      </button>
+    </template>
   </div>
-  <div id="sidebar-footer">
-    <span>v0.1.0-beta</span>
-  </div>
+  <div id="sidebar-footer"><span>v0.1.0-beta</span></div>
 </div>
 
-<!-- Main content -->
-<div id="content">
+<!-- ============================================================
+     MAIN CONTENT
+     ============================================================ -->
+<div id="content" x-show="$store.app.currentAgent">
   <!-- Toolbar -->
   <div id="toolbar">
-    <span id="toolbar-title"></span>
-    <span id="unsaved-indicator" style="display:none;">
-      <span class="unsaved-dot"></span>unsaved
+    <span id="toolbar-title" x-text="$store.app.currentAgent"></span>
+    <span id="unsaved-indicator" x-show="$store.app.isDirty" style="display:none">
+      <span class="unsaved-dot"></span>Unsaved
     </span>
-    <select id="version-select" style="display:none;"></select>
-    <span id="current-badge" class="status-badge badge-current" style="display:none;">current</span>
+    <button class="toolbar-version" x-show="$store.app.currentVersion"
+            @click="$store.app.switchTab('versions')"
+            :title="'View all versions'">
+      <span x-text="'v' + ($store.app.currentVersion?.version || '')"></span>
+      <span class="toolbar-version-status"
+            :class="'badge-' + ($store.app.currentVersion?.status || 'draft')"
+            x-text="$store.app.currentVersion?.status"></span>
+    </button>
+    <button class="theme-toggle" @click="$store.app.toggleTheme()" :title="$store.app.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+      <span x-show="$store.app.theme === 'dark'">&#9788;</span>
+      <span x-show="$store.app.theme === 'light'">&#9790;</span>
+    </button>
   </div>
 
   <!-- Split panels -->
@@ -1197,1245 +75,627 @@
     <!-- Left: Prompt editor -->
     <div id="editor-panel">
       <div class="panel-header">
-        <span class="panel-label">system prompt</span>
+        <span class="panel-label">System Prompt</span>
         <div style="display:flex;align-items:center;gap:8px;">
-          <button class="diff-toggle" id="diff-toggle" onclick="toggleDiffView()" title="Show changes from saved version" style="display:none;">diff</button>
-          <button class="copy-btn" onclick="copyToClipboard(document.getElementById('prompt-editor').value, this)" title="Copy prompt">
+          <button class="diff-toggle"
+                  x-show="$store.app.isDirty"
+                  :class="{ active: $store.app.diffActive }"
+                  @click="$store.app.diffActive = !$store.app.diffActive"
+                  title="Show changes from saved version">diff</button>
+          <button class="copy-btn" @click="$store.app.copyToClipboard($store.app.prompt, $event)" title="Copy prompt">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
-          <span class="token-hint"><span class="token-count" id="prompt-token-count">0</span> tokens</span>
+          <span class="token-hint">~<span class="token-count" x-text="$store.app.promptTokens"></span> tokens</span>
         </div>
       </div>
       <div class="editor-wrap">
-        <textarea id="prompt-editor" placeholder="Write your system prompt here...&#10;&#10;Use {{variable_name}} for dynamic values." spellcheck="false"></textarea>
-        <div id="prompt-backdrop"></div>
-        <div id="diff-overlay"></div>
+        <textarea id="prompt-editor"
+                  x-model="$store.app.prompt"
+                  @input="$store.app.onPromptInput()"
+                  placeholder="Write your system prompt here...&#10;&#10;Use {{variable_name}} for dynamic values."
+                  spellcheck="false"></textarea>
+        <div id="prompt-backdrop" x-html="
+          escHtml($store.app.prompt).replace(/\{\{(\w+)\}\}/g, '<span class=\'var-token\'>{{$1}}</span>')
+        "></div>
+        <div id="diff-overlay" :class="{ visible: $store.app.diffActive }">
+          <template x-for="(line, i) in $store.app.diffLines" :key="i">
+            <div class="diff-line" :class="line.type" x-text="line.text || '\u00a0'"></div>
+          </template>
+        </div>
       </div>
     </div>
 
     <div class="panel-resize-handle" id="panel-resize-handle"></div>
 
-    <!-- Right: Test / History / Versions -->
+    <!-- Right: Tabs -->
     <div id="right-panel">
       <div id="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('run', this)">test run</button>
-        <button class="tab-btn" onclick="switchTab('versions', this)">versions</button>
-        <button class="tab-btn" onclick="switchTab('evals', this)">evals</button>
+        <button class="tab-btn" :class="{ active: $store.app.activeTab === 'run' }" @click="$store.app.switchTab('run')">Test Run</button>
+        <button class="tab-btn" :class="{ active: $store.app.activeTab === 'versions' }" @click="$store.app.switchTab('versions')">Versions</button>
+        <button class="tab-btn" :class="{ active: $store.app.activeTab === 'evals' }" @click="$store.app.switchTab('evals')">Evals</button>
       </div>
 
-      <!-- Test run -->
-      <div class="tab-panel active" id="panel-run">
+      <!-- ========== TEST RUN TAB ========== -->
+      <div class="tab-panel" :class="{ active: $store.app.activeTab === 'run' }">
         <div style="padding:20px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;flex:1;">
+
+          <!-- Test cases -->
           <div class="field-group">
-            <div class="field-label">test cases</div>
-            <div class="tc-row" id="test-cases-row">
-              <div class="tc-dropdown-wrap" id="tc-dropdown-wrap">
-                <div class="tc-trigger" id="tc-trigger" onclick="toggleTcDropdown()">
-                  <span class="tc-trigger-label placeholder" id="tc-trigger-label">none</span>
+            <div class="field-label">Test Cases</div>
+            <div class="tc-row">
+              <div class="tc-dropdown-wrap" @click.outside="$store.app.tcDropdownOpen = false">
+                <div class="tc-trigger" :class="{ open: $store.app.tcDropdownOpen }" @click="$store.app.tcDropdownOpen = !$store.app.tcDropdownOpen">
+                  <span class="tc-trigger-label" :class="{ placeholder: !$store.app.selectedTestCase }"
+                        x-text="$store.app.selectedTestCase || 'None'"></span>
                   <svg class="tc-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
-                <div class="tc-dropdown" id="tc-dropdown"></div>
+                <div class="tc-dropdown" :class="{ open: $store.app.tcDropdownOpen }">
+                  <div class="tc-dropdown-item none-opt" :class="{ selected: !$store.app.selectedTestCase }" @click="$store.app.selectTestCase('')">None</div>
+                  <template x-for="tc in $store.app.testCases" :key="tc.name">
+                    <div class="tc-dropdown-item"
+                         :class="{ selected: tc.name === $store.app.selectedTestCase }"
+                         @click="$store.app.selectTestCase(tc.name)"
+                         x-text="tc.name"></div>
+                  </template>
+                </div>
               </div>
-              <button class="tc-icon-btn" onclick="startSaveTestCase()" title="Save current inputs as test case">
+              <button class="tc-icon-btn" @click="$store.app.startSaveTestCase()" title="Save current inputs as test case">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               </button>
-              <button class="tc-icon-btn delete" id="tc-delete-btn" onclick="deleteSelectedTestCase()" title="Delete test case" style="display:none;">
+              <button class="tc-icon-btn delete" x-show="$store.app.selectedTestCase" @click="$store.app.deleteTestCase()" title="Delete test case">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               </button>
             </div>
-            <div class="tc-inline-save" id="tc-inline-save" style="display:none;">
-              <input type="text" id="tc-name" class="tc-name-input" placeholder="test case name" autofocus>
-              <button class="tc-save-btn" onclick="confirmSaveTestCase()">
+            <div class="tc-inline-save" x-show="$store.app.tcSaving">
+              <input type="text" class="tc-name-input" placeholder="Test case name"
+                     x-model="$store.app.tcName"
+                     @keydown.enter="$store.app.confirmSaveTestCase()"
+                     @keydown.escape="$store.app.tcSaving = false">
+              <button class="tc-save-btn" @click="$store.app.confirmSaveTestCase()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </button>
-              <button class="tc-cancel-btn" onclick="cancelSaveTestCase()">
+              <button class="tc-cancel-btn" @click="$store.app.tcSaving = false">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
           </div>
 
+          <!-- User message -->
           <div class="field-group">
             <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
-              user message
-              <span class="token-hint"><span class="token-count" id="msg-token-count">0</span> tokens</span>
+              User Message
+              <span class="token-hint">~<span class="token-count" x-text="$store.app.msgTokens"></span> tokens</span>
             </div>
             <div class="textarea-wrap">
-              <textarea class="msg-input" id="user-message" placeholder="What would a user say to this agent?"></textarea>
-              <button class="copy-btn copy-btn-inside" onclick="copyToClipboard(document.getElementById('user-message').value, this)" title="Copy message">
+              <textarea class="msg-input" x-model="$store.app.userMessage"
+                        placeholder="What would a user say to this agent?"
+                        @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,200)+'px'"></textarea>
+              <button class="copy-btn copy-btn-inside" @click="$store.app.copyToClipboard($store.app.userMessage, $event)" title="Copy message">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               </button>
             </div>
           </div>
 
-          <div id="var-section" style="display:none;">
-            <div class="field-label" style="margin-bottom:6px;">variable values</div>
-            <div id="var-inputs"></div>
+          <!-- Variables -->
+          <div x-show="$store.app.variables.length">
+            <div class="field-label" style="margin-bottom:6px;">Variable Values</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <template x-for="v in $store.app.variables" :key="v">
+                <div class="var-row">
+                  <span class="var-key" x-text="'{{' + v + '}}'"></span>
+                  <input type="text" :placeholder="'Value for ' + v"
+                         :value="$store.app.varValues[v] || ''"
+                         @input="$store.app.varValues[v] = $event.target.value">
+                </div>
+              </template>
+            </div>
           </div>
 
-          <!-- Model settings (collapsible, open by default) -->
+          <!-- Model settings -->
           <div class="field-group">
-            <button class="settings-toggle open" id="settings-toggle" onclick="toggleSettings()">
-              <span class="chevron">&#9654;</span> model settings
+            <button class="settings-toggle" :class="{ open: $store.app.settingsOpen }" @click="$store.app.settingsOpen = !$store.app.settingsOpen">
+              <span class="chevron">&#9654;</span> Model Settings
             </button>
-            <div class="settings-body open" id="settings-body">
+            <div class="settings-body" :class="{ open: $store.app.settingsOpen }">
               <div class="settings-row">
-                <span class="settings-label">model</span>
-                <div class="typeahead-wrap" id="model-typeahead">
-                  <input type="text" class="model-input" id="model-input" placeholder="default (auto)" autocomplete="off">
-                  <div class="typeahead-dropdown" id="model-dropdown"></div>
+                <span class="settings-label">Model</span>
+                <div class="typeahead-wrap" @click.outside="$store.app.modelDropdownOpen = false">
+                  <input type="text" class="model-input"
+                         x-model="$store.app.modelInput"
+                         :placeholder="$store.app.modelPlaceholder"
+                         @focus="$store.app.modelDropdownOpen = true"
+                         @input="$store.app.modelDropdownOpen = true; $store.app.highlightedModelIdx = -1"
+                         @keydown.arrow-down.prevent="$store.app.highlightedModelIdx = Math.min($store.app.highlightedModelIdx + 1, $store.app.filteredModels.length - 1)"
+                         @keydown.arrow-up.prevent="$store.app.highlightedModelIdx = Math.max($store.app.highlightedModelIdx - 1, 0)"
+                         @keydown.enter.prevent="if ($store.app.highlightedModelIdx >= 0) $store.app.selectModel($store.app.filteredModels[$store.app.highlightedModelIdx])"
+                         @keydown.escape="$store.app.modelDropdownOpen = false"
+                         autocomplete="off">
+                  <div class="typeahead-dropdown" :class="{ open: $store.app.modelDropdownOpen }">
+                    <template x-if="!$store.app.filteredModels.length">
+                      <div class="typeahead-empty">No matching models</div>
+                    </template>
+                    <template x-for="provider in ['anthropic', 'openai', 'google', 'other']" :key="provider">
+                      <template x-if="$store.app.groupedModels[provider]">
+                        <div>
+                          <div class="typeahead-group" x-text="provider"></div>
+                          <template x-for="m in $store.app.groupedModels[provider]" :key="m">
+                            <div class="typeahead-item"
+                                 :class="{ highlighted: $store.app.filteredModels.indexOf(m) === $store.app.highlightedModelIdx }"
+                                 @mousedown.prevent="$store.app.selectModel(m)"
+                                 x-text="m"></div>
+                          </template>
+                        </div>
+                      </template>
+                    </template>
+                  </div>
                 </div>
-                <span class="settings-label" style="margin-left:8px;">temp</span>
+                <span class="settings-label" style="margin-left:8px;">Temp</span>
                 <div class="temp-wrap">
-                  <input type="number" class="model-input" id="temp-input" min="0" max="2" step="0.1" value="1.0" placeholder="0–2" style="width: 70px; padding-right: 22px;">
+                  <input type="number" class="model-input" x-model.number="$store.app.temperature"
+                         min="0" max="2" step="0.1" placeholder="0–2" style="width:70px;padding-right:22px;">
                   <div class="temp-arrows">
-                    <button onclick="stepTemp(0.1)" tabindex="-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l-6 6h12z"/></svg></button>
-                    <button onclick="stepTemp(-0.1)" tabindex="-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l6-6H6z"/></svg></button>
+                    <button @click="$store.app.stepTemp(0.1)" tabindex="-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l-6 6h12z"/></svg></button>
+                    <button @click="$store.app.stepTemp(-0.1)" tabindex="-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l6-6H6z"/></svg></button>
                   </div>
                 </div>
               </div>
               <div class="settings-row">
-                <span class="settings-label">reasoning effort</span>
-                <div class="effort-toggle" id="effort-toggle">
-                  <button class="effort-btn none-btn active" onclick="setEffort(null, this)">none</button>
-                  <button class="effort-btn" onclick="setEffort('low', this)">low</button>
-                  <button class="effort-btn" onclick="setEffort('medium', this)">medium</button>
-                  <button class="effort-btn" onclick="setEffort('high', this)">high</button>
+                <span class="settings-label">Reasoning Effort</span>
+                <div class="effort-toggle">
+                  <template x-for="opt in [null, 'low', 'medium', 'high']" :key="String(opt)">
+                    <button class="effort-btn"
+                            :class="{ active: $store.app.reasoningEffort === opt, 'none-btn': opt === null }"
+                            @click="$store.app.setEffort(opt)"
+                            x-text="opt ? opt.charAt(0).toUpperCase() + opt.slice(1) : 'None'"></button>
+                  </template>
                 </div>
               </div>
             </div>
           </div>
 
-          <button id="run-btn" onclick="runTest()">
-            <span id="run-btn-inner">run test</span>
-            <span class="kbd-hint" style="margin-left:4px;">&#8984;&#9166;</span>
+          <!-- Run button -->
+          <button id="run-btn" :class="{ running: $store.app.running }" @click="$store.app.runTest()" :disabled="$store.app.running">
+            <span x-show="!$store.app.running">Run Test</span>
+            <span x-show="$store.app.running" style="display:inline-flex;align-items:center;gap:6px;">
+              <span class="spinner"></span>
+              Running&hellip;
+              <span style="font-family:var(--mono);font-size:12px;opacity:0.7;" x-text="$store.app.runElapsed + 's'"></span>
+            </span>
+            <span class="kbd-hint" x-show="!$store.app.running" style="margin-left:4px;">&#8984;&#9166;</span>
           </button>
 
+          <!-- Output -->
           <div class="field-group">
-            <div class="field-label">output</div>
-            <div id="output-box" class="empty">Run a test to see the agent's response here.</div>
+            <div class="field-label">Output</div>
+            <div id="output-box"
+                 :class="$store.app.outputState"
+                 x-text="$store.app.output || 'Run a test to see the agent\'s response here.'"></div>
           </div>
 
-          <div id="metrics" style="display:none;">
-            <div class="metric"><div class="metric-label">latency</div><div class="metric-value na" id="m-latency">&mdash;</div></div>
-            <div class="metric">
-              <div class="metric-label">tokens</div>
-              <div class="metric-value na" id="m-tokens">&mdash;</div>
-              <div class="metric-sub" id="m-tokens-breakdown"></div>
+          <!-- Metrics -->
+          <div id="metrics" x-show="$store.app.metrics">
+            <div class="metric" x-show="$store.app.metrics">
+              <div class="metric-label">Latency</div>
+              <div class="metric-value" :class="$store.app.metrics?.latency < 2000 ? 'good' : 'warn'"
+                   x-text="($store.app.metrics?.latency || 0) + 'ms'"></div>
             </div>
-            <div class="metric"><div class="metric-label">model</div><div class="metric-value na" id="m-model">&mdash;</div></div>
+            <div class="metric" x-show="$store.app.metrics">
+              <div class="metric-label">Tokens</div>
+              <div class="metric-value" :class="$store.app.metrics?.totalTokens ? 'good' : 'na'"
+                   x-text="$store.app.metrics?.totalTokens ? $store.app.metrics.totalTokens.toLocaleString() : '\u2014'"></div>
+              <div class="metric-sub" x-show="$store.app.metrics?.totalTokens"
+                   x-text="($store.app.metrics?.inTokens||0).toLocaleString() + ' in \u00b7 ' + ($store.app.metrics?.outTokens||0).toLocaleString() + ' out'"></div>
+            </div>
+            <div class="metric" x-show="$store.app.metrics">
+              <div class="metric-label">Model</div>
+              <div class="metric-value" :class="$store.app.metrics?.model ? '' : 'na'"
+                   :style="$store.app.metrics?.model?.length > 12 ? 'font-size:11px' : ''"
+                   x-text="$store.app.metrics?.model || '\u2014'"></div>
+            </div>
+            <div class="metric" x-show="$store.app.metrics?.cost != null">
+              <div class="metric-label">Cost</div>
+              <div class="metric-value" x-text="formatCost($store.app.metrics?.cost)"></div>
+            </div>
           </div>
 
-          <div id="version-actions" style="display:flex;gap:8px;">
-            <button class="btn btn-ghost btn-sm" id="btn-discard" onclick="discardChanges()" style="display:none;">discard</button>
-            <button class="btn btn-primary" id="btn-save" onclick="saveVersion()" disabled style="flex:1;">save version</button>
-            <button class="btn btn-promote" id="btn-promote" onclick="promoteVersion()" style="display:none;flex:1;">set as current</button>
+          <!-- Version actions -->
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" x-show="$store.app.isDirty" @click="$store.app.discardChanges()">Discard</button>
+            <button class="btn btn-primary" style="flex:1;" :disabled="!$store.app.isDirty" @click="$store.app.saveVersion()">Save Version</button>
+            <button class="btn btn-promote" style="flex:1;"
+                    x-show="!$store.app.isDirty && $store.app.currentVersionId && $store.app.currentVersion?.status !== 'current'"
+                    @click="$store.app.promoteVersion()">Set as Current</button>
+          </div>
+
+          <!-- Run History -->
+          <div class="run-history" x-show="$store.app.runHistory.length">
+            <button class="run-history-toggle" @click="$store.app.runHistoryOpen = !$store.app.runHistoryOpen">
+              <span class="accordion-chevron" :class="{ open: $store.app.runHistoryOpen }">&#9654;</span>
+              <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);">Run History</span>
+              <span style="font-size:11px;color:var(--muted);margin-left:auto;" x-text="$store.app.runHistory.length + ' runs'"></span>
+            </button>
+            <div x-show="$store.app.runHistoryOpen" x-transition.duration.150ms>
+              <template x-for="run in $store.app.runHistory" :key="run.run_id">
+                <div class="run-history-row">
+                  <span class="run-history-time" x-text="new Date(run.created_at).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'})"></span>
+                  <span class="run-history-tc" x-text="run.test_case_name || 'Ad hoc'"></span>
+                  <span class="run-history-latency" x-text="run.latency_ms ? run.latency_ms + 'ms' : ''"></span>
+                  <span class="run-history-tokens" x-text="(run.input_tokens||0) + (run.output_tokens||0) ? ((run.input_tokens||0)+(run.output_tokens||0)).toLocaleString() + ' tok' : ''"></span>
+                  <span class="run-history-score" x-show="run.score != null"
+                        :style="'color:' + scoreColor(run.score || 0)"
+                        x-text="run.score?.toFixed(1)"></span>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Versions -->
-      <div class="tab-panel" id="panel-versions">
-        <div id="versions-list" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1;">
-          <div class="empty-state"><div class="empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div><div class="empty-title">No versions saved yet</div></div>
+      <!-- ========== VERSIONS TAB ========== -->
+      <div class="tab-panel" :class="{ active: $store.app.activeTab === 'versions' }">
+        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1;">
+          <template x-if="!$store.app.versions.length">
+            <div class="empty-state">
+              <div class="empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+              <div class="empty-title">No versions saved yet</div>
+            </div>
+          </template>
+          <template x-for="(v, i) in $store.app.versions" :key="v.id">
+            <div class="version-card" :class="{ selected: v.id === $store.app.currentVersionId }"
+                 :style="'animation: slideUp 0.2s ease ' + (i * 0.03) + 's both'"
+                 @click="$store.app.loadVersion(v); $store.app.switchTab('run')">
+              <div class="version-card-top">
+                <span class="version-num" x-text="'v' + v.version"></span>
+                <span class="version-status" :class="'status-' + v.status" x-text="v.status"></span>
+                <span style="margin-left:auto;display:flex;gap:4px;">
+                  <button class="btn btn-sm btn-ghost" x-show="v.id !== $store.app.currentVersionId"
+                          @click.stop="$store.app.compareVersion(v)" style="font-size:10px;padding:2px 8px;border:1px solid var(--border2);">Compare</button>
+                  <button class="btn btn-sm btn-promote" x-show="v.status !== 'current'"
+                          @click.stop="$store.app.promoteVersion(v.id)">Set as Current</button>
+                  <button class="tc-icon-btn delete" x-show="v.status !== 'current'"
+                          @click.stop="$store.app.deleteVersion(v.id)" title="Delete version">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </span>
+              </div>
+              <div class="version-notes" x-show="v.notes" x-text="v.notes"></div>
+              <div class="version-meta" x-text="formatDate(v.created_at) + ' \u00b7 ' + v.created_by"></div>
+              <div class="version-prompt-preview" x-text="(v.system_prompt || '').substring(0, 100) + (v.system_prompt?.length > 100 ? '\u2026' : '')"></div>
+            </div>
+          </template>
+
+          <!-- Version Compare -->
+          <div x-show="$store.app.compareTarget" class="version-compare" x-transition.duration.150ms>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);">Compare</span>
+              <span style="font-size:12px;color:var(--text2);"
+                    x-text="'v' + ($store.app.currentVersion?.version || '?') + ' (current) vs v' + ($store.app.compareTarget?.version || '?')"></span>
+              <button class="btn btn-ghost btn-sm" @click="$store.app.compareTarget = null" style="margin-left:auto;font-size:10px;padding:2px 8px;">Close</button>
+            </div>
+            <div class="compare-diff">
+              <template x-for="(line, li) in $store.app.versionDiffLines" :key="li">
+                <div class="diff-line" :class="line.type">
+                  <span class="diff-prefix" x-text="line.type === 'add' ? '+' : (line.type === 'remove' ? '-' : ' ')"></span>
+                  <span x-text="line.text"></span>
+                </div>
+              </template>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Evals -->
-      <div class="tab-panel" id="panel-evals">
-        <div style="padding:20px;display:flex;flex-direction:column;gap:20px;overflow-y:auto;flex:1;">
+      <!-- ========== EVALS TAB ========== -->
+      <div class="tab-panel" id="panel-evals" :class="{ active: $store.app.activeTab === 'evals' }">
+        <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
 
-          <!-- Section: Provider Keys -->
-          <div class="eval-section">
-            <div class="eval-section-header">Provider Keys</div>
-            <div id="api-key-status" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"></div>
-            <div style="display:flex;gap:8px;align-items:flex-end;">
-              <div style="flex:1;">
-                <div class="field-label" style="margin-bottom:4px;">API Key</div>
-                <input type="password" id="api-key-input" placeholder="sk-..." style="font-family:var(--mono);font-size:12px;">
+          <!-- Provider keys bar — compact inline -->
+          <div class="eval-key-bar">
+            <template x-for="p in $store.app.connectedProviders" :key="p">
+              <span class="provider-pill">
+                <span class="provider-pill-dot"></span>
+                <span x-text="p.charAt(0).toUpperCase() + p.slice(1)"></span>
+                <button class="provider-pill-x" @click="$store.app.disconnectProvider(p)" title="Disconnect">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </span>
+            </template>
+            <!-- Inline add key -->
+            <div x-show="$store.app.addKeyOpen" class="add-key-row" style="margin:0;">
+              <div class="provider-select-wrap" @click.outside="$store.app.providerDropdownOpen = false">
+                <button class="provider-select-trigger" @click="$store.app.providerDropdownOpen = !$store.app.providerDropdownOpen">
+                  <span x-text="$store.app.addKeyProvider.charAt(0).toUpperCase() + $store.app.addKeyProvider.slice(1)"></span>
+                  <svg class="tc-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="provider-select-dropdown" :class="{ open: $store.app.providerDropdownOpen }">
+                  <template x-for="prov in $store.app.disconnectedProviders" :key="prov">
+                    <div class="provider-select-item"
+                         :class="{ selected: $store.app.addKeyProvider === prov }"
+                         @click="$store.app.addKeyProvider = prov; $store.app.providerDropdownOpen = false"
+                         x-text="prov.charAt(0).toUpperCase() + prov.slice(1)"></div>
+                  </template>
+                </div>
               </div>
-              <div style="width:120px;">
-                <div class="field-label" style="margin-bottom:4px;">Provider</div>
-                <select id="api-key-provider" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--sans);font-size:12.5px;">
-                  <option value="anthropic">Anthropic</option>
-                  <option value="openai">OpenAI</option>
-                </select>
-              </div>
-              <button class="btn btn-ghost" style="padding:7px 14px;white-space:nowrap;" onclick="submitApiKey()">Set Key</button>
+              <input type="password" id="add-key-input" class="key-input"
+                     x-model="$store.app.addKeyValue"
+                     :placeholder="$store.app.addKeyProvider === 'anthropic' ? 'sk-ant-...' : 'sk-...'"
+                     @keydown.enter="$store.app.submitProviderKey()"
+                     @keydown.escape="$store.app.addKeyOpen = false">
+              <button class="btn btn-primary btn-sm" @click="$store.app.submitProviderKey()">Connect</button>
+              <button class="provider-disconnect" @click="$store.app.addKeyOpen = false" title="Cancel">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
             </div>
+            <button class="btn btn-ghost btn-sm" x-show="!$store.app.addKeyOpen && $store.app.disconnectedProviders.length"
+                    @click="$store.app.openAddKey()" style="padding:4px 12px;font-size:11px;border:1px solid var(--border2);">
+              + Add Key
+            </button>
           </div>
 
-          <!-- Section: Judge Configuration -->
-          <div class="eval-section">
-            <div class="eval-section-header">Judge Configuration</div>
-            <div class="field-group">
-              <div class="field-label">Model</div>
-              <input type="text" id="judge-model-input" value="anthropic:claude-sonnet-4-20250514"
-                style="font-family:var(--mono);font-size:12px;">
+          <!-- Accordion -->
+          <div class="accordion">
+
+            <!-- Judge Configuration -->
+            <div class="accordion-item">
+              <button class="accordion-header" :class="{ open: $store.app.judgeConfigOpen }" @click="$store.app.judgeConfigOpen = !$store.app.judgeConfigOpen">
+                <span class="accordion-chevron">&#9654;</span>
+                <span class="accordion-title">Judge Configuration</span>
+                <span class="accordion-meta" x-text="$store.app.judgeModel"></span>
+              </button>
+              <div class="accordion-body" x-show="$store.app.judgeConfigOpen" x-transition.duration.150ms>
+                <div class="field-group" style="margin-bottom:12px;">
+                  <div class="field-label">Judge Model</div>
+                  <div class="typeahead-wrap" @click.outside="$store.app.judgeModelDropdownOpen = false">
+                    <input type="text" class="model-input"
+                           x-model="$store.app.judgeModel"
+                           @focus="$store.app.judgeModelDropdownOpen = true"
+                           @input="$store.app.judgeModelDropdownOpen = true; $store.app.judgeModelHighlightIdx = -1"
+                           @keydown.arrow-down.prevent="$store.app.judgeModelHighlightIdx = Math.min($store.app.judgeModelHighlightIdx + 1, $store.app.judgeModelOptions.length - 1)"
+                           @keydown.arrow-up.prevent="$store.app.judgeModelHighlightIdx = Math.max($store.app.judgeModelHighlightIdx - 1, 0)"
+                           @keydown.enter.prevent="if ($store.app.judgeModelHighlightIdx >= 0) $store.app.selectJudgeModel($store.app.judgeModelOptions[$store.app.judgeModelHighlightIdx])"
+                           @keydown.escape="$store.app.judgeModelDropdownOpen = false"
+                           placeholder="anthropic:claude-sonnet-4-6"
+                           autocomplete="off">
+                    <div class="typeahead-dropdown" :class="{ open: $store.app.judgeModelDropdownOpen && $store.app.judgeModelOptions.length }">
+                      <template x-for="provider in Object.keys($store.app.judgeModelGrouped)" :key="provider">
+                        <div>
+                          <div class="typeahead-group" x-text="provider"></div>
+                          <template x-for="m in $store.app.judgeModelGrouped[provider]" :key="m">
+                            <div class="typeahead-item"
+                                 :class="{ highlighted: $store.app.judgeModelOptions.indexOf(m) === $store.app.judgeModelHighlightIdx }"
+                                 @mousedown.prevent="$store.app.selectJudgeModel(m)"
+                                 x-text="m"></div>
+                          </template>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    Eval Criteria
+                    <button class="btn btn-primary btn-sm" @click="$store.app.generateJudge()" :disabled="$store.app.evalGenerating">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M12 2v4m0 12v4m10-10h-4M6 12H2m15.07-7.07l-2.83 2.83M9.76 14.24l-2.83 2.83m0-10.14l2.83 2.83m4.48 4.48l2.83 2.83"/></svg>
+                      <span x-text="$store.app.evalGenerating ? 'Generating...' : 'Generate from Prompt'"></span>
+                    </button>
+                  </div>
+                  <div class="criteria-display" x-show="$store.app.judgeCriteria && !$store.app.criteriaEditing"
+                       @click="$store.app.criteriaEditing = true; $nextTick(() => $refs.criteriaEditor?.focus())"
+                       x-html="$store.app.formattedCriteria"
+                       title="Click to edit"></div>
+                  <textarea class="msg-input" x-show="$store.app.criteriaEditing || !$store.app.judgeCriteria"
+                            x-model="$store.app.judgeCriteria" rows="6"
+                            @blur="$store.app.criteriaEditing = false"
+                            x-ref="criteriaEditor"
+                            placeholder="Click 'Generate from Prompt' to auto-create eval criteria, or write your own..."
+                            style="font-family:var(--mono);font-size:12px;line-height:1.6;min-height:100px;max-height:250px;resize:vertical;"></textarea>
+                </div>
+                <div class="eval-save-row" x-show="$store.app.evalSettingsDirty" x-transition.duration.150ms>
+                  <button class="btn btn-primary btn-sm" @click="$store.app.saveEvalSettings()">Save Settings</button>
+                </div>
+              </div>
             </div>
 
-            <div class="field-group" style="margin-top:12px;">
-              <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
-                Eval Criteria
-                <button class="btn btn-primary" style="font-size:11px;padding:4px 12px;" onclick="generateJudge()" id="gen-judge-btn">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M12 2v4m0 12v4m10-10h-4M6 12H2m15.07-7.07l-2.83 2.83M9.76 14.24l-2.83 2.83m0-10.14l2.83 2.83m4.48 4.48l2.83 2.83"/></svg>
-                  Generate from Prompt
+            <!-- Test Cases -->
+            <div class="accordion-item">
+              <button class="accordion-header" :class="{ open: $store.app.evalTestCasesOpen }" @click="$store.app.evalTestCasesOpen = !$store.app.evalTestCasesOpen">
+                <span class="accordion-chevron">&#9654;</span>
+                <span class="accordion-title">Test Cases</span>
+                <span class="accordion-meta" x-text="$store.app.testCases.length + ' case' + ($store.app.testCases.length !== 1 ? 's' : '')"></span>
+              </button>
+              <div class="accordion-body" x-show="$store.app.evalTestCasesOpen" x-transition.duration.150ms>
+                <template x-if="!$store.app.testCases.length && !$store.app.evalAddTcOpen">
+                  <div style="font-size:12px;color:var(--muted);padding:8px 0;">
+                    No test cases yet.
+                  </div>
+                </template>
+                <div class="eval-tc-list" x-show="$store.app.testCases.length">
+                  <template x-for="tc in $store.app.testCases" :key="tc.name">
+                    <div class="eval-tc-row">
+                      <span class="eval-tc-name" x-text="tc.name"></span>
+                      <span class="eval-tc-msg" x-text="tc.user_message"></span>
+                      <button class="provider-disconnect" @click="$store.app.deleteTestCaseByName(tc.name)" title="Delete">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
+                  </template>
+                </div>
+                <!-- Inline add test case -->
+                <div x-show="$store.app.evalAddTcOpen" class="eval-add-tc" x-transition.duration.150ms>
+                  <input type="text" placeholder="Test case name" x-model="$store.app.evalAddTcName"
+                         class="input-styled" style="font-size:12px;padding:6px 10px;">
+                  <textarea placeholder="User message" x-model="$store.app.evalAddTcMsg" rows="2"
+                            class="input-styled" style="font-size:12px;padding:6px 10px;resize:vertical;"></textarea>
+                  <div style="display:flex;gap:6px;justify-content:flex-end;">
+                    <button class="btn btn-ghost btn-sm" @click="$store.app.evalAddTcOpen = false" style="font-size:11px;padding:3px 10px;">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @click="$store.app.saveEvalTestCase()" style="font-size:11px;padding:3px 10px;"
+                            :disabled="!$store.app.evalAddTcName.trim() || !$store.app.evalAddTcMsg.trim()">Save</button>
+                  </div>
+                </div>
+                <button class="btn btn-ghost btn-sm" x-show="!$store.app.evalAddTcOpen" @click="$store.app.evalAddTcOpen = true"
+                        style="font-size:11px;padding:4px 10px;margin-top:6px;border:1px solid var(--border2);width:100%;">
+                  + Add Test Case
                 </button>
               </div>
-              <textarea id="judge-criteria" rows="6" placeholder="Click 'Generate from Prompt' to auto-create eval criteria from your system prompt, or write your own..."
-                style="font-family:var(--mono);font-size:12px;line-height:1.5;"></textarea>
             </div>
 
-            <button class="btn btn-ghost" style="align-self:flex-start;margin-top:4px;" onclick="saveEvalSettings()">Save Settings</button>
-          </div>
-
-          <!-- Section: Run Eval -->
-          <div class="eval-section">
-            <div class="eval-section-header">Run Evaluation</div>
-            <button id="run-eval-btn" onclick="runEval()" style="
-              padding:8px 20px; font-size:12.5px; font-weight:600;
-              border-radius:var(--radius-sm); border:1px solid var(--green-border);
-              background:linear-gradient(135deg, rgba(111,207,151,0.12) 0%, rgba(111,207,151,0.04) 100%);
-              color:var(--green); cursor:pointer; font-family:var(--sans);
-              transition:all var(--transition); display:inline-flex; align-items:center;
-              justify-content:center; gap:6px; width:260px; align-self:center;
-            ">Run Eval</button>
-
-            <!-- Eval Results -->
-            <div id="eval-results" style="display:none;margin-top:12px;">
-              <div class="field-label">Latest Result</div>
-              <div id="eval-summary" style="
-                background:var(--surface2); border-radius:var(--radius); padding:16px;
-                display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-top:8px;
-              "></div>
+            <!-- History (above results so you pick a run first) -->
+            <div class="accordion-item" x-show="$store.app.evalHistory.length">
+              <button class="accordion-header" :class="{ open: $store.app.evalHistoryOpen }" @click="$store.app.evalHistoryOpen = !$store.app.evalHistoryOpen">
+                <span class="accordion-chevron">&#9654;</span>
+                <span class="accordion-title">History</span>
+                <span class="accordion-meta" x-text="$store.app.evalHistory.length + ' run' + ($store.app.evalHistory.length !== 1 ? 's' : '')"></span>
+              </button>
+              <div class="accordion-body" x-show="$store.app.evalHistoryOpen" x-transition.duration.150ms>
+                <template x-for="r in $store.app.evalHistory" :key="r.id">
+                  <div class="eval-history-row" @click="$store.app.loadEvalRun(r.id)"
+                       :class="{ active: $store.app.evalResult?.id === r.id }">
+                    <span class="eval-history-date" x-text="new Date(r.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'})"></span>
+                    <span style="color:var(--text2);" x-text="'v' + r.prompt_version"></span>
+                    <span style="font-weight:600;font-family:var(--mono);" :style="'color:' + scoreColor(r.avg_score || 0)" x-text="(r.avg_score || 0).toFixed(1)"></span>
+                    <span style="color:var(--muted);" x-text="r.pass_count + '/' + r.test_case_count + ' passed'"></span>
+                    <span class="eval-history-model" x-text="r.judge_model"></span>
+                  </div>
+                </template>
+              </div>
             </div>
-          </div>
 
-          <!-- Eval History -->
-          <div id="eval-history"></div>
+            <!-- Results (below history — click a run to see details) -->
+            <div class="accordion-item" x-show="$store.app.evalResult">
+              <button class="accordion-header open" @click="$store.app.evalResultsOpen = !$store.app.evalResultsOpen" :class="{ open: $store.app.evalResultsOpen }">
+                <span class="accordion-chevron">&#9654;</span>
+                <span class="accordion-title">Results</span>
+                <span class="accordion-meta">
+                  <span :style="'color:' + scoreColor($store.app.evalResult?.avg_score || 0)"
+                        x-text="($store.app.evalResult?.avg_score || 0).toFixed(1)"></span>
+                  avg &middot;
+                  <span x-text="($store.app.evalResult?.pass_count||0) + '/' + (($store.app.evalResult?.pass_count||0)+($store.app.evalResult?.fail_count||0)) + ' passed'"></span>
+                </span>
+              </button>
+              <div class="accordion-body" x-show="$store.app.evalResultsOpen" x-transition.duration.150ms>
+                <!-- Summary bar -->
+                <div class="eval-results-grid">
+                  <div class="eval-metric">
+                    <div class="eval-metric-label">Avg Score</div>
+                    <div class="eval-metric-value" :style="'color:' + scoreColor($store.app.evalResult?.avg_score || 0)"
+                         x-text="($store.app.evalResult?.avg_score || 0).toFixed(1)"></div>
+                  </div>
+                  <div class="eval-metric">
+                    <div class="eval-metric-label">Pass / Fail</div>
+                    <div class="eval-metric-value" x-text="($store.app.evalResult?.pass_count||0) + ' / ' + ($store.app.evalResult?.fail_count||0)"></div>
+                  </div>
+                  <div class="eval-metric">
+                    <div class="eval-metric-label">Min</div>
+                    <div class="eval-metric-value" x-text="($store.app.evalResult?.min_score || 0).toFixed(1)"></div>
+                  </div>
+                  <div class="eval-metric">
+                    <div class="eval-metric-label">Max</div>
+                    <div class="eval-metric-value" x-text="($store.app.evalResult?.max_score || 0).toFixed(1)"></div>
+                  </div>
+                </div>
+
+                <!-- Per-case breakdown -->
+                <template x-for="(cd, ci) in ($store.app.evalResult?.case_details || [])" :key="ci">
+                  <div class="eval-case-card">
+                    <div class="eval-case-header">
+                      <span class="eval-case-name" x-text="cd.test_case"></span>
+                      <span style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+                        <span class="eval-case-score" :style="'color:' + scoreColor(cd.score || 0)"
+                              x-text="cd.score != null ? cd.score.toFixed(1) : 'ERR'"></span>
+                        <span class="eval-case-badge" :class="cd.score >= 3.5 ? 'badge-pass' : 'badge-fail'"
+                              x-text="cd.error ? 'Error' : (cd.score >= 3.5 ? 'Pass' : 'Fail')"></span>
+                      </span>
+                    </div>
+
+                    <!-- Error -->
+                    <div x-show="cd.error" class="eval-case-error" x-text="cd.error"></div>
+
+                    <!-- Criteria results: each criterion on its own row -->
+                    <template x-if="cd.criteria_results?.length">
+                      <div class="eval-cr-list">
+                        <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
+                          <div class="eval-cr-item" :class="cr.passed ? 'cr-passed' : 'cr-failed'">
+                            <div class="eval-cr-header">
+                              <span class="eval-cr-icon" x-text="cr.passed ? '\u2713' : '\u2717'"></span>
+                              <span class="eval-cr-name" x-text="cr.criterion"></span>
+                            </div>
+                            <div class="eval-cr-note" x-text="cr.note"></div>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+
+                    <!-- Overall judge reasoning -->
+                    <template x-if="cd.reasoning">
+                      <div class="eval-case-reasoning">
+                        <div class="eval-reasoning-label">Judge Reasoning</div>
+                        <div class="eval-reasoning-text" x-text="cd.reasoning"></div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+          </div><!-- /accordion -->
+
+          <!-- Run button -->
+          <button class="btn btn-promote" style="justify-content:center;"
+                  @click="$store.app.runEval()" :disabled="$store.app.evalRunning || !$store.app.testCases.length">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span x-text="$store.app.evalRunning ? 'Running Eval...' : 'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
+          </button>
+
         </div>
       </div>
     </div>
   </div>
 </div>
 
-
-<!-- Save version notes modal -->
-<div id="notes-modal-overlay">
+<!-- ============================================================
+     MODALS
+     ============================================================ -->
+<div id="notes-modal-overlay" :class="{ open: $store.app.notesModalOpen }" @click.self="$store.app.notesModalOpen = false">
   <div id="notes-modal">
-    <h3>Save new version</h3>
+    <h3>Save New Version</h3>
     <div class="field-group">
-      <div class="field-label">notes <span style="text-transform:none;font-weight:400;letter-spacing:0;">(optional)</span></div>
-      <input type="text" id="save-notes" placeholder="What changed in this version?">
+      <div class="field-label">Notes <span style="text-transform:none;font-weight:400;letter-spacing:0;">(optional)</span></div>
+      <input type="text" x-model="$store.app.saveNotes" placeholder="What changed in this version?"
+             @keydown.enter="$store.app.confirmSaveVersion()">
     </div>
     <div style="display:flex;gap:8px;margin-top:4px;">
-      <button class="btn btn-ghost" style="flex:1;" onclick="closeNotesModal()">cancel</button>
-      <button class="btn btn-primary" style="flex:2;" onclick="confirmSaveVersion()">save version</button>
+      <button class="btn btn-ghost" style="flex:1;" @click="$store.app.notesModalOpen = false">Cancel</button>
+      <button class="btn btn-primary" style="flex:2;" @click="$store.app.confirmSaveVersion()">Save Version</button>
     </div>
   </div>
 </div>
 
-<!-- Confirm modal -->
-<div id="confirm-overlay">
+<div id="confirm-overlay" :class="{ open: $store.app.confirmOpen }" @click.self="$store.app.resolveConfirm(false)">
   <div id="confirm-modal">
-    <p id="confirm-msg"></p>
+    <p x-text="$store.app.confirmMsg"></p>
     <div class="confirm-actions">
-      <button class="btn-cancel" onclick="resolveConfirm(false)">cancel</button>
-      <button class="btn-confirm" id="confirm-ok-btn" onclick="resolveConfirm(true)">confirm</button>
+      <button class="btn-cancel" @click="$store.app.resolveConfirm(false)">Cancel</button>
+      <button class="btn-confirm" :class="{ destructive: $store.app.confirmDestructive }"
+              @click="$store.app.resolveConfirm(true)"
+              x-text="$store.app.confirmDestructive ? 'Delete' : 'Confirm'"></button>
     </div>
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast"></div>
 
+<!-- Panel resize (vanilla JS) -->
 <script>
-const BASE = window.location.pathname.replace(/\/+$/, '');
-let currentAgent = null;
-let currentVersionId = null;
-let currentVersion = null;
-let agents = [];
-let versions = [];
-let testCases = [];
-let originalPrompt = '';
-let isDirty = false;
-let availableModels = [];
-let highlightedModelIdx = -1;
-
-// ----------------------------------------------------------------
-// Confirm modal (replaces native confirm())
-// ----------------------------------------------------------------
-let _confirmResolve = null;
-function showConfirm(msg, {destructive = false} = {}) {
-  document.getElementById('confirm-msg').textContent = msg;
-  const btn = document.getElementById('confirm-ok-btn');
-  btn.className = destructive ? 'btn-confirm destructive' : 'btn-confirm';
-  btn.textContent = destructive ? 'delete' : 'confirm';
-  document.getElementById('confirm-overlay').classList.add('open');
-  btn.focus();
-  return new Promise(r => { _confirmResolve = r; });
-}
-function resolveConfirm(val) {
-  document.getElementById('confirm-overlay').classList.remove('open');
-  if (_confirmResolve) { _confirmResolve(val); _confirmResolve = null; }
-}
-document.getElementById('confirm-overlay').addEventListener('click', e => {
-  if (e.target === document.getElementById('confirm-overlay')) resolveConfirm(false);
-});
-
-// ----------------------------------------------------------------
-// Model typeahead
-// ----------------------------------------------------------------
-function initModelTypeahead() {
-  const input = document.getElementById('model-input');
-  const dropdown = document.getElementById('model-dropdown');
-
-  input.addEventListener('focus', () => renderModelDropdown(input.value));
-  input.addEventListener('input', () => renderModelDropdown(input.value));
-  input.addEventListener('keydown', (e) => {
-    const items = dropdown.querySelectorAll('.typeahead-item');
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      highlightedModelIdx = Math.min(highlightedModelIdx + 1, items.length - 1);
-      updateHighlight(items);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      highlightedModelIdx = Math.max(highlightedModelIdx - 1, 0);
-      updateHighlight(items);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (highlightedModelIdx >= 0 && items[highlightedModelIdx]) {
-        input.value = items[highlightedModelIdx].dataset.model;
-        closeModelDropdown();
-      }
-    } else if (e.key === 'Escape') {
-      closeModelDropdown();
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('#model-typeahead')) closeModelDropdown();
-    if (!e.target.closest('#tc-dropdown-wrap')) closeTcDropdown();
-  });
-}
-
-function renderModelDropdown(query) {
-  const dropdown = document.getElementById('model-dropdown');
-  const q = (query || '').toLowerCase().trim();
-  const filtered = availableModels.filter(m => !q || m.toLowerCase().includes(q));
-
-  if (!filtered.length) {
-    dropdown.innerHTML = q
-      ? `<div class="typeahead-empty">No matching models</div>`
-      : `<div class="typeahead-empty">No models available</div>`;
-    dropdown.classList.add('open');
-    highlightedModelIdx = -1;
-    return;
-  }
-
-  // Group by provider
-  const groups = {};
-  for (const m of filtered) {
-    let provider = 'other';
-    if (m.startsWith('gpt-') || m.startsWith('o3') || m.startsWith('o4')) provider = 'openai';
-    else if (m.startsWith('claude-')) provider = 'anthropic';
-    else if (m.startsWith('gemini-')) provider = 'google';
-    if (!groups[provider]) groups[provider] = [];
-    groups[provider].push(m);
-  }
-
-  let html = '';
-  const order = ['openai', 'anthropic', 'google', 'other'];
-  for (const p of order) {
-    if (!groups[p]) continue;
-    html += `<div class="typeahead-group">${p}</div>`;
-    for (const m of groups[p]) {
-      html += `<div class="typeahead-item" data-model="${m}" onmousedown="selectModel('${m}')">${m}</div>`;
-    }
-  }
-
-  dropdown.innerHTML = html;
-  dropdown.classList.add('open');
-  highlightedModelIdx = -1;
-}
-
-function updateHighlight(items) {
-  items.forEach((el, i) => el.classList.toggle('highlighted', i === highlightedModelIdx));
-  if (items[highlightedModelIdx]) items[highlightedModelIdx].scrollIntoView({ block: 'nearest' });
-}
-
-function selectModel(name) {
-  document.getElementById('model-input').value = name;
-  closeModelDropdown();
-}
-
-function closeModelDropdown() {
-  document.getElementById('model-dropdown').classList.remove('open');
-  highlightedModelIdx = -1;
-}
-
-async function loadModels() {
-  if (!currentAgent) return;
-  try {
-    const data = await api(`/api/agents/${encodeURIComponent(currentAgent)}/models`);
-    availableModels = data.all || [];
-    const input = document.getElementById('model-input');
-    if (data.detected) {
-      input.placeholder = data.detected + ' (detected)';
-    } else {
-      input.placeholder = 'default (auto)';
-    }
-  } catch(e) {
-    availableModels = [];
-  }
-}
-
-// ----------------------------------------------------------------
-// Init
-// ----------------------------------------------------------------
-async function init() {
-  try {
-    agents = await api('/api/agents');
-  } catch(e) {
-    document.getElementById('agent-list').innerHTML =
-      '<div class="empty-state" style="padding:20px;font-size:12px;">Failed to load agents</div>';
-    return;
-  }
-  if (!agents.length) {
-    document.getElementById('agent-list').innerHTML =
-      '<div class="empty-state" style="padding:20px;font-size:12px;">No agents registered yet.<br><span style="color:var(--muted)">Add @biscotti to your agent functions.</span></div>';
-    return;
-  }
-  renderAgentList();
-  initModelTypeahead();
-  await selectAgent(agents[0].name);
-}
-
-// ----------------------------------------------------------------
-// Agent sidebar
-// ----------------------------------------------------------------
-function renderAgentList() {
-  const container = document.getElementById('agent-list');
-  container.innerHTML = '';
-  agents.forEach(a => {
-    const btn = document.createElement('button');
-    btn.className = 'agent-item' + (a.name === currentAgent ? ' active' : '');
-    const initials = a.name.split(/[\s_-]+/).map(w => w[0]).join('').slice(0, 2);
-    btn.innerHTML = `<span class="agent-avatar">${escHtml(initials)}</span>` +
-      `<span class="agent-name">${escHtml(a.name)}</span>` +
-      (a.description ? `<span class="agent-desc">${escHtml(a.description)}</span>` : '');
-    btn.onclick = () => selectAgent(a.name);
-    container.appendChild(btn);
-  });
-}
-
-async function selectAgent(name) {
-  currentAgent = name;
-  document.getElementById('toolbar-title').textContent = name;
-  document.querySelectorAll('.agent-item').forEach(t => {
-    t.classList.toggle('active', t.querySelector('.agent-name')?.textContent === name);
-  });
-
-  await Promise.all([
-    loadVersions(),
-    loadTestCases(),
-    loadModels(),
-  ]);
-
-  const cur = versions.find(v => v.status === 'current');
-  if (cur) {
-    await loadVersion(cur.id);
-  } else if (versions.length) {
-    await loadVersion(versions[0].id);
-  } else {
-    const meta = await api(`/api/agents/${encodeURIComponent(name)}`);
-    document.getElementById('prompt-editor').value = meta.default_system_prompt || '';
-    originalPrompt = document.getElementById('prompt-editor').value;
-    detectVariables();
-  }
-
-  setDirty(false);
-}
-
-// ----------------------------------------------------------------
-// Versions
-// ----------------------------------------------------------------
-async function loadVersions() {
-  versions = await api(`/api/agents/${encodeURIComponent(currentAgent)}/versions`);
-  renderVersionSelect();
-  renderVersionsPanel();
-}
-
-function renderVersionSelect() {
-  const sel = document.getElementById('version-select');
-  const badge = document.getElementById('current-badge');
-  sel.style.display = versions.length ? 'block' : 'none';
-  sel.innerHTML = '';
-  versions.forEach(v => {
-    const opt = document.createElement('option');
-    opt.value = v.id;
-    opt.textContent = `v${v.version} \u00b7 ${v.status}`;
-    if (v.id === currentVersionId) opt.selected = true;
-    sel.appendChild(opt);
-  });
-  sel.onchange = () => loadVersion(parseInt(sel.value));
-
-  const cur = versions.find(v => v.status === 'current');
-  badge.style.display = cur ? 'inline-block' : 'none';
-}
-
-async function loadVersion(id) {
-  const pv = versions.find(v => v.id === id) || await api(`/api/agents/${encodeURIComponent(currentAgent)}/versions/${id}`);
-  currentVersionId = pv.id;
-  currentVersion = pv;
-  document.getElementById('prompt-editor').value = pv.system_prompt;
-  originalPrompt = pv.system_prompt;
-  document.getElementById('version-select').value = id;
-  detectVariables();
-  setDirty(false);
-
-  updateTokenEstimate();
-}
-
-function renderVersionsPanel() {
-  const container = document.getElementById('versions-list');
-  if (!versions.length) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div><div class="empty-title">No versions saved yet</div></div>';
-    return;
-  }
-  container.innerHTML = '';
-  versions.forEach((v, i) => {
-    const card = document.createElement('div');
-    card.className = 'version-card' + (v.id === currentVersionId ? ' selected' : '');
-    card.style.animation = `slideUp 0.2s ease ${i * 0.03}s both`;
-    card.innerHTML = `
-      <div class="version-card-top">
-        <span class="version-num">v${v.version}</span>
-        <span class="version-status status-${v.status}">${v.status}</span>
-        <span style="margin-left:auto;display:flex;gap:4px;">
-          ${v.status !== 'current' ? `<button class="btn btn-sm btn-promote" onclick="event.stopPropagation();promoteVersionById(${v.id})">set as current</button>` : ''}
-          ${v.status !== 'current' ? `<button class="tc-icon-btn delete" onclick="event.stopPropagation();deleteVersion(${v.id})" title="Delete version"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
-        </span>
-      </div>
-      <div class="version-notes">${v.notes || '<em style="color:var(--muted)">no notes</em>'}</div>
-      <div class="version-meta">${formatDate(v.created_at)} &middot; ${v.created_by}</div>
-      <div class="version-prompt-preview">${escHtml(v.system_prompt.substring(0, 100))}&hellip;</div>
-    `;
-    card.onclick = () => { loadVersion(v.id); switchTab('run', document.querySelector('.tab-btn')); };
-    container.appendChild(card);
-  });
-}
-
-async function saveVersion() {
-  const prompt = document.getElementById('prompt-editor').value.trim();
-  if (!prompt) { toast('Prompt cannot be empty', 'error'); return; }
-  document.getElementById('save-notes').value = '';
-  document.getElementById('notes-modal-overlay').classList.add('open');
-  document.getElementById('save-notes').focus();
-}
-
-function closeNotesModal() {
-  document.getElementById('notes-modal-overlay').classList.remove('open');
-}
-
-async function confirmSaveVersion() {
-  const prompt = document.getElementById('prompt-editor').value.trim();
-  const notes = document.getElementById('save-notes').value.trim();
-  closeNotesModal();
-  try {
-    const pv = await api(`/api/agents/${encodeURIComponent(currentAgent)}/versions`, 'POST', {
-      agent_name: currentAgent,
-      system_prompt: prompt,
-      notes,
-      created_by: 'user',
-    });
-    await loadVersions();
-    await loadVersion(pv.id);
-    toast(`Saved as v${pv.version}`, 'success');
-  } catch(e) {
-    toast('Failed to save: ' + e.message, 'error');
-  }
-}
-
-async function promoteVersion() {
-  if (!currentVersionId) { toast('No version loaded', 'error'); return; }
-  if (!await showConfirm('Set this version as current? The previous current version will be archived.')) return;
-  await api(`/api/agents/${encodeURIComponent(currentAgent)}/versions/${currentVersionId}/promote`, 'POST');
-  await loadVersions();
-  if (currentVersion) currentVersion.status = 'current';
-  updatePromoteVisibility();
-  toast('Set as current', 'success');
-}
-
-async function promoteVersionById(id) {
-  if (!await showConfirm('Set this version as current?')) return;
-  await api(`/api/agents/${encodeURIComponent(currentAgent)}/versions/${id}/promote`, 'POST');
-  await loadVersions();
-  toast('Set as current', 'success');
-}
-
-async function deleteVersion(id) {
-  if (!await showConfirm('Delete this version? This cannot be undone.', {destructive: true})) return;
-  try {
-    await api(`/api/agents/${encodeURIComponent(currentAgent)}/versions/${id}`, 'DELETE');
-    await loadVersions();
-    // If we deleted the currently loaded version, load the latest
-    if (currentVersionId === id && versions.length) {
-      await loadVersion(versions[0].id);
-    }
-    toast('Version deleted', 'success');
-  } catch(e) {
-    toast(e.message || 'Failed to delete', 'error');
-  }
-}
-
-function discardChanges() {
-  document.getElementById('prompt-editor').value = originalPrompt;
-  setDirty(false);
-
-}
-
-// ----------------------------------------------------------------
-// Variables
-// ----------------------------------------------------------------
-function detectVariables() {
-  const editor = document.getElementById('prompt-editor');
-  const text = editor.value;
-  const vars = [...new Set([...text.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]))];
-  updateBackdrop(text);
-  renderVarInputs(vars);
-}
-
-function updateBackdrop(text) {
-  const backdrop = document.getElementById('prompt-backdrop');
-  if (!text) { backdrop.innerHTML = ''; return; }
-  // Escape HTML, then wrap {{var}} tokens
-  const html = escHtml(text).replace(/\{\{(\w+)\}\}/g, '<span class="var-token">{{$1}}</span>');
-  backdrop.innerHTML = html;
-}
-
-// Sync scroll between textarea and backdrop
-document.getElementById('prompt-editor').addEventListener('scroll', function() {
-  const backdrop = document.getElementById('prompt-backdrop');
-  backdrop.scrollTop = this.scrollTop;
-  backdrop.scrollLeft = this.scrollLeft;
-});
-
-function renderVarInputs(vars) {
-  const section = document.getElementById('var-section');
-  const container = document.getElementById('var-inputs');
-  container.innerHTML = '';
-  if (!vars.length) { section.style.display = 'none'; return; }
-  section.style.display = 'block';
-  vars.forEach(v => {
-    const row = document.createElement('div');
-    row.className = 'var-row';
-    row.innerHTML = `<span class="var-key">{{${v}}}</span><input type="text" placeholder="value for ${v}" data-var="${v}">`;
-    container.appendChild(row);
-  });
-}
-
-// ----------------------------------------------------------------
-// Dirty state & diff
-// ----------------------------------------------------------------
-// ----------------------------------------------------------------
-// Live token estimation (~4 chars per token heuristic)
-// ----------------------------------------------------------------
-function estimateTokens(text) {
-  if (!text || !text.trim()) return 0;
-  return Math.ceil(text.length / 4);
-}
-
-function updateTokenEstimate() {
-  const prompt = document.getElementById('prompt-editor').value || '';
-  const msg = document.getElementById('user-message').value || '';
-  const promptTok = estimateTokens(prompt);
-  const msgTok = estimateTokens(msg);
-  document.getElementById('prompt-token-count').textContent = promptTok.toLocaleString();
-  document.getElementById('msg-token-count').textContent = msgTok.toLocaleString();
-}
-
-document.getElementById('prompt-editor').addEventListener('input', () => {
-  const current = document.getElementById('prompt-editor').value;
-  setDirty(current !== originalPrompt);
-  detectVariables();
-
-  updateTokenEstimate();
-});
-
-document.getElementById('user-message').addEventListener('input', function() {
-  updateTokenEstimate();
-  autoGrow(this);
-});
-
-function autoGrow(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 200) + 'px';
-}
-
-let diffViewActive = false;
-
-function setDirty(dirty) {
-  isDirty = dirty;
-  const ind = document.getElementById('unsaved-indicator');
-  ind.style.display = dirty ? 'flex' : 'none';
-  // Show/hide diff toggle button
-  document.getElementById('diff-toggle').style.display = dirty ? 'inline-block' : 'none';
-  // Save is always visible but disabled when clean; discard only shows when dirty
-  document.getElementById('btn-save').disabled = !dirty;
-  document.getElementById('btn-discard').style.display = dirty ? 'inline-flex' : 'none';
-  updatePromoteVisibility();
-  if (!dirty && diffViewActive) toggleDiffView(); // close diff if no longer dirty
-}
-
-function updatePromoteVisibility() {
-  const isCurrent = currentVersion && currentVersion.status === 'current';
-  document.getElementById('btn-promote').style.display = (!isDirty && currentVersionId && !isCurrent) ? 'inline-flex' : 'none';
-}
-
-function toggleDiffView() {
-  diffViewActive = !diffViewActive;
-  const overlay = document.getElementById('diff-overlay');
-  const btn = document.getElementById('diff-toggle');
-  const editor = document.getElementById('prompt-editor');
-  const backdrop = document.getElementById('prompt-backdrop');
-
-  btn.classList.toggle('active', diffViewActive);
-  overlay.classList.toggle('visible', diffViewActive);
-  editor.style.visibility = diffViewActive ? 'hidden' : 'visible';
-  backdrop.style.visibility = diffViewActive ? 'hidden' : 'visible';
-
-  if (diffViewActive) renderDiff();
-}
-
-function renderDiff() {
-  const overlay = document.getElementById('diff-overlay');
-  const oldLines = originalPrompt.split('\n');
-  const newLines = document.getElementById('prompt-editor').value.split('\n');
-
-  // Simple line-by-line diff
-  let html = '';
-  const maxLen = Math.max(oldLines.length, newLines.length);
-  for (let i = 0; i < maxLen; i++) {
-    const o = oldLines[i], n = newLines[i];
-    if (o === n) {
-      if (o !== undefined) html += `<div class="diff-line ctx">${escHtml(o) || '&nbsp;'}</div>`;
-    } else {
-      if (o !== undefined) html += `<div class="diff-line removed">${escHtml(o) || '&nbsp;'}</div>`;
-      if (n !== undefined) html += `<div class="diff-line added">${escHtml(n) || '&nbsp;'}</div>`;
-    }
-  }
-  overlay.innerHTML = html;
-}
-
-
-// ----------------------------------------------------------------
-// Test cases
-// ----------------------------------------------------------------
-async function loadTestCases() {
-  testCases = await api(`/api/agents/${encodeURIComponent(currentAgent)}/test-cases`);
-  renderTestCaseRow();
-}
-
-let selectedTestCase = '';
-
-function renderTestCaseRow() {
-  renderTcDropdownItems();
-  document.getElementById('tc-delete-btn').style.display = selectedTestCase ? 'flex' : 'none';
-}
-
-function renderTcDropdownItems() {
-  const dropdown = document.getElementById('tc-dropdown');
-  let html = '<div class="tc-dropdown-item none-opt' + (!selectedTestCase ? ' selected' : '') + '" onclick="selectTestCase(\'\')">none</div>';
-  testCases.forEach(tc => {
-    html += `<div class="tc-dropdown-item${tc.name === selectedTestCase ? ' selected' : ''}" onclick="selectTestCase('${escHtml(tc.name)}')">${escHtml(tc.name)}</div>`;
-  });
-  dropdown.innerHTML = html;
-  updateTcTriggerLabel();
-}
-
-function updateTcTriggerLabel() {
-  const label = document.getElementById('tc-trigger-label');
-  if (selectedTestCase) {
-    label.textContent = selectedTestCase;
-    label.className = 'tc-trigger-label';
-  } else {
-    label.textContent = 'none';
-    label.className = 'tc-trigger-label placeholder';
-  }
-}
-
-function toggleTcDropdown() {
-  const trigger = document.getElementById('tc-trigger');
-  const dropdown = document.getElementById('tc-dropdown');
-  const isOpen = dropdown.classList.contains('open');
-  if (isOpen) {
-    closeTcDropdown();
-  } else {
-    trigger.classList.add('open');
-    dropdown.classList.add('open');
-  }
-}
-
-function closeTcDropdown() {
-  document.getElementById('tc-trigger').classList.remove('open');
-  document.getElementById('tc-dropdown').classList.remove('open');
-}
-
-function selectTestCase(name) {
-  selectedTestCase = name;
-  closeTcDropdown();
-  updateTcTriggerLabel();
-  document.getElementById('tc-delete-btn').style.display = name ? 'flex' : 'none';
-  if (name) {
-    const tc = testCases.find(t => t.name === name);
-    if (tc) loadTestCase(tc);
-  }
-  renderTcDropdownItems();
-}
-
-function loadTestCase(tc) {
-  document.getElementById('user-message').value = tc.user_message;
-  const msgEl = document.getElementById('user-message');
-  msgEl.style.height = 'auto';
-  msgEl.style.height = msgEl.scrollHeight + 'px';
-  Object.entries(tc.variable_values || {}).forEach(([k, v]) => {
-    const inp = document.querySelector(`input[data-var="${k}"]`);
-    if (inp) inp.value = v;
-  });
-  updateTokenEstimate();
-}
-
-async function deleteSelectedTestCase() {
-  if (!selectedTestCase) return;
-  await api(`/api/agents/${encodeURIComponent(currentAgent)}/test-cases/${encodeURIComponent(selectedTestCase)}`, 'DELETE');
-  selectedTestCase = '';
-  await loadTestCases();
-  toast('Test case deleted', 'success');
-}
-
-function startSaveTestCase() {
-  const row = document.getElementById('tc-inline-save');
-  row.style.display = 'flex';
-  const inp = document.getElementById('tc-name');
-  inp.value = '';
-  setTimeout(() => inp.focus(), 50);
-}
-function cancelSaveTestCase() {
-  document.getElementById('tc-inline-save').style.display = 'none';
-}
-async function confirmSaveTestCase() {
-  const name = document.getElementById('tc-name').value.trim();
-  if (!name) { toast('Give it a name', 'error'); return; }
-  const msg = document.getElementById('user-message').value.trim();
-  // Capture current variable values from the form
-  const varValues = {};
-  document.querySelectorAll('#var-inputs input[data-var]').forEach(inp => {
-    if (inp.value.trim()) varValues[inp.dataset.var] = inp.value.trim();
-  });
-  await api(`/api/agents/${encodeURIComponent(currentAgent)}/test-cases`, 'POST', {
-    agent_name: currentAgent,
-    name,
-    user_message: msg,
-    variable_values: varValues,
-  });
-  cancelSaveTestCase();
-  await loadTestCases();
-  toast('Test case saved', 'success');
-}
-
-// ----------------------------------------------------------------
-// Model settings
-// ----------------------------------------------------------------
-let selectedReasoningEffort = null;
-
-function toggleSettings() {
-  const toggle = document.getElementById('settings-toggle');
-  const body = document.getElementById('settings-body');
-  toggle.classList.toggle('open');
-  body.classList.toggle('open');
-}
-
-function stepTemp(delta) {
-  const inp = document.getElementById('temp-input');
-  let val = Math.round((parseFloat(inp.value || 0) + delta) * 10) / 10;
-  val = Math.max(0, Math.min(2, val));
-  inp.value = val;
-}
-
-function setEffort(level, btn) {
-  selectedReasoningEffort = level;
-  document.querySelectorAll('.effort-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-}
-
-function getModelSettings() {
-  const model = document.getElementById('model-input').value.trim() || null;
-  const temp = parseFloat(document.getElementById('temp-input').value);
-  const effort = selectedReasoningEffort;
-  return { model, temperature: temp, reasoning_effort: effort };
-}
-
-// ----------------------------------------------------------------
-// Sidebar collapse
-// ----------------------------------------------------------------
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('collapsed');
-}
-
-// ----------------------------------------------------------------
-// Panel resize
-// ----------------------------------------------------------------
-(function initPanelResize() {
+(function() {
   const handle = document.getElementById('panel-resize-handle');
   const editor = document.getElementById('editor-panel');
   const right = document.getElementById('right-panel');
   const panels = document.getElementById('panels');
   let dragging = false;
-
-  handle.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    dragging = true;
-    handle.classList.add('dragging');
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    const rect = panels.getBoundingClientRect();
-    const offset = e.clientX - rect.left;
-    const total = rect.width;
-    const pct = Math.max(20, Math.min(80, (offset / total) * 100));
-    editor.style.flex = 'none';
-    editor.style.width = pct + '%';
-    right.style.flex = 'none';
-    right.style.width = (100 - pct) + '%';
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    handle.classList.remove('dragging');
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-  });
+  handle.addEventListener('mousedown', e => { e.preventDefault(); dragging = true; handle.classList.add('dragging'); document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; });
+  document.addEventListener('mousemove', e => { if (!dragging) return; const r = panels.getBoundingClientRect(); const p = Math.max(20, Math.min(80, ((e.clientX - r.left) / r.width) * 100)); editor.style.flex = 'none'; editor.style.width = p + '%'; right.style.flex = 'none'; right.style.width = (100 - p) + '%'; });
+  document.addEventListener('mouseup', () => { if (!dragging) return; dragging = false; handle.classList.remove('dragging'); document.body.style.cursor = ''; document.body.style.userSelect = ''; });
+  document.addEventListener('scroll', e => { if (e.target.id === 'prompt-editor') { document.getElementById('prompt-backdrop').scrollTop = e.target.scrollTop; } }, true);
 })();
-
-function formatCost(cost) {
-  if (cost === null || cost === undefined) return '\u2014';
-  if (cost < 0.001) return '<$0.001';
-  if (cost < 0.01) return '$' + cost.toFixed(4);
-  return '$' + cost.toFixed(3);
-}
-
-// ----------------------------------------------------------------
-// Run
-// ----------------------------------------------------------------
-async function runTest() {
-  const userMsg = document.getElementById('user-message').value.trim();
-  if (!userMsg) { toast('Enter a user message first', 'error'); return; }
-
-  const varInputs = document.querySelectorAll('#var-inputs input[data-var]');
-  const varValues = {};
-  varInputs.forEach(inp => { varValues[inp.dataset.var] = inp.value; });
-
-  const settings = getModelSettings();
-
-  const btn = document.getElementById('run-btn');
-  const inner = document.getElementById('run-btn-inner');
-  btn.classList.add('running');
-  inner.innerHTML = '<span class="spinner"></span> running\u2026';
-
-  const outBox = document.getElementById('output-box');
-  outBox.className = '';
-  outBox.textContent = '';
-
-  try {
-    const body = {
-      agent_name: currentAgent,
-      prompt_version_id: currentVersionId || null,
-      user_message: userMsg,
-      variable_values: varValues,
-    };
-    if (settings.model) body.model = settings.model;
-    if (settings.temperature !== null) body.temperature = settings.temperature;
-    if (settings.reasoning_effort) body.reasoning_effort = settings.reasoning_effort;
-
-    const result = await api('/api/run', 'POST', body);
-
-    if (result.outcome === 'error') {
-      outBox.className = 'error';
-      outBox.textContent = result.error_message || 'An error occurred.';
-    } else {
-      outBox.className = 'success';
-      outBox.textContent = result.output;
-    }
-
-    document.getElementById('metrics').style.display = 'grid';
-    const latEl = document.getElementById('m-latency');
-    const tokEl = document.getElementById('m-tokens');
-    const tokBreak = document.getElementById('m-tokens-breakdown');
-    const modelEl = document.getElementById('m-model');
-    latEl.textContent = result.latency_ms + 'ms';
-    latEl.className = 'metric-value ' + (result.latency_ms < 2000 ? 'good' : 'warn');
-    const inTok = result.input_tokens || 0;
-    const outTok = result.output_tokens || 0;
-    const totalTok = inTok + outTok;
-    tokEl.textContent = totalTok ? totalTok.toLocaleString() : '\u2014';
-    tokEl.className = 'metric-value ' + (totalTok ? 'good' : 'na');
-    tokBreak.textContent = totalTok ? `${inTok.toLocaleString()} in \u00b7 ${outTok.toLocaleString()} out` : '';
-    const modelName = result.model_used && result.model_used !== 'unknown' ? result.model_used : null;
-    modelEl.textContent = modelName || '\u2014';
-    modelEl.className = 'metric-value ' + (modelName ? '' : 'na');
-    modelEl.style.fontSize = modelName && modelName.length > 12 ? '11px' : '17px';
-
-  } catch(e) {
-    outBox.className = 'error';
-    outBox.textContent = 'Request failed: ' + e.message;
-  } finally {
-    btn.classList.remove('running');
-    inner.textContent = 'run test';
-  }
-}
-
-// ----------------------------------------------------------------
-// History
-// ----------------------------------------------------------------
-// ----------------------------------------------------------------
-// Tab switching
-// ----------------------------------------------------------------
-function switchTab(name, btn) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('panel-' + name).classList.add('active');
-  if (name === 'versions') renderVersionsPanel();
-  if (name === 'evals') { loadEvalSettings(); loadEvalHistory(); }
-}
-
-// ----------------------------------------------------------------
-// Evals
-// ----------------------------------------------------------------
-
-async function submitApiKey() {
-  const key = document.getElementById('api-key-input').value.trim();
-  const provider = document.getElementById('api-key-provider').value;
-  if (!key) { toast('Enter an API key', 'error'); return; }
-  try {
-    await api('/api/settings/api-key', 'POST', { provider, key });
-    document.getElementById('api-key-input').value = '';
-    toast(`${provider} key set`, 'success');
-    await loadEvalSettings();
-  } catch(e) {
-    toast('Failed: ' + e.message, 'error');
-  }
-}
-
-async function loadEvalSettings() {
-  if (!currentAgent) return;
-  try {
-    const s = await api(`/api/agents/${encodeURIComponent(currentAgent)}/settings`);
-    document.getElementById('judge-model-input').value = s.judge_model || 'anthropic:claude-sonnet-4-20250514';
-    document.getElementById('judge-criteria').value = s.judge_criteria || '';
-
-    const status = await api('/api/settings/status');
-    const el = document.getElementById('api-key-status');
-    el.innerHTML = Object.entries(status).map(([provider, ok]) =>
-      `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:${ok ? 'var(--green)' : 'var(--text2)'};">
-        <span style="width:8px;height:8px;border-radius:50%;background:${ok ? 'var(--green)' : 'var(--red)'};display:inline-block;opacity:${ok ? '1' : '0.6'};"></span>
-        ${provider.charAt(0).toUpperCase() + provider.slice(1)}
-        <span style="font-size:10.5px;color:var(--muted);">${ok ? 'connected' : 'no key'}</span>
-      </span>`
-    ).join('');
-  } catch(e) { /* ignore on first load */ }
-}
-
-async function saveEvalSettings() {
-  if (!currentAgent) return;
-  try {
-    await api(`/api/agents/${encodeURIComponent(currentAgent)}/settings`, 'PUT', {
-      judge_model: document.getElementById('judge-model-input').value,
-      judge_criteria: document.getElementById('judge-criteria').value,
-    });
-    toast('Settings saved', 'success');
-  } catch(e) {
-    toast('Failed to save: ' + e.message, 'error');
-  }
-}
-
-async function generateJudge() {
-  if (!currentAgent) return;
-  const btn = document.getElementById('gen-judge-btn');
-  btn.textContent = 'generating...';
-  btn.disabled = true;
-  try {
-    await saveEvalSettings();
-    const result = await api(`/api/agents/${encodeURIComponent(currentAgent)}/generate-judge`, 'POST');
-    document.getElementById('judge-criteria').value = result.criteria;
-    toast('Judge criteria generated', 'success');
-  } catch(e) {
-    toast('Failed: ' + e.message, 'error');
-  } finally {
-    btn.textContent = 'generate from prompt';
-    btn.disabled = false;
-  }
-}
-
-async function runEval() {
-  if (!currentAgent) return;
-  const criteria = document.getElementById('judge-criteria').value.trim();
-  if (!criteria) {
-    toast('Set judge criteria first', 'error');
-    return;
-  }
-
-  const btn = document.getElementById('run-eval-btn');
-  btn.textContent = 'running eval...';
-  btn.style.opacity = '0.6';
-  btn.disabled = true;
-
-  try {
-    await saveEvalSettings();
-    const result = await api(`/api/agents/${encodeURIComponent(currentAgent)}/eval`, 'POST', {
-      prompt_version_id: currentVersionId || null,
-    });
-    displayEvalResult(result);
-    await loadEvalHistory();
-    toast('Eval complete', 'success');
-  } catch(e) {
-    toast('Eval failed: ' + e.message, 'error');
-  } finally {
-    btn.textContent = 'run eval';
-    btn.style.opacity = '1';
-    btn.disabled = false;
-  }
-}
-
-function displayEvalResult(er) {
-  const container = document.getElementById('eval-results');
-  container.style.display = 'block';
-
-  const summary = document.getElementById('eval-summary');
-  const scoreColor = (er.avg_score || 0) >= 3.5 ? 'var(--green)' : (er.avg_score || 0) >= 2.5 ? 'var(--amber)' : 'var(--red)';
-
-  summary.innerHTML = `
-    <div style="text-align:center;">
-      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">avg score</div>
-      <div style="font-size:24px;font-weight:700;color:${scoreColor};font-family:var(--mono);">${(er.avg_score || 0).toFixed(1)}</div>
-    </div>
-    <div style="text-align:center;">
-      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">pass / fail</div>
-      <div style="font-size:18px;font-weight:600;color:var(--text);font-family:var(--mono);">${er.pass_count} / ${er.fail_count}</div>
-    </div>
-    <div style="text-align:center;">
-      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">min</div>
-      <div style="font-size:18px;font-weight:600;color:var(--text);font-family:var(--mono);">${(er.min_score || 0).toFixed(1)}</div>
-    </div>
-    <div style="text-align:center;">
-      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">max</div>
-      <div style="font-size:18px;font-weight:600;color:var(--text);font-family:var(--mono);">${(er.max_score || 0).toFixed(1)}</div>
-    </div>
-  `;
-}
-
-async function loadEvalHistory() {
-  if (!currentAgent) return;
-  try {
-    const runs = await api(`/api/agents/${encodeURIComponent(currentAgent)}/evals`);
-    const el = document.getElementById('eval-history');
-    if (!runs.length) { el.innerHTML = ''; return; }
-
-    el.innerHTML = `
-      <div class="field-label" style="margin-top:8px;">eval history</div>
-      ${runs.map(r => {
-        const scoreColor = (r.avg_score || 0) >= 3.5 ? 'var(--green)' : (r.avg_score || 0) >= 2.5 ? 'var(--amber)' : 'var(--red)';
-        const date = new Date(r.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'});
-        return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
-          <span style="color:var(--muted);min-width:60px;">${date}</span>
-          <span style="color:var(--text2);">v${r.prompt_version}</span>
-          <span style="color:${scoreColor};font-weight:600;font-family:var(--mono);">${(r.avg_score || 0).toFixed(1)}</span>
-          <span style="color:var(--muted);">${r.pass_count}/${r.test_case_count} passed</span>
-          <span style="color:var(--muted);font-size:11px;margin-left:auto;">${r.judge_model}</span>
-        </div>`;
-      }).join('')}
-    `;
-  } catch(e) { /* ignore */ }
-}
-
-// ----------------------------------------------------------------
-// Keyboard shortcuts
-// ----------------------------------------------------------------
-document.addEventListener('keydown', (e) => {
-  // Cmd/Ctrl+Enter to run test
-  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-    e.preventDefault();
-    runTest();
-  }
-  // Escape to close modals/inline inputs
-  if (e.key === 'Escape') {
-    cancelSaveTestCase();
-    closeNotesModal();
-    resolveConfirm(false);
-  }
-  // Enter in notes modal to confirm save
-  if (e.key === 'Enter' && document.getElementById('notes-modal-overlay').classList.contains('open')) {
-    e.preventDefault();
-    confirmSaveVersion();
-  }
-  // Enter in test case name input to confirm save
-  if (e.key === 'Enter' && document.activeElement === document.getElementById('tc-name')) {
-    e.preventDefault();
-    confirmSaveTestCase();
-  }
-});
-
-// ----------------------------------------------------------------
-// API helper
-// ----------------------------------------------------------------
-async function api(path, method = 'GET', body = null) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
-  if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(BASE + path, opts);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || res.statusText);
-  }
-  return res.json();
-}
-
-// ----------------------------------------------------------------
-// Helpers
-// ----------------------------------------------------------------
-function toast(msg, type = 'info') {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'show ' + type;
-  setTimeout(() => el.className = '', 2800);
-}
-
-async function copyToClipboard(text, btn) {
-  if (!text) return;
-  await navigator.clipboard.writeText(text);
-  btn.classList.add('copied');
-  setTimeout(() => btn.classList.remove('copied'), 1200);
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function formatDate(iso) {
-  if (!iso) return '';
-  try { return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-  catch { return iso; }
-}
-
-document.getElementById('notes-modal-overlay').addEventListener('click', e => {
-  if (e.target === document.getElementById('notes-modal-overlay')) closeNotesModal();
-});
-
-// Boot
-init();
 </script>
 </body>
 </html>
