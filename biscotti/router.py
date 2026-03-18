@@ -378,38 +378,44 @@ def build_router(store: PromptStore) -> APIRouter:
         ]
 
     @router.post("/api/agents/{agent_name}/coach", tags=["eval"])
-    async def run_coach(agent_name: str, body: dict) -> dict:
-        """Get AI coaching suggestions based on an eval run."""
+    async def run_coach(agent_name: str, body: dict | None = None) -> dict:
+        """Get AI coaching suggestions. Works with or without eval results."""
         _require_agent(agent_name)
-        eval_id = body.get("eval_id")
-        if eval_id is None:
-            raise HTTPException(400, "eval_id is required")
-
-        eval_run = await store.get_eval_run(agent_name, eval_id)
-        if eval_run is None:
-            raise HTTPException(400, "Eval run not found")
-
-        case_details = eval_run.get("case_details")
-        if not case_details:
-            raise HTTPException(400, "Eval run has no case details")
-
         settings = await store.get_agent_settings(agent_name)
-        pv = await store.get_current_version(agent_name)
-        if pv is None:
-            raise HTTPException(400, "No current prompt version found")
+        eval_id = (body or {}).get("eval_id")
+        prompt_text = (body or {}).get("prompt")
 
-        test_cases = await store.list_test_cases(agent_name)
+        # Get the prompt to coach on (explicit or current version)
+        if prompt_text:
+            system_prompt = prompt_text
+        else:
+            pv = await store.get_current_version(agent_name)
+            if pv is None:
+                raise HTTPException(400, "No prompt version found")
+            system_prompt = pv.system_prompt
 
-        from .eval import generate_coaching
-        from .models import CoachResponse
+        # If eval_id provided, use eval results for richer coaching
+        if eval_id:
+            eval_run = await store.get_eval_run(agent_name, eval_id)
+            case_details = eval_run.get("case_details", []) if eval_run else []
+            test_cases = await store.list_test_cases(agent_name)
 
-        coach_result = await generate_coaching(
-            system_prompt=pv.system_prompt,
-            criteria_text=settings.judge_criteria,
-            case_details=case_details,
-            test_cases=test_cases,
-            model=settings.judge_model,
-        )
+            from .eval import generate_coaching
+            coach_result = await generate_coaching(
+                system_prompt=system_prompt,
+                criteria_text=settings.judge_criteria,
+                case_details=case_details,
+                test_cases=test_cases,
+                model=settings.judge_model,
+            )
+        else:
+            # Prompt-only coaching (no eval needed)
+            from .eval import coach_prompt
+            coach_result = await coach_prompt(
+                system_prompt=system_prompt,
+                model=settings.judge_model,
+            )
+
         return coach_result.model_dump()
 
     @router.get("/api/agents/{agent_name}/evals/{eval_id}", tags=["eval"])

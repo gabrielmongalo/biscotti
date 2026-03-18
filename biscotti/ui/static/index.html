@@ -98,23 +98,13 @@
 
       <!-- Coach Panel (slides in below editor toolbar) -->
       <div class="coach-panel" x-show="$store.app.coachPanelOpen" x-transition.duration.150ms>
-        <!-- No eval results yet -->
-        <template x-if="!$store.app.evalResult && !$store.app.coachResult">
-          <div style="font-size:12px;color:var(--muted);padding:12px 16px;">
-            Run an eval first to get coaching suggestions.
-            <button class="inline-link" @click="$store.app.switchTab('evals')">Go to Evals</button>
-          </div>
-        </template>
-
-        <!-- Ready to coach -->
-        <template x-if="$store.app.evalResult && !$store.app.coachResult && !$store.app.coachLoading">
-          <div style="padding:12px 16px;">
-            <p style="font-size:12px;color:var(--text2);margin-bottom:8px;">
-              Analyze eval results and get specific prompt improvements.
-            </p>
-            <button class="btn btn-primary btn-sm" @click="$store.app.runCoach()" style="font-size:12px;padding:6px 14px;">Get Coaching</button>
-          </div>
-        </template>
+        <!-- Ready to coach (no results yet) -->
+        <div x-show="!$store.app.coachResult && !$store.app.coachLoading && !$store.app.coachError" style="padding:12px 16px;">
+          <p style="font-size:12px;color:var(--text2);margin-bottom:8px;">
+            Get AI suggestions to improve your prompt's clarity, structure, and effectiveness.
+          </p>
+          <button class="btn btn-primary btn-sm" @click="$store.app.runCoach()" style="font-size:12px;padding:6px 14px;">Analyze Prompt</button>
+        </div>
 
         <!-- Loading -->
         <div x-show="$store.app.coachLoading" style="padding:12px 16px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">

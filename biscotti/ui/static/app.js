@@ -655,10 +655,6 @@ document.addEventListener('alpine:init', () => {
         this.coachResult = null;
         await this.loadEvalHistory();
         showToast('Eval complete', 'success');
-        // Auto-trigger coach if score is low
-        if (result.avg_score != null && result.avg_score < 4.0 && result.case_details?.length) {
-          this.runCoach();
-        }
       } catch (e) {
         showToast('Eval failed: ' + e.message, 'error');
       } finally {
@@ -687,14 +683,14 @@ document.addEventListener('alpine:init', () => {
 
     // --- Coach ---
     async runCoach() {
-      if (!this.currentAgent || !this.evalResult?.id) return;
+      if (!this.currentAgent || !this.prompt.trim()) return;
       this.coachLoading = true;
       this.coachError = null;
-      this.coachOpen = true;
+      this.coachPanelOpen = true;
       try {
-        this.coachResult = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/coach`, 'POST', {
-          eval_id: this.evalResult.id,
-        });
+        const body = { prompt: this.prompt };
+        if (this.evalResult?.id) body.eval_id = this.evalResult.id;
+        this.coachResult = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/coach`, 'POST', body);
       } catch (e) {
         this.coachError = e.message || 'Coach analysis failed';
         showToast('Coach failed: ' + e.message, 'error');
