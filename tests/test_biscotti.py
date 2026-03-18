@@ -245,3 +245,72 @@ def test_build_judge_criteria_prompt():
     assert "ingredients" in prompt
     assert "dietary_restrictions" in prompt
     assert "chef" in prompt.lower()
+
+
+# ---------------------------------------------------------------------------
+# API endpoint tests
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_settings_endpoint(docs: Biscotti):
+    import httpx
+    from biscotti.registry import register_agent
+    from biscotti.models import AgentMeta
+
+    register_agent(AgentMeta(name="settings_test_agent", default_system_prompt="You are helpful."))
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=docs.app), base_url="http://test") as client:
+        resp = await client.get("/api/agents/settings_test_agent/settings")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["judge_criteria"] == ""
+        assert "anthropic" in data["judge_model"]
+
+        resp = await client.put("/api/agents/settings_test_agent/settings", json={
+            "judge_criteria": "Be accurate",
+            "judge_model": "openai:gpt-4o",
+        })
+        assert resp.status_code == 200
+
+        resp = await client.get("/api/agents/settings_test_agent/settings")
+        assert resp.json()["judge_criteria"] == "Be accurate"
+
+
+# ---------------------------------------------------------------------------
+# Integration test: full eval flow (mocked LLM)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_full_eval_flow(docs: Biscotti):
+    from unittest.mock import AsyncMock, patch
+    import httpx
+    from biscotti.registry import register_agent
+    from biscotti.models import AgentMeta, TestCaseCreate, EvalScore, CriterionResult
+    from biscotti.runner import register_callable
+
+    register_agent(AgentMeta(
+        name="eval_test_agent",
+        default_system_prompt="You are a helper. Topic: {{topic}}",
+    ))
+    async def stub_fn(msg, sys): return "Here is some helpful info about the topic."
+    register_callable("eval_test_agent", stub_fn)
+
+    await docs.store.upsert_test_case(TestCaseCreate(
+        agent_name="eval_test_agent", name="basic", user_message="Help me", variable_values={"topic": "cooking"},
+    ))
+
+    await docs.store.update_agent_settings("eval_test_agent", judge_criteria="- Mentions topic\n- Is helpful")
+
+    mock_score = EvalScore(score=4.0, reasoning="Good", criteria_results=[
+        CriterionResult(criterion="Mentions topic", passed=True, note="yes"),
+        CriterionResult(criterion="Is helpful", passed=True, note="yes"),
+    ])
+
+    with patch("biscotti.eval.judge_output", new_callable=AsyncMock, return_value=mock_score):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=docs.app), base_url="http://test") as client:
+            resp = await client.post("/api/agents/eval_test_agent/eval", json={})
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["test_case_count"] == 1
+            assert data["avg_score"] == 4.0
+            assert data["pass_count"] == 1
