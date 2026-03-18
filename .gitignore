@@ -9,3 +9,4 @@ biscotti/_demo.py
 .pytest_cache/
 .ruff_cache/
 .claude/
+docs/
