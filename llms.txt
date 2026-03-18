@@ -1,0 +1,296 @@
+# biscotti
+
+> Prompt playground for AI agents. Edit, version, test, and ship prompts -- without touching code.
+
+biscotti is a Python library that adds a prompt management UI and eval system to any FastAPI application. You decorate your existing agent functions, mount the sub-app, and get a full prompt editor, version history, test runner, and AI-powered evaluation system at a `/biscotti` route.
+
+- PyPI: `pip install biscotti`
+- License: MIT
+- Python: >=3.10
+- Dependencies: fastapi, pydantic, aiosqlite, anyio
+
+## Core Concepts
+
+- **Agent callable**: An async function that takes a user message and system prompt, calls an LLM, and returns the response. biscotti is model-agnostic -- it works with any LLM SDK.
+- **`@biscotti()` decorator**: Registers an agent function in the global registry. The function's docstring (or an explicit `default_system_prompt`) becomes the initial prompt seed. Variables like `{{var}}` are auto-detected.
+- **`Biscotti` instance**: The main object. Creates a FastAPI sub-app with the UI, API, and SQLite storage. You mount it with `app.mount()`.
+- **Prompt versioning**: System prompts are versioned in SQLite. Each version has a status: `draft`, `current`, or `archived`. The UI lets you edit, diff, and promote versions without code changes.
+- **Test cases**: Saved (user_message, variable_values) pairs that can be replayed against any prompt version.
+- **Eval system**: PydanticAI-powered judge that auto-generates scoring criteria from the system prompt, scores every run output (1-5), and provides a prompt coach that suggests improvements.
+
+## Callable Signature
+
+Every agent callable must be an async function with one of these signatures:
+
+```python
+# Basic: receives user message and rendered system prompt, returns a string
+async def fn(user_message: str, system_prompt: str) -> str:
+    ...
+
+# Extended: also receives a params dict with model/temperature/reasoning_effort
+async def fn(user_message: str, system_prompt: str, params: dict) -> str:
+    ...
+
+# Structured return: return a dict instead of a string to report token usage
+async def fn(user_message: str, system_prompt: str) -> dict:
+    return {
+        "output": "the response text",
+        "input_tokens": 150,
+        "output_tokens": 320,
+        "model": "claude-sonnet-4-20250514",
+    }
+```
+
+The `params` dict may contain:
+- `params["model"]` -- model name selected in the UI (e.g. `"gpt-4o"`)
+- `params["temperature"]` -- float 0.0-2.0
+- `params["reasoning_effort"]` -- `"low"`, `"medium"`, or `"high"`
+- `params["variable_values"]` -- dict of rendered variable values
+
+## Variable Syntax
+
+Use `{{variable_name}}` in system prompts. biscotti auto-detects variables and renders them before passing the prompt to your callable. Example:
+
+```
+You are a helpful assistant for {{company_name}}.
+The user's role is {{user_role}}.
+```
+
+These variables appear as fillable fields in the UI and in test cases.
+
+## Step-by-Step Integration
+
+### Step 1: Install
+
+```bash
+pip install biscotti
+```
+
+### Step 2: Decorate agent functions
+
+Add the `@biscotti()` decorator to each agent function you want to manage. The decorator does not change the function's behavior -- it only registers metadata.
+
+```python
+from biscotti import biscotti
+
+@biscotti(name="my agent")
+async def my_agent(user_message: str, system_prompt: str) -> str:
+    """You are a helpful assistant for {{company_name}}.
+    Answer questions clearly and concisely."""
+    # Call your LLM here using system_prompt (which biscotti manages)
+    ...
+```
+
+Decorator parameters:
+- `name` (required): Unique human-readable name shown in the UI
+- `description`: Short description for the agent list
+- `default_system_prompt`: Override the docstring as the initial prompt
+- `variables`: Explicitly declare variables (auto-detected from prompt if omitted)
+- `tags`: List of tags for filtering in the UI
+- `models`: List of model names this agent supports
+
+### Step 3: Create a Biscotti instance and bind callables
+
+```python
+from biscotti import Biscotti
+
+docs = Biscotti(storage="sqlite:///biscotti.db")
+
+# Bind each decorated function so biscotti can execute test runs
+docs.bind("my agent", my_agent)
+```
+
+The `storage` parameter is a SQLite path. Defaults to `"biscotti.db"` in the current directory. Use `":memory:"` for tests.
+
+### Step 4: Mount in FastAPI
+
+```python
+from fastapi import FastAPI
+
+app = FastAPI()
+app.mount("/biscotti", docs.app)
+```
+
+The UI is now available at `/biscotti`. The API is at `/biscotti/api/`.
+
+## Complete Integration Examples
+
+### PydanticAI Agent
+
+```python
+from biscotti import biscotti, Biscotti
+from fastapi import FastAPI
+from pydantic_ai import Agent
+
+support_agent = Agent("openai:gpt-4o")
+
+@biscotti(
+    name="support agent",
+    description="Answers customer support questions",
+    tags=["support"],
+)
+async def support_callable(user_message: str, system_prompt: str, params: dict) -> dict:
+    """You are a support agent for {{product_name}}.
+    Tone: {{tone}}
+    Always reference the knowledge base before answering."""
+    model = params.get("model", "openai:gpt-4o")
+    agent = Agent(model)
+    result = await agent.run(user_message, system_prompt=system_prompt)
+    return {
+        "output": result.output,
+        "input_tokens": result.usage().request_tokens,
+        "output_tokens": result.usage().response_tokens,
+        "model": model,
+    }
+
+app = FastAPI()
+docs = Biscotti()
+docs.bind("support agent", support_callable)
+app.mount("/biscotti", docs.app)
+```
+
+### OpenAI SDK
+
+```python
+from biscotti import biscotti, Biscotti
+from fastapi import FastAPI
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+@biscotti(
+    name="writer agent",
+    description="Writes marketing copy",
+)
+async def writer_callable(user_message: str, system_prompt: str, params: dict) -> dict:
+    """You are a marketing copywriter for {{brand}}.
+    Style: {{writing_style}}
+    Target audience: {{audience}}"""
+    model = params.get("model", "gpt-4o")
+    temperature = params.get("temperature", 0.7)
+    response = await client.chat.completions.create(
+        model=model,
+        temperature=temperature,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+    )
+    choice = response.choices[0]
+    return {
+        "output": choice.message.content,
+        "input_tokens": response.usage.prompt_tokens,
+        "output_tokens": response.usage.completion_tokens,
+        "model": response.model,
+    }
+
+app = FastAPI()
+docs = Biscotti()
+docs.bind("writer agent", writer_callable)
+app.mount("/biscotti", docs.app)
+```
+
+### Anthropic SDK
+
+```python
+from biscotti import biscotti, Biscotti
+from fastapi import FastAPI
+import anthropic
+
+client = anthropic.AsyncAnthropic()
+
+@biscotti(
+    name="analyst agent",
+    description="Analyzes data and provides insights",
+)
+async def analyst_callable(user_message: str, system_prompt: str, params: dict) -> dict:
+    """You are a data analyst specializing in {{domain}}.
+    Report format: {{format}}"""
+    model = params.get("model", "claude-sonnet-4-20250514")
+    response = await client.messages.create(
+        model=model,
+        max_tokens=4096,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    return {
+        "output": response.content[0].text,
+        "input_tokens": response.usage.input_tokens,
+        "output_tokens": response.usage.output_tokens,
+        "model": model,
+    }
+
+app = FastAPI()
+docs = Biscotti()
+docs.bind("analyst agent", analyst_callable)
+app.mount("/biscotti", docs.app)
+```
+
+### Multiple Agents in One App
+
+```python
+from biscotti import biscotti, Biscotti
+from fastapi import FastAPI
+
+@biscotti(name="summarizer", tags=["core"])
+async def summarize(user_message: str, system_prompt: str) -> str:
+    """Summarize the following text in {{style}} style.
+    Max length: {{max_words}} words."""
+    # your LLM call here
+    ...
+
+@biscotti(name="translator", tags=["core"])
+async def translate(user_message: str, system_prompt: str) -> str:
+    """Translate the following text to {{target_language}}.
+    Formality: {{formality}}"""
+    # your LLM call here
+    ...
+
+@biscotti(name="classifier", tags=["ml"])
+async def classify(user_message: str, system_prompt: str) -> str:
+    """Classify the following text into one of these categories: {{categories}}.
+    Respond with only the category name."""
+    # your LLM call here
+    ...
+
+app = FastAPI(title="My App")
+docs = Biscotti()
+docs.bind("summarizer", summarize)
+docs.bind("translator", translate)
+docs.bind("classifier", classify)
+app.mount("/biscotti", docs.app)
+```
+
+## Eval System
+
+biscotti includes a PydanticAI-powered evaluation system with three components:
+
+1. **Judge Generator**: Reads a system prompt and auto-generates scoring criteria (what the output should be evaluated against). Criteria are editable in the UI.
+2. **Judge**: After every test run, scores the output 1-5 against the generated criteria. Results are stored in `run_logs.score` and `run_logs.score_reasoning`.
+3. **Prompt Coach**: Analyzes the system prompt itself and suggests improvements (clarity, specificity, edge case handling). Suggestions can be applied with one click in the UI.
+
+Eval API endpoints:
+- `POST /api/agents/{name}/generate-judge` -- generate scoring criteria
+- `POST /api/agents/{name}/eval` -- run eval across all test cases
+- `GET /api/agents/{name}/evals` -- list eval runs
+- `POST /api/agents/{name}/coach` -- get prompt improvement suggestions
+
+The judge and coach use `anthropic:claude-sonnet-4-20250514` by default. API keys are resolved from environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) or can be set in the UI settings panel.
+
+## API Reference
+
+Key models from `biscotti.models`:
+
+- `AgentMeta(name, description, variables, default_system_prompt, tags, models)` -- agent registration metadata
+- `PromptVersion(id, agent_name, version, status, system_prompt, variables, notes)` -- a versioned prompt
+- `PromptStatus` -- enum: `draft`, `current`, `archived`
+- `TestCase(id, agent_name, name, user_message, variable_values)` -- a saved test input
+- `RunRequest(agent_name, user_message, variable_values, model, temperature, reasoning_effort)` -- test run input
+- `RunResponse(run_id, output, outcome, latency_ms, input_tokens, output_tokens, score, model_used, estimated_cost)` -- test run result
+
+Key imports:
+
+```python
+from biscotti import biscotti, Biscotti
+from biscotti import AgentMeta, PromptVersion, PromptStatus, TestCase, RunRequest, RunResponse
+```
