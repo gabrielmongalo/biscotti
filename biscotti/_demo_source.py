@@ -6,10 +6,10 @@ Two stub agents, fully functional biscotti UI.
 """
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from biscotti import Biscotti, biscotti_agent
+from biscotti import Biscotti, biscotti
 
 
-@biscotti_agent(
+@biscotti(
     name="recipe agent",
     description="Suggests recipes based on ingredients, dietary needs, and occasion",
     default_system_prompt="""You are a creative and knowledgeable chef.
@@ -31,11 +31,11 @@ async def recipe_agent(user_message: str, system_prompt: str) -> str:
         "[demo] For a dinner party with the ingredients you have, I'd recommend "
         "pan-seared salmon with lemon-herb butter — the dill and capers will "
         "brighten the dish beautifully. Backup: mushroom risotto with parmesan "
-        "and thyme. (Connect a real model via docs.bind() to get live responses.)"
+        "and thyme. (Connect a real model to get live responses.)"
     )
 
 
-@biscotti_agent(
+@biscotti(
     name="meal plan agent",
     description="Creates weekly meal plans based on preferences and goals",
     default_system_prompt="""You are a meal planning expert.
@@ -54,13 +54,11 @@ async def meal_plan_agent(user_message: str, system_prompt: str) -> str:
         "[demo] Monday: Breakfast — Greek yogurt parfait (5 min). "
         "Lunch — Mediterranean quinoa bowl (20 min). "
         "Dinner — One-pot chicken curry with rice (35 min). "
-        "(Connect a real model via docs.bind() to get live responses.)"
+        "(Connect a real model to get live responses.)"
     )
 
 
-docs = Biscotti(storage=":memory:")
-docs.bind("recipe agent", recipe_agent)
-docs.bind("meal plan agent", meal_plan_agent)
+bi = Biscotti(storage=":memory:")
 
 
 @asynccontextmanager
@@ -68,7 +66,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="biscotti demo", lifespan=lifespan)
-app.mount("/biscotti", docs.app)
+app.mount("/biscotti", bi.app)
 
 @app.get("/")
 async def root():

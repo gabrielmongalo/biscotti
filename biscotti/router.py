@@ -213,7 +213,7 @@ def build_router(store: PromptStore) -> APIRouter:
     async def list_models(agent_name: str) -> dict:
         """Return available models for an agent.
 
-        Combines: declared models from @biscotti_agent, pricing table
+        Combines: declared models from @biscotti, pricing table
         models, and historically used models from run_logs.
         """
         _require_agent(agent_name)

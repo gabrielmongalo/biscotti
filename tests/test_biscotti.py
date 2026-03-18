@@ -6,7 +6,7 @@ Core unit tests for biscotti.
 import pytest
 import pytest_asyncio
 
-from biscotti import Biscotti, biscotti_agent, register_callable
+from biscotti import Biscotti, biscotti
 from biscotti.models import PromptStatus, PromptVersionCreate, TestCaseCreate
 from biscotti.store import PromptStore
 
@@ -35,8 +35,8 @@ async def docs():
 # Registry tests
 # ---------------------------------------------------------------------------
 
-def test_biscotti_agent_decorator():
-    @biscotti_agent(
+def test_biscotti_decorator():
+    @biscotti(
         name="test agent",
         description="A test agent",
         default_system_prompt="You are helpful. User data: {{user_data}}",

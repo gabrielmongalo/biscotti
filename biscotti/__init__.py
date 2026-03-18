@@ -6,8 +6,7 @@ Edit, version, test, and ship prompts — without touching code.
 
 Quick start::
 
-    from biscotti import biscotti, Biscotti
-    from fastapi import FastAPI
+    from biscotti import Biscotti, biscotti
 
     @biscotti(name="recipe agent")
     async def recipe_agent(user_message: str, system_prompt: str) -> str:
@@ -17,13 +16,12 @@ Quick start::
         result = await agent.run(user_message, instructions=system_prompt)
         return result.output
 
-    app = FastAPI()
-    app.mount("/biscotti", Biscotti().app)
+    bi = Biscotti()
+    app.mount("/biscotti", bi.app)
 """
 
 from .main import Biscotti
-from .registry import biscotti, biscotti_agent, register_agent, list_agents, get_agent
-from .runner import register_callable
+from .registry import biscotti, register_agent, list_agents, get_agent
 from .models import (
     AgentMeta,
     PromptVersion,
@@ -43,9 +41,7 @@ from .models import (
 __all__ = [
     "Biscotti",
     "biscotti",
-    "biscotti_agent",
     "register_agent",
-    "register_callable",
     "list_agents",
     "get_agent",
     "AgentMeta",
