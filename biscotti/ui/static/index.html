@@ -80,9 +80,10 @@
   #sidebar.collapsed .agent-name { display: none; }
   #sidebar.collapsed .agent-avatar { display: flex; }
   #sidebar.collapsed #sidebar-header {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    padding: 14px 0 10px;
+    justify-content: center;
+    padding: 14px 8px 10px;
     gap: 6px;
   }
   #sidebar.collapsed #agent-list { padding: 0 8px; }
@@ -931,6 +932,24 @@
     font-weight: 500;
   }
 
+  /* ---- Evals panel ---- */
+  .eval-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .eval-section-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.01em;
+    margin-bottom: 4px;
+  }
+
   /* ---- Versions panel ---- */
   #panel-versions { overflow-y: auto; padding: 16px 20px; gap: 10px; flex-direction: column; }
   .version-card {
@@ -1157,7 +1176,7 @@
     </div>
   </div>
   <div id="sidebar-footer">
-    <span>v0.1.0</span>
+    <span>v0.1.0-beta</span>
   </div>
 </div>
 
@@ -1323,55 +1342,72 @@
 
       <!-- Evals -->
       <div class="tab-panel" id="panel-evals">
-        <div style="padding:20px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;flex:1;">
+        <div style="padding:20px;display:flex;flex-direction:column;gap:20px;overflow-y:auto;flex:1;">
 
-          <!-- API Key Status -->
-          <div class="field-group">
-            <div class="field-label">api key status</div>
-            <div id="api-key-status" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;"></div>
-          </div>
-
-          <!-- Judge Model -->
-          <div class="field-group">
-            <div class="field-label">judge model</div>
-            <input type="text" id="judge-model-input" value="anthropic:claude-sonnet-4-20250514"
-              style="font-family:var(--mono);font-size:12px;">
-          </div>
-
-          <!-- Judge Criteria -->
-          <div class="field-group">
-            <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
-              judge criteria
-              <button class="btn btn-ghost" style="font-size:11px;padding:3px 10px;" onclick="generateJudge()" id="gen-judge-btn">
-                generate from prompt
-              </button>
+          <!-- Section: Provider Keys -->
+          <div class="eval-section">
+            <div class="eval-section-header">Provider Keys</div>
+            <div id="api-key-status" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"></div>
+            <div style="display:flex;gap:8px;align-items:flex-end;">
+              <div style="flex:1;">
+                <div class="field-label" style="margin-bottom:4px;">API Key</div>
+                <input type="password" id="api-key-input" placeholder="sk-..." style="font-family:var(--mono);font-size:12px;">
+              </div>
+              <div style="width:120px;">
+                <div class="field-label" style="margin-bottom:4px;">Provider</div>
+                <select id="api-key-provider" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--sans);font-size:12.5px;">
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </div>
+              <button class="btn btn-ghost" style="padding:7px 14px;white-space:nowrap;" onclick="submitApiKey()">Set Key</button>
             </div>
-            <textarea id="judge-criteria" rows="6" placeholder="Click 'generate from prompt' to auto-create eval criteria from your system prompt, or write your own..."
-              style="font-family:var(--mono);font-size:12px;line-height:1.5;"></textarea>
           </div>
 
-          <!-- Save Settings -->
-          <button class="btn btn-ghost" style="align-self:flex-start;" onclick="saveEvalSettings()">save settings</button>
+          <!-- Section: Judge Configuration -->
+          <div class="eval-section">
+            <div class="eval-section-header">Judge Configuration</div>
+            <div class="field-group">
+              <div class="field-label">Model</div>
+              <input type="text" id="judge-model-input" value="anthropic:claude-sonnet-4-20250514"
+                style="font-family:var(--mono);font-size:12px;">
+            </div>
 
-          <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+            <div class="field-group" style="margin-top:12px;">
+              <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
+                Eval Criteria
+                <button class="btn btn-primary" style="font-size:11px;padding:4px 12px;" onclick="generateJudge()" id="gen-judge-btn">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M12 2v4m0 12v4m10-10h-4M6 12H2m15.07-7.07l-2.83 2.83M9.76 14.24l-2.83 2.83m0-10.14l2.83 2.83m4.48 4.48l2.83 2.83"/></svg>
+                  Generate from Prompt
+                </button>
+              </div>
+              <textarea id="judge-criteria" rows="6" placeholder="Click 'Generate from Prompt' to auto-create eval criteria from your system prompt, or write your own..."
+                style="font-family:var(--mono);font-size:12px;line-height:1.5;"></textarea>
+            </div>
 
-          <!-- Run Eval -->
-          <button id="run-eval-btn" onclick="runEval()" style="
-            padding:8px 20px; font-size:12.5px; font-weight:600;
-            border-radius:var(--radius-sm); border:1px solid var(--green-border);
-            background:linear-gradient(135deg, rgba(111,207,151,0.12) 0%, rgba(111,207,151,0.04) 100%);
-            color:var(--green); cursor:pointer; font-family:var(--sans);
-            transition:all var(--transition); display:inline-flex; align-items:center;
-            justify-content:center; gap:6px; width:260px; align-self:center;
-          ">run eval</button>
+            <button class="btn btn-ghost" style="align-self:flex-start;margin-top:4px;" onclick="saveEvalSettings()">Save Settings</button>
+          </div>
 
-          <!-- Eval Results -->
-          <div id="eval-results" style="display:none;">
-            <div class="field-label">latest eval</div>
-            <div id="eval-summary" style="
-              background:var(--surface2); border-radius:var(--radius); padding:16px;
-              display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-top:8px;
-            "></div>
+          <!-- Section: Run Eval -->
+          <div class="eval-section">
+            <div class="eval-section-header">Run Evaluation</div>
+            <button id="run-eval-btn" onclick="runEval()" style="
+              padding:8px 20px; font-size:12.5px; font-weight:600;
+              border-radius:var(--radius-sm); border:1px solid var(--green-border);
+              background:linear-gradient(135deg, rgba(111,207,151,0.12) 0%, rgba(111,207,151,0.04) 100%);
+              color:var(--green); cursor:pointer; font-family:var(--sans);
+              transition:all var(--transition); display:inline-flex; align-items:center;
+              justify-content:center; gap:6px; width:260px; align-self:center;
+            ">Run Eval</button>
+
+            <!-- Eval Results -->
+            <div id="eval-results" style="display:none;margin-top:12px;">
+              <div class="field-label">Latest Result</div>
+              <div id="eval-summary" style="
+                background:var(--surface2); border-radius:var(--radius); padding:16px;
+                display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-top:8px;
+              "></div>
+            </div>
           </div>
 
           <!-- Eval History -->
@@ -2181,6 +2217,20 @@ function switchTab(name, btn) {
 // Evals
 // ----------------------------------------------------------------
 
+async function submitApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  const provider = document.getElementById('api-key-provider').value;
+  if (!key) { toast('Enter an API key', 'error'); return; }
+  try {
+    await api('/api/settings/api-key', 'POST', { provider, key });
+    document.getElementById('api-key-input').value = '';
+    toast(`${provider} key set`, 'success');
+    await loadEvalSettings();
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
 async function loadEvalSettings() {
   if (!currentAgent) return;
   try {
@@ -2191,9 +2241,10 @@ async function loadEvalSettings() {
     const status = await api('/api/settings/status');
     const el = document.getElementById('api-key-status');
     el.innerHTML = Object.entries(status).map(([provider, ok]) =>
-      `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:${ok ? 'var(--green)' : 'var(--muted)'};">
-        <span style="width:7px;height:7px;border-radius:50%;background:${ok ? 'var(--green)' : 'var(--red)'};display:inline-block;"></span>
-        ${provider}
+      `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:${ok ? 'var(--green)' : 'var(--text2)'};">
+        <span style="width:8px;height:8px;border-radius:50%;background:${ok ? 'var(--green)' : 'var(--red)'};display:inline-block;opacity:${ok ? '1' : '0.6'};"></span>
+        ${provider.charAt(0).toUpperCase() + provider.slice(1)}
+        <span style="font-size:10.5px;color:var(--muted);">${ok ? 'connected' : 'no key'}</span>
       </span>`
     ).join('');
   } catch(e) { /* ignore on first load */ }
