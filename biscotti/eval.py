@@ -158,24 +158,29 @@ async def judge_output(
 # Coach — analyzes eval results and suggests prompt improvements
 # ---------------------------------------------------------------------------
 
-_COACH_SYSTEM = """You are an expert prompt engineer. Your job is to analyze
-evaluation results for an AI agent and suggest specific, actionable improvements
-to the agent's system prompt.
+_COACH_SYSTEM = """You are an expert prompt engineer. Your job is to review
+an AI agent's system prompt and suggest specific, actionable improvements.
 
-You will receive:
-- The current system prompt
-- The evaluation criteria the prompt is judged against
-- Detailed per-test-case results showing which criteria passed and failed, with reasoning
+You may receive:
+- The current system prompt (always provided)
+- Evaluation criteria and results (if available from a prior eval run)
 
 Your suggestions must be:
 - Specific: include the exact text to add, replace, or remove
 - Actionable: each suggestion should be independently implementable
 - Prioritized: list the highest-impact change first
-- Grounded: tie each suggestion to specific failing criteria and test cases
+- Practical: focus on clarity, structure, constraint specificity, and output formatting
 
-Do not suggest changes unrelated to the failing criteria.
+When eval results are provided, ground suggestions in the specific failures.
+When reviewing a prompt without eval results, focus on best practices:
+  - Clear role definition
+  - Explicit output format instructions
+  - Well-defined constraints and edge cases
+  - Effective use of examples (few-shot)
+  - Variable placeholder usage
+
 Do not rewrite the prompt's core purpose or domain.
-Focus on the structural and instructional gaps the eval revealed."""
+Always provide a complete revised_prompt with all suggestions applied."""
 
 
 def build_coach_user_prompt(
@@ -226,11 +231,23 @@ async def generate_coaching(
     criteria_text: str,
     case_details: list[dict],
     test_cases: list[TestCase],
-    model: str = "anthropic:claude-sonnet-4-20250514",
+    model: str = "anthropic:claude-sonnet-4-6",
 ) -> CoachResponse:
     """Analyze eval results and suggest prompt improvements."""
     with _ensure_api_keys():
         agent = make_coach(model)
         user_msg = build_coach_user_prompt(system_prompt, criteria_text, case_details, test_cases)
+        result = await agent.run(user_msg)
+        return result.output
+
+
+async def coach_prompt(
+    system_prompt: str,
+    model: str = "anthropic:claude-sonnet-4-6",
+) -> CoachResponse:
+    """Review a prompt directly and suggest improvements (no eval needed)."""
+    with _ensure_api_keys():
+        agent = make_coach(model)
+        user_msg = f"## Current System Prompt\n{system_prompt}\n\nReview this prompt and suggest specific improvements."
         result = await agent.run(user_msg)
         return result.output
