@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "biscotti"
+version = "0.1.0"
+description = "biscotti — prompt playground for AI agents. edit, version, test, ship."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+keywords = ["pydantic-ai", "agents", "llm", "prompt-management", "fastapi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "fastapi>=0.111.0",
+    "pydantic>=2.0",
+    "aiosqlite>=0.20.0",
+    "anyio>=4.0",
+    "pydantic-ai>=0.2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "httpx>=0.27", "uvicorn>=0.30"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["biscotti*"]
+
+[tool.setuptools.package-data]
+biscotti = ["ui/static/*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[project.scripts]
+biscotti = "biscotti.cli:main"
