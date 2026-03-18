@@ -38,7 +38,7 @@ where = ["."]
 include = ["biscotti*"]
 
 [tool.setuptools.package-data]
-biscotti = ["ui/static/*"]
+biscotti = ["ui/static/*", "_skill_template.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
