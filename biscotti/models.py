@@ -29,11 +29,11 @@ class RunOutcome(str, Enum):
 
 
 # ---------------------------------------------------------------------------
-# Agent registration (in-memory, populated by @biscotti_agent decorator)
+# Agent registration (in-memory, populated by @biscotti decorator)
 # ---------------------------------------------------------------------------
 
 class AgentMeta(BaseModel):
-    """Metadata registered for one agent via @biscotti_agent."""
+    """Metadata registered for one agent via @biscotti."""
     name: str
     description: str = ""
     variables: list[str] = Field(default_factory=list)

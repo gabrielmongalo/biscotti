@@ -38,9 +38,9 @@ pip install biscotti
 ### 1. Decorate your agents
 
 ```python
-from biscotti import biscotti_agent
+from biscotti import Biscotti, biscotti
 
-@biscotti_agent(
+@biscotti(
     name="recipe agent",
     description="Suggests recipes based on ingredients and occasion",
     default_system_prompt="""You are a creative chef.
@@ -53,7 +53,7 @@ async def recipe_agent(user_message: str, system_prompt: str) -> str:
 ```
 
 The decorator:
-- Registers the agent in biscotti
+- Registers the agent and its callable in biscotti
 - Auto-detects `{{variable}}` placeholders
 - Seeds the first version into the store on startup
 
@@ -61,16 +61,10 @@ The decorator:
 
 ```python
 from fastapi import FastAPI
-from biscotti import Biscotti
 
 app = FastAPI()
-docs = Biscotti(storage="sqlite:///biscotti.db")
-
-# Bind the callable so biscotti can execute test runs
-docs.bind("recipe agent", recipe_agent)
-
-# Mount — that's it
-app.mount("/biscotti", docs.app)
+bi = Biscotti()
+app.mount("/biscotti", bi.app)
 ```
 
 ### 3. Open the UI
@@ -83,41 +77,41 @@ Share that URL with your prompt team. No login required for local/internal use.
 
 ---
 
-## Connecting your agent callable
+## SDK examples
 
-`docs.bind()` accepts any async function with this signature:
+The `@biscotti` decorator accepts any async function with this signature:
 
 ```python
-async def my_callable(user_message: str, system_prompt: str) -> str:
+async def my_agent(user_message: str, system_prompt: str) -> str:
     ...
 ```
 
-### PydanticAI example
+### PydanticAI
 
 ```python
 from pydantic_ai import Agent
+from biscotti import biscotti
 
 pydantic_agent = Agent(model="openai:gpt-4o")
 
-async def run_agent(user_message: str, system_prompt: str) -> str:
+@biscotti(name="recipe agent")
+async def recipe_agent(user_message: str, system_prompt: str) -> str:
     result = await pydantic_agent.run(
         user_message,
         system_prompt=system_prompt,
     )
     return result.output
-
-docs.bind("recipe agent", run_agent)
 ```
 
 ### Anthropic SDK
 
 ```python
 import anthropic
-from biscotti import biscotti_agent
+from biscotti import biscotti
 
 client = anthropic.AsyncAnthropic()
 
-@biscotti_agent(name="chat agent", default_system_prompt="You are helpful.")
+@biscotti(name="chat agent", default_system_prompt="You are helpful.")
 async def chat_agent(user_message: str, system_prompt: str) -> str:
     response = await client.messages.create(
         model="claude-sonnet-4-6",
@@ -128,14 +122,16 @@ async def chat_agent(user_message: str, system_prompt: str) -> str:
     return response.content[0].text
 ```
 
-### OpenAI SDK example
+### OpenAI SDK
 
 ```python
 from openai import AsyncOpenAI
+from biscotti import biscotti
 
 client = AsyncOpenAI()
 
-async def run_agent(user_message: str, system_prompt: str) -> str:
+@biscotti(name="gpt agent")
+async def gpt_agent(user_message: str, system_prompt: str) -> str:
     response = await client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -151,7 +147,7 @@ async def run_agent(user_message: str, system_prompt: str) -> str:
 Callables can accept an optional third `params` dict to receive UI-configured overrides:
 
 ```python
-@biscotti_agent(name="my agent", default_system_prompt="...")
+@biscotti(name="my agent", default_system_prompt="...")
 async def my_agent(user_message: str, system_prompt: str, params: dict) -> str:
     model = params.get("model", "claude-sonnet-4-6")
     temperature = params.get("temperature", 1.0)
@@ -163,7 +159,8 @@ Available params: `model`, `temperature`, `reasoning_effort`, `variable_values`.
 ### Return a dict for richer telemetry
 
 ```python
-async def run_agent(user_message: str, system_prompt: str) -> dict:
+@biscotti(name="my agent")
+async def my_agent(user_message: str, system_prompt: str) -> dict:
     # ... call your model ...
     return {
         "output": "the response text",

@@ -89,27 +89,18 @@ Decorator parameters:
 - `tags`: List of tags for filtering in the UI
 - `models`: List of model names this agent supports
 
-### Step 3: Create a Biscotti instance and bind callables
+### Step 3: Mount in FastAPI
 
 ```python
 from biscotti import Biscotti
-
-docs = Biscotti(storage="sqlite:///biscotti.db")
-
-# Bind each decorated function so biscotti can execute test runs
-docs.bind("my agent", my_agent)
-```
-
-The `storage` parameter is a SQLite path. Defaults to `"biscotti.db"` in the current directory. Use `":memory:"` for tests.
-
-### Step 4: Mount in FastAPI
-
-```python
 from fastapi import FastAPI
 
 app = FastAPI()
-app.mount("/biscotti", docs.app)
+bi = Biscotti(storage="sqlite:///biscotti.db")
+app.mount("/biscotti", bi.app)
 ```
+
+The `storage` parameter is a SQLite path. Defaults to `"biscotti.db"` in the current directory. Use `":memory:"` for tests.
 
 The UI is now available at `/biscotti`. The API is at `/biscotti/api/`.
 
@@ -144,9 +135,8 @@ async def support_callable(user_message: str, system_prompt: str, params: dict) 
     }
 
 app = FastAPI()
-docs = Biscotti()
-docs.bind("support agent", support_callable)
-app.mount("/biscotti", docs.app)
+bi = Biscotti()
+app.mount("/biscotti", bi.app)
 ```
 
 ### OpenAI SDK
@@ -185,9 +175,8 @@ async def writer_callable(user_message: str, system_prompt: str, params: dict) -
     }
 
 app = FastAPI()
-docs = Biscotti()
-docs.bind("writer agent", writer_callable)
-app.mount("/biscotti", docs.app)
+bi = Biscotti()
+app.mount("/biscotti", bi.app)
 ```
 
 ### Anthropic SDK
@@ -221,9 +210,8 @@ async def analyst_callable(user_message: str, system_prompt: str, params: dict) 
     }
 
 app = FastAPI()
-docs = Biscotti()
-docs.bind("analyst agent", analyst_callable)
-app.mount("/biscotti", docs.app)
+bi = Biscotti()
+app.mount("/biscotti", bi.app)
 ```
 
 ### Multiple Agents in One App
@@ -254,11 +242,8 @@ async def classify(user_message: str, system_prompt: str) -> str:
     ...
 
 app = FastAPI(title="My App")
-docs = Biscotti()
-docs.bind("summarizer", summarize)
-docs.bind("translator", translate)
-docs.bind("classifier", classify)
-app.mount("/biscotti", docs.app)
+bi = Biscotti()
+app.mount("/biscotti", bi.app)
 ```
 
 ## Eval System
