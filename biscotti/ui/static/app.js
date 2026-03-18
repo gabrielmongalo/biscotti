@@ -154,6 +154,12 @@ document.addEventListener('alpine:init', () => {
     evalAddTcName: '',
     evalAddTcMsg: '',
 
+    // --- Coach ---
+    coachResult: null,
+    coachLoading: false,
+    coachError: null,
+    coachOpen: false,
+
     // --- Computed ---
     get evalSettingsDirty() {
       return this.judgeModel !== this._savedJudgeModel || this.judgeCriteria !== this._savedJudgeCriteria;
@@ -645,8 +651,13 @@ document.addEventListener('alpine:init', () => {
           prompt_version_id: this.currentVersionId || null,
         });
         this.evalResult = result;
+        this.coachResult = null;
         await this.loadEvalHistory();
         showToast('Eval complete', 'success');
+        // Auto-trigger coach if score is low
+        if (result.avg_score != null && result.avg_score < 4.0 && result.case_details?.length) {
+          this.runCoach();
+        }
       } catch (e) {
         showToast('Eval failed: ' + e.message, 'error');
       } finally {
@@ -663,12 +674,42 @@ document.addEventListener('alpine:init', () => {
 
     async loadEvalRun(evalId) {
       if (!this.currentAgent) return;
+      this.coachResult = null;
+      this.coachError = null;
       try {
         this.evalResult = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/evals/${evalId}`);
         this.evalResultsOpen = true;
       } catch (e) {
         showToast('Failed to load eval: ' + e.message, 'error');
       }
+    },
+
+    // --- Coach ---
+    async runCoach() {
+      if (!this.currentAgent || !this.evalResult?.id) return;
+      this.coachLoading = true;
+      this.coachError = null;
+      this.coachOpen = true;
+      try {
+        this.coachResult = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/coach`, 'POST', {
+          eval_id: this.evalResult.id,
+        });
+      } catch (e) {
+        this.coachError = e.message || 'Coach analysis failed';
+        showToast('Coach failed: ' + e.message, 'error');
+      } finally {
+        this.coachLoading = false;
+      }
+    },
+
+    applyCoachPrompt() {
+      if (!this.coachResult?.revised_prompt) return;
+      this.prompt = this.coachResult.revised_prompt;
+      this.isDirty = true;
+      this.diffActive = true;
+      this.coachOpen = false;
+      this.switchTab('run');
+      showToast('Coach suggestions applied -- review and save when ready', 'success');
     },
 
     // --- Theme ---

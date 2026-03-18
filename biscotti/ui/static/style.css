@@ -1778,6 +1778,54 @@
     line-height: 1.55;
   }
 
+  /* ---- Coach ---- */
+  .coach-summary {
+    background: var(--surface2);
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--accent);
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.55;
+  }
+  .coach-suggestion {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-top: 6px;
+  }
+  .coach-action-badge {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .coach-action-badge.badge-insert { color: var(--green); background: var(--green-dim); }
+  .coach-action-badge.badge-replace { color: var(--amber); background: var(--amber-dim); }
+  .coach-action-badge.badge-delete { color: var(--red); background: var(--red-dim); }
+  .coach-code-block {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    max-height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+  .coach-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
   /* ---- Eval history ---- */
   .eval-history-row {
     display: flex;
