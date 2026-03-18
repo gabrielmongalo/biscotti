@@ -377,6 +377,41 @@ def build_router(store: PromptStore) -> APIRouter:
             for r in runs
         ]
 
+    @router.post("/api/agents/{agent_name}/coach", tags=["eval"])
+    async def run_coach(agent_name: str, body: dict) -> dict:
+        """Get AI coaching suggestions based on an eval run."""
+        _require_agent(agent_name)
+        eval_id = body.get("eval_id")
+        if eval_id is None:
+            raise HTTPException(400, "eval_id is required")
+
+        eval_run = await store.get_eval_run(agent_name, eval_id)
+        if eval_run is None:
+            raise HTTPException(400, "Eval run not found")
+
+        case_details = eval_run.get("case_details")
+        if not case_details:
+            raise HTTPException(400, "Eval run has no case details")
+
+        settings = await store.get_agent_settings(agent_name)
+        pv = await store.get_current_version(agent_name)
+        if pv is None:
+            raise HTTPException(400, "No current prompt version found")
+
+        test_cases = await store.list_test_cases(agent_name)
+
+        from .eval import generate_coaching
+        from .models import CoachResponse
+
+        coach_result = await generate_coaching(
+            system_prompt=pv.system_prompt,
+            criteria_text=settings.judge_criteria,
+            case_details=case_details,
+            test_cases=test_cases,
+            model=settings.judge_model,
+        )
+        return coach_result.model_dump()
+
     @router.get("/api/agents/{agent_name}/evals/{eval_id}", tags=["eval"])
     async def get_eval(agent_name: str, eval_id: int) -> dict:
         """Get a specific eval run with full case details."""

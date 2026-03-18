@@ -201,3 +201,22 @@ class EvalRun(BaseModel):
     fail_count: int = 0
     case_details: list[dict] | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# ---------------------------------------------------------------------------
+# Coach
+# ---------------------------------------------------------------------------
+
+class CoachSuggestion(BaseModel):
+    title: str
+    description: str
+    action: str  # "insert" | "replace" | "delete"
+    location_hint: str = ""
+    suggested_text: str = ""
+    search_text: str = ""
+
+
+class CoachResponse(BaseModel):
+    summary: str
+    suggestions: list[CoachSuggestion]
+    revised_prompt: str

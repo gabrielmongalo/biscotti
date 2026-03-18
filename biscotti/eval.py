@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from pydantic_ai import Agent
 
 from .key_store import get_key
-from .models import EvalScore, JudgeCriteria
+from .models import CoachResponse, EvalScore, JudgeCriteria, TestCase
 
 
 # ---------------------------------------------------------------------------
@@ -152,3 +152,85 @@ async def judge_output(
         user_msg = build_judge_user_prompt(user_message, system_prompt, agent_output)
         result = await agent.run(user_msg)
         return result.data
+
+
+# ---------------------------------------------------------------------------
+# Coach — analyzes eval results and suggests prompt improvements
+# ---------------------------------------------------------------------------
+
+_COACH_SYSTEM = """You are an expert prompt engineer. Your job is to analyze
+evaluation results for an AI agent and suggest specific, actionable improvements
+to the agent's system prompt.
+
+You will receive:
+- The current system prompt
+- The evaluation criteria the prompt is judged against
+- Detailed per-test-case results showing which criteria passed and failed, with reasoning
+
+Your suggestions must be:
+- Specific: include the exact text to add, replace, or remove
+- Actionable: each suggestion should be independently implementable
+- Prioritized: list the highest-impact change first
+- Grounded: tie each suggestion to specific failing criteria and test cases
+
+Do not suggest changes unrelated to the failing criteria.
+Do not rewrite the prompt's core purpose or domain.
+Focus on the structural and instructional gaps the eval revealed."""
+
+
+def build_coach_user_prompt(
+    system_prompt: str,
+    criteria_text: str,
+    case_details: list[dict],
+    test_cases: list[TestCase],
+) -> str:
+    """Build the user message for the coach agent."""
+    parts = [
+        "## Current System Prompt",
+        system_prompt,
+        "",
+        "## Evaluation Criteria",
+        criteria_text,
+        "",
+        "## Eval Results",
+    ]
+    for cd in case_details:
+        tc_msg = next(
+            (tc.user_message for tc in test_cases if tc.name == cd["test_case"]),
+            "(unknown)",
+        )
+        parts.append(f"### Test Case: {cd['test_case']}")
+        parts.append(f"User message: {tc_msg}")
+        parts.append(f"Score: {cd.get('score', 'N/A')}")
+        for cr in cd.get("criteria_results", []):
+            status = "PASS" if cr["passed"] else "FAIL"
+            parts.append(f"  - [{status}] {cr['criterion']}: {cr['note']}")
+        parts.append(f"Judge reasoning: {cd.get('reasoning', '')}")
+        parts.append("")
+
+    parts.append("Analyze these results and suggest specific improvements to the system prompt.")
+    return "\n".join(parts)
+
+
+def make_coach(model: str) -> Agent:
+    """Create a PydanticAI agent that coaches on prompt improvements."""
+    return Agent(
+        model,
+        output_type=CoachResponse,
+        system_prompt=_COACH_SYSTEM,
+    )
+
+
+async def generate_coaching(
+    system_prompt: str,
+    criteria_text: str,
+    case_details: list[dict],
+    test_cases: list[TestCase],
+    model: str = "anthropic:claude-sonnet-4-20250514",
+) -> CoachResponse:
+    """Analyze eval results and suggest prompt improvements."""
+    with _ensure_api_keys():
+        agent = make_coach(model)
+        user_msg = build_coach_user_prompt(system_prompt, criteria_text, case_details, test_cases)
+        result = await agent.run(user_msg)
+        return result.output
