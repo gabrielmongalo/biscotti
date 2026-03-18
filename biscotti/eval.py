@@ -5,8 +5,12 @@ Internal PydanticAI agents for evaluation: judge generator, judge, and prompt co
 """
 from __future__ import annotations
 
+import os
+from contextlib import contextmanager
+
 from pydantic_ai import Agent
 
+from .key_store import get_key
 from .models import EvalScore, JudgeCriteria
 
 
@@ -98,6 +102,27 @@ def make_judge(model: str, criteria_text: str) -> Agent:
 
 
 # ---------------------------------------------------------------------------
+# API key bridging
+# ---------------------------------------------------------------------------
+
+@contextmanager
+def _ensure_api_keys():
+    """Temporarily set API keys from key_store if not in env."""
+    restored = {}
+    for provider, env_var in [("anthropic", "ANTHROPIC_API_KEY"), ("openai", "OPENAI_API_KEY")]:
+        if not os.environ.get(env_var):
+            key = get_key(provider)
+            if key:
+                os.environ[env_var] = key
+                restored[env_var] = True
+    try:
+        yield
+    finally:
+        for env_var in restored:
+            del os.environ[env_var]
+
+
+# ---------------------------------------------------------------------------
 # High-level helpers
 # ---------------------------------------------------------------------------
 
@@ -107,10 +132,11 @@ async def generate_judge_criteria(
     model: str = "anthropic:claude-sonnet-4-20250514",
 ) -> JudgeCriteria:
     """Generate judge criteria for a given system prompt."""
-    agent = make_judge_generator(model)
-    user_msg = build_judge_generation_prompt(system_prompt, variables)
-    result = await agent.run(user_msg)
-    return result.data
+    with _ensure_api_keys():
+        agent = make_judge_generator(model)
+        user_msg = build_judge_generation_prompt(system_prompt, variables)
+        result = await agent.run(user_msg)
+        return result.data
 
 
 async def judge_output(
@@ -121,7 +147,8 @@ async def judge_output(
     model: str = "anthropic:claude-sonnet-4-20250514",
 ) -> EvalScore:
     """Score an agent output against criteria."""
-    agent = make_judge(model, criteria_text)
-    user_msg = build_judge_user_prompt(user_message, system_prompt, agent_output)
-    result = await agent.run(user_msg)
-    return result.data
+    with _ensure_api_keys():
+        agent = make_judge(model, criteria_text)
+        user_msg = build_judge_user_prompt(user_message, system_prompt, agent_output)
+        result = await agent.run(user_msg)
+        return result.data
