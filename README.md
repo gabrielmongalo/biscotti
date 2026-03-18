@@ -85,6 +85,16 @@ Share that URL with your prompt team. No login required for local/internal use.
 
 ---
 
+## Claude Code integration
+
+```bash
+biscotti init-claude
+```
+
+Installs a Claude Code skill in your project. Claude can then help you add biscotti to existing agents, write test cases, and debug integration issues.
+
+---
+
 ## SDK examples
 
 The `@biscotti` decorator accepts any async function with this signature:
