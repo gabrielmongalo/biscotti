@@ -193,7 +193,7 @@ def test_eval_score_model():
 def test_agent_settings_defaults():
     s = AgentSettings(agent_name="test")
     assert s.judge_criteria == ""
-    assert s.judge_model == "anthropic:claude-sonnet-4-20250514"
+    assert s.judge_model == "anthropic:claude-sonnet-4-6"
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +204,7 @@ def test_agent_settings_defaults():
 async def test_agent_settings_crud(store: PromptStore):
     s = await store.get_agent_settings("recipe_agent")
     assert s.judge_criteria == ""
-    assert s.judge_model == "anthropic:claude-sonnet-4-20250514"
+    assert s.judge_model == "anthropic:claude-sonnet-4-6"
 
     await store.update_agent_settings("recipe_agent", judge_criteria="Be accurate", judge_model="openai:gpt-4o")
     s = await store.get_agent_settings("recipe_agent")
@@ -217,7 +217,7 @@ async def test_save_eval_run(store: PromptStore):
     er = await store.save_eval_run(EvalRun(
         agent_name="test_agent",
         prompt_version=1,
-        judge_model="anthropic:claude-sonnet-4-20250514",
+        judge_model="anthropic:claude-sonnet-4-6",
         test_case_count=5,
         avg_score=4.2,
         min_score=3.0,

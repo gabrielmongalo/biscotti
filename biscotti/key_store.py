@@ -26,6 +26,11 @@ def get_key(provider: str) -> str | None:
     return _KEYS.get(provider)
 
 
+def remove_key(provider: str) -> None:
+    """Remove an in-memory API key. Has no effect on env-var keys."""
+    _KEYS.pop(provider, None)
+
+
 def available_providers() -> dict[str, bool]:
     return {
         "anthropic": get_key("anthropic") is not None,

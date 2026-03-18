@@ -636,6 +636,78 @@
               </div>
             </div>
 
+            <!-- Coach -->
+            <div class="accordion-item" x-show="$store.app.evalResult">
+              <button class="accordion-header" :class="{ open: $store.app.coachOpen }" @click="$store.app.coachOpen = !$store.app.coachOpen">
+                <span class="accordion-chevron">&#9654;</span>
+                <span class="accordion-title">Coach</span>
+                <span class="accordion-meta">
+                  <template x-if="$store.app.coachLoading">
+                    <span style="display:inline-flex;align-items:center;gap:4px;"><span class="spinner" style="width:10px;height:10px;"></span> Analyzing...</span>
+                  </template>
+                  <template x-if="!$store.app.coachLoading && $store.app.coachResult">
+                    <span x-text="$store.app.coachResult.suggestions.length + ' suggestion' + ($store.app.coachResult.suggestions.length !== 1 ? 's' : '')"></span>
+                  </template>
+                  <template x-if="!$store.app.coachLoading && !$store.app.coachResult && $store.app.coachError">
+                    <span style="color:var(--red);">Error</span>
+                  </template>
+                  <template x-if="!$store.app.coachLoading && !$store.app.coachResult && !$store.app.coachError">
+                    <span>Ready</span>
+                  </template>
+                </span>
+              </button>
+              <div class="accordion-body" x-show="$store.app.coachOpen" x-transition.duration.150ms>
+
+                <!-- Loading -->
+                <div x-show="$store.app.coachLoading" style="font-size:12px;color:var(--muted);padding:8px 0;">
+                  The coach is reviewing your eval results...
+                </div>
+
+                <!-- Error -->
+                <div x-show="$store.app.coachError && !$store.app.coachLoading" style="font-size:12px;color:var(--red);padding:8px 0;">
+                  <span x-text="$store.app.coachError"></span>
+                  <button class="btn btn-ghost btn-sm" @click="$store.app.runCoach()" style="margin-left:8px;font-size:11px;padding:2px 8px;">Retry</button>
+                </div>
+
+                <!-- No coach yet -->
+                <div x-show="!$store.app.coachResult && !$store.app.coachLoading && !$store.app.coachError" style="padding:8px 0;">
+                  <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Analyze your eval results and get specific prompt improvement suggestions.</p>
+                  <button class="btn btn-primary btn-sm" @click="$store.app.runCoach()" style="font-size:12px;padding:6px 14px;">Get Coaching</button>
+                </div>
+
+                <!-- Coach results -->
+                <template x-if="$store.app.coachResult && !$store.app.coachLoading">
+                  <div>
+                    <!-- Diagnosis -->
+                    <div class="coach-summary" x-text="$store.app.coachResult.summary"></div>
+
+                    <!-- Suggestions -->
+                    <div style="margin-top:10px;">
+                      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:6px;"
+                           x-text="'Suggestions (' + $store.app.coachResult.suggestions.length + ')'"></div>
+                      <template x-for="(s, si) in $store.app.coachResult.suggestions" :key="si">
+                        <div class="coach-suggestion">
+                          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                            <span class="coach-action-badge" :class="'badge-' + s.action" x-text="s.action"></span>
+                            <span style="font-weight:600;font-size:13px;color:var(--text);" x-text="s.title"></span>
+                          </div>
+                          <div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:6px;" x-text="s.description"></div>
+                          <div x-show="s.location_hint" style="font-size:11px;color:var(--muted);margin-bottom:6px;" x-text="s.location_hint"></div>
+                          <pre x-show="s.suggested_text" class="coach-code-block" x-text="s.suggested_text"></pre>
+                        </div>
+                      </template>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="coach-actions">
+                      <button class="btn btn-primary btn-sm" @click="$store.app.applyCoachPrompt()" style="font-size:12px;padding:6px 16px;">Apply Revised Prompt</button>
+                      <button class="btn btn-ghost btn-sm" @click="$store.app.coachResult = null; $store.app.coachOpen = false;" style="font-size:12px;padding:6px 12px;">Dismiss</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
           </div><!-- /accordion -->
 
           <!-- Run button -->
