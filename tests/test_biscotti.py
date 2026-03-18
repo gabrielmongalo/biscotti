@@ -160,3 +160,88 @@ async def test_run_no_callable(docs: Biscotti):
     )
     assert response.outcome == "error"
     assert "No callable" in (response.error_message or "")
+
+
+# ---------------------------------------------------------------------------
+# Eval model tests
+# ---------------------------------------------------------------------------
+
+from biscotti.models import JudgeCriteria, Criterion, EvalScore, CriterionResult, AgentSettings, EvalRun
+
+
+def test_judge_criteria_model():
+    criteria = JudgeCriteria(criteria=[
+        Criterion(name="Uses ingredients", description="Output references provided ingredients"),
+        Criterion(name="Respects restrictions", description="Honors dietary restrictions", weight=2.0),
+    ])
+    assert len(criteria.criteria) == 2
+    assert criteria.criteria[1].weight == 2.0
+
+
+def test_eval_score_model():
+    score = EvalScore(
+        score=4.2,
+        reasoning="Good overall",
+        criteria_results=[
+            CriterionResult(criterion="Uses ingredients", passed=True, note="yes"),
+        ],
+    )
+    assert score.score == 4.2
+    assert score.criteria_results[0].passed is True
+
+
+def test_agent_settings_defaults():
+    s = AgentSettings(agent_name="test")
+    assert s.judge_criteria == ""
+    assert s.judge_model == "anthropic:claude-sonnet-4-20250514"
+
+
+# ---------------------------------------------------------------------------
+# Eval store tests
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_agent_settings_crud(store: PromptStore):
+    s = await store.get_agent_settings("recipe_agent")
+    assert s.judge_criteria == ""
+    assert s.judge_model == "anthropic:claude-sonnet-4-20250514"
+
+    await store.update_agent_settings("recipe_agent", judge_criteria="Be accurate", judge_model="openai:gpt-4o")
+    s = await store.get_agent_settings("recipe_agent")
+    assert s.judge_criteria == "Be accurate"
+    assert s.judge_model == "openai:gpt-4o"
+
+
+@pytest.mark.asyncio
+async def test_save_eval_run(store: PromptStore):
+    er = await store.save_eval_run(EvalRun(
+        agent_name="test_agent",
+        prompt_version=1,
+        judge_model="anthropic:claude-sonnet-4-20250514",
+        test_case_count=5,
+        avg_score=4.2,
+        min_score=3.0,
+        max_score=5.0,
+        pass_count=4,
+        fail_count=1,
+    ))
+    assert er.id is not None
+
+    runs = await store.list_eval_runs("test_agent")
+    assert len(runs) == 1
+    assert runs[0].avg_score == 4.2
+
+
+# ---------------------------------------------------------------------------
+# Eval module tests
+# ---------------------------------------------------------------------------
+
+def test_build_judge_criteria_prompt():
+    from biscotti.eval import build_judge_generation_prompt
+    prompt = build_judge_generation_prompt(
+        system_prompt="You are a chef. Ingredients: {{ingredients}}. Diet: {{dietary_restrictions}}.",
+        variables=["ingredients", "dietary_restrictions"],
+    )
+    assert "ingredients" in prompt
+    assert "dietary_restrictions" in prompt
+    assert "chef" in prompt.lower()
