@@ -264,7 +264,6 @@ uvicorn examples.demo_app:app --reload
 - [x] Export/import agent configurations (JSON)
 - [ ] Streaming support for long-running models
 - [ ] Simple auth (API key header)
-- [ ] PostgreSQL storage backend
 - [ ] AI prompt coach (improvement suggestions from eval results)
 
 ---
