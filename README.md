@@ -1,9 +1,8 @@
-# biscotti 🍪
+# biscotti
 
-**Prompt playground for AI agents.**
-Edit, version, test, and ship — without touching code.
+The prompt eval studio for AI agents.
 
-> Like `promptfoo`, but for the agents you build with PydanticAI.
+Iterate on system prompts with real test cases, track every version, and score quality with AI judges. Built for prompt engineers, not just developers.
 
 ---
 
@@ -261,10 +260,12 @@ uvicorn examples.demo_app:app --reload
 
 ## Roadmap
 
-- [ ] Side-by-side version comparison
-- [ ] Export/import prompt versions (JSON)
+- [x] Side-by-side version comparison
+- [x] Export/import agent configurations (JSON)
+- [ ] Streaming support for long-running models
 - [ ] Simple auth (API key header)
 - [ ] PostgreSQL storage backend
+- [ ] AI prompt coach (improvement suggestions from eval results)
 
 ---
 
