@@ -563,127 +563,7 @@
         </select>
       </div>
 
-      <!-- Configuration section -->
-      <div class="eval-config-section">
-        <div class="eval-content">
-          <!-- Left: Judge config -->
-          <div class="eval-config-col">
-            <div class="field-label">Judge Model</div>
-            <div class="typeahead-wrap" @click.outside="$store.app.judgeModelDropdownOpen = false">
-              <input type="text" class="model-input"
-                     x-model="$store.app.judgeModel"
-                     @focus="$store.app.judgeModelDropdownOpen = true"
-                     @input="$store.app.judgeModelDropdownOpen = true; $store.app.judgeModelHighlightIdx = -1"
-                     @keydown.escape="$store.app.judgeModelDropdownOpen = false"
-                     @keydown.arrow-down.prevent="$store.app.judgeModelHighlightIdx = Math.min($store.app.judgeModelHighlightIdx + 1, $store.app.judgeModelOptions.length - 1)"
-                     @keydown.arrow-up.prevent="$store.app.judgeModelHighlightIdx = Math.max($store.app.judgeModelHighlightIdx - 1, 0)"
-                     @keydown.enter.prevent="if ($store.app.judgeModelHighlightIdx >= 0) $store.app.selectJudgeModel($store.app.judgeModelOptions[$store.app.judgeModelHighlightIdx])"
-                     placeholder="Select judge model..."
-                     autocomplete="off">
-              <div class="typeahead-dropdown" :class="{ open: $store.app.judgeModelDropdownOpen && $store.app.judgeModelOptions.length }">
-                <template x-for="provider in Object.keys($store.app.judgeModelGrouped)" :key="provider">
-                  <div>
-                    <div class="typeahead-group" x-text="provider"></div>
-                    <template x-for="m in $store.app.judgeModelGrouped[provider]" :key="m">
-                      <div class="typeahead-item"
-                           :class="{ highlighted: $store.app.judgeModelOptions.indexOf(m) === $store.app.judgeModelHighlightIdx }"
-                           @mousedown.prevent="$store.app.selectJudgeModel(m)"
-                           x-text="m"></div>
-                    </template>
-                  </div>
-                </template>
-              </div>
-            </div>
-
-            <div style="margin-top:14px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                <div class="field-label" style="margin-bottom:0;">Criteria</div>
-                <button class="btn btn-ghost btn-sm" style="font-size:11px;"
-                        @click="$store.app.criteriaEditing = !$store.app.criteriaEditing"
-                        x-text="$store.app.criteriaEditing ? 'Show Formatted' : 'Edit Raw'"></button>
-              </div>
-              <!-- Formatted criteria display -->
-              <div class="criteria-display" x-show="!$store.app.criteriaEditing && $store.app.judgeCriteria"
-                   x-html="$store.app.formattedCriteria"
-                   @click="$store.app.criteriaEditing = true"></div>
-              <div x-show="!$store.app.criteriaEditing && !$store.app.judgeCriteria"
-                   class="criteria-display" style="color:var(--muted);font-size:12px;display:flex;align-items:center;justify-content:center;"
-                   @click="$store.app.criteriaEditing = true">
-                No criteria defined. Click to edit or generate.
-              </div>
-              <!-- Raw editor -->
-              <textarea x-show="$store.app.criteriaEditing"
-                        class="msg-input" style="min-height:120px;font-family:var(--mono);font-size:12px;"
-                        x-model="$store.app.judgeCriteria"
-                        placeholder="- Criterion Name (weight 1.0): Description of what to evaluate"></textarea>
-            </div>
-
-            <div style="display:flex;gap:8px;margin-top:10px;">
-              <button class="btn btn-ghost btn-sm" @click="$store.app.generateJudge()"
-                      :disabled="$store.app.evalGenerating">
-                <span x-show="$store.app.evalGenerating" style="display:inline-flex;align-items:center;gap:4px;">
-                  <span class="spinner" style="width:11px;height:11px;"></span> Generating...
-                </span>
-                <span x-show="!$store.app.evalGenerating">Generate from Prompt</span>
-              </button>
-              <button class="btn btn-ghost btn-sm" x-show="$store.app.evalSettingsDirty"
-                      @click="$store.app.saveEvalSettings()">Save Settings</button>
-            </div>
-          </div>
-
-          <!-- Right: Test cases -->
-          <div class="eval-config-col">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-              <div class="field-label" style="margin-bottom:0;">Test Cases</div>
-              <span class="eval-tc-count" x-text="$store.app.testCases.length + ' cases'"></span>
-            </div>
-            <div class="eval-tc-list">
-              <template x-for="tc in $store.app.testCases" :key="tc.name">
-                <div class="eval-tc-row">
-                  <span class="eval-tc-name" x-text="tc.name"></span>
-                  <span class="eval-tc-msg" x-text="tc.user_message"></span>
-                  <button class="provider-disconnect" @click="$store.app.deleteTestCaseByName(tc.name)" title="Delete">
-                    <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
-                  </button>
-                </div>
-              </template>
-              <template x-if="!$store.app.testCases.length">
-                <div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">
-                  No test cases yet. Add some from the Playground.
-                </div>
-              </template>
-            </div>
-            <!-- Inline add test case -->
-            <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%;"
-                    x-show="!$store.app.evalAddTcOpen"
-                    @click="$store.app.evalAddTcOpen = true">
-              <i data-lucide="plus" style="width:12px;height:12px;"></i> Add Test Case
-            </button>
-            <div class="eval-add-tc" x-show="$store.app.evalAddTcOpen" x-transition.duration.150ms>
-              <input type="text" class="model-input" placeholder="Name" x-model="$store.app.evalAddTcName"
-                     style="font-size:12px;">
-              <textarea class="msg-input" placeholder="User message" x-model="$store.app.evalAddTcMsg"
-                        style="min-height:50px;font-size:12px;"></textarea>
-              <div style="display:flex;gap:6px;">
-                <button class="btn btn-primary btn-sm" @click="$store.app.saveEvalTestCase()">Add</button>
-                <button class="btn btn-ghost btn-sm" @click="$store.app.evalAddTcOpen = false">Cancel</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Run eval button -->
-        <button class="btn btn-primary" style="width:100%;margin-top:16px;padding:10px;"
-                @click="$store.app.runEval()"
-                :disabled="$store.app.evalRunning || !$store.app.testCases.length">
-          <span x-show="$store.app.evalRunning" style="display:inline-flex;align-items:center;gap:6px;">
-            <span class="spinner"></span> Running Eval...
-          </span>
-          <span x-show="!$store.app.evalRunning" x-text="'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
-        </button>
-      </div>
-
-      <!-- Results grid -->
+      <!-- Results grid (above config -- results are what you care about most) -->
       <div class="eval-results-section" x-show="$store.app.evalResult?.case_details?.length">
         <div class="field-label" style="margin-bottom:10px;">Results</div>
         <div class="eval-results-cards">
@@ -713,6 +593,140 @@
           </template>
         </div>
       </div>
+
+      <!-- Configuration (collapsible) -->
+      <div class="eval-config-section">
+        <button class="settings-toggle" @click="$store.app._evalConfigOpen = !$store.app._evalConfigOpen"
+                :class="{ open: $store.app._evalConfigOpen }">
+          <i data-lucide="chevron-right" style="width:12px;height:12px;"
+             :style="$store.app._evalConfigOpen ? 'transform:rotate(90deg)' : ''"></i>
+          Configuration
+        </button>
+        <div class="settings-body" :class="{ open: $store.app._evalConfigOpen }">
+          <div class="eval-content">
+            <!-- Judge Model (full width) -->
+            <div>
+              <div class="field-label">Judge Model</div>
+              <div class="typeahead-wrap" @click.outside="$store.app.judgeModelDropdownOpen = false">
+                <input type="text" class="model-input"
+                       x-model="$store.app.judgeModel"
+                       @focus="$store.app.judgeModelDropdownOpen = true"
+                       @input="$store.app.judgeModelDropdownOpen = true; $store.app.judgeModelHighlightIdx = -1"
+                       @keydown.escape="$store.app.judgeModelDropdownOpen = false"
+                       @keydown.arrow-down.prevent="$store.app.judgeModelHighlightIdx = Math.min($store.app.judgeModelHighlightIdx + 1, $store.app.judgeModelOptions.length - 1)"
+                       @keydown.arrow-up.prevent="$store.app.judgeModelHighlightIdx = Math.max($store.app.judgeModelHighlightIdx - 1, 0)"
+                       @keydown.enter.prevent="if ($store.app.judgeModelHighlightIdx >= 0) $store.app.selectJudgeModel($store.app.judgeModelOptions[$store.app.judgeModelHighlightIdx])"
+                       placeholder="Select judge model..."
+                       autocomplete="off">
+                <div class="typeahead-dropdown" :class="{ open: $store.app.judgeModelDropdownOpen && $store.app.judgeModelOptions.length }">
+                  <template x-for="provider in Object.keys($store.app.judgeModelGrouped)" :key="provider">
+                    <div>
+                      <div class="typeahead-group" x-text="provider"></div>
+                      <template x-for="m in $store.app.judgeModelGrouped[provider]" :key="m">
+                        <div class="typeahead-item"
+                             :class="{ highlighted: $store.app.judgeModelOptions.indexOf(m) === $store.app.judgeModelHighlightIdx }"
+                             @mousedown.prevent="$store.app.selectJudgeModel(m)"
+                             x-text="m"></div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- Criteria (compact table) -->
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <div class="field-label" style="margin-bottom:0;">Criteria</div>
+                <button class="btn btn-ghost btn-sm" style="font-size:11px;"
+                        @click="$store.app.criteriaEditing = !$store.app.criteriaEditing"
+                        x-text="$store.app.criteriaEditing ? 'Show Compact' : 'Edit Raw'"></button>
+              </div>
+              <!-- Compact criteria display -->
+              <div class="criteria-compact" x-show="!$store.app.criteriaEditing && $store.app.parsedCriteria.length"
+                   x-data="{ items: [] }" x-effect="items = $store.app.parsedCriteria.map(c => ({...c, _open: false}))">
+                <template x-for="(c, i) in items" :key="i">
+                  <div class="criterion-row">
+                    <div class="criterion-header" @click="c._open = !c._open">
+                      <i data-lucide="chevron-right" style="width:14px;height:14px;"
+                         :style="c._open ? 'transform:rotate(90deg)' : ''"></i>
+                      <span class="criterion-name" x-text="c.name"></span>
+                      <span class="criterion-weight" x-text="c.weight + 'x'"></span>
+                    </div>
+                    <div class="criterion-desc" x-show="c._open" x-transition x-text="c.description"></div>
+                  </div>
+                </template>
+              </div>
+              <div x-show="!$store.app.criteriaEditing && !$store.app.parsedCriteria.length"
+                   style="color:var(--muted);font-size:12px;padding:10px 0;cursor:pointer;"
+                   @click="$store.app.criteriaEditing = true">
+                No criteria defined. Click to edit or generate.
+              </div>
+              <!-- Raw editor -->
+              <textarea x-show="$store.app.criteriaEditing"
+                        class="msg-input" style="min-height:120px;font-family:var(--mono);font-size:12px;"
+                        x-model="$store.app.judgeCriteria"
+                        placeholder="- Criterion Name (weight 1.0): Description of what to evaluate"></textarea>
+            </div>
+
+            <!-- Test cases as pills -->
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <div class="field-label" style="margin-bottom:0;">Test Cases</div>
+                <span class="eval-tc-count" x-text="$store.app.testCases.length + ' cases'"></span>
+              </div>
+              <div class="tc-pills" x-show="$store.app.testCases.length" style="margin-top:4px;">
+                <template x-for="tc in $store.app.testCases" :key="tc.name">
+                  <span class="tc-pill" style="cursor:default" x-text="tc.name"></span>
+                </template>
+              </div>
+              <div x-show="!$store.app.testCases.length"
+                   style="color:var(--muted);font-size:12px;padding:4px 0;">
+                No test cases yet. Add some from the Playground.
+              </div>
+              <!-- Inline add test case -->
+              <button class="btn btn-ghost btn-sm" style="margin-top:8px;"
+                      x-show="!$store.app.evalAddTcOpen"
+                      @click="$store.app.evalAddTcOpen = true">
+                <i data-lucide="plus" style="width:12px;height:12px;"></i> Add Test Case
+              </button>
+              <div class="eval-add-tc" x-show="$store.app.evalAddTcOpen" x-transition.duration.150ms>
+                <input type="text" class="model-input" placeholder="Name" x-model="$store.app.evalAddTcName"
+                       style="font-size:12px;">
+                <textarea class="msg-input" placeholder="User message" x-model="$store.app.evalAddTcMsg"
+                          style="min-height:50px;font-size:12px;"></textarea>
+                <div style="display:flex;gap:6px;">
+                  <button class="btn btn-primary btn-sm" @click="$store.app.saveEvalTestCase()">Add</button>
+                  <button class="btn btn-ghost btn-sm" @click="$store.app.evalAddTcOpen = false">Cancel</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-ghost btn-sm" @click="$store.app.generateJudge()"
+                      :disabled="$store.app.evalGenerating">
+                <span x-show="$store.app.evalGenerating" style="display:inline-flex;align-items:center;gap:4px;">
+                  <span class="spinner" style="width:11px;height:11px;"></span> Generating...
+                </span>
+                <span x-show="!$store.app.evalGenerating">Generate from Prompt</span>
+              </button>
+              <button class="btn btn-ghost btn-sm" x-show="$store.app.evalSettingsDirty"
+                      @click="$store.app.saveEvalSettings()">Save Settings</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Run eval button (always visible, outside collapsible config) -->
+      <button class="btn btn-primary" style="width:100%;padding:10px;"
+              @click="$store.app.runEval()"
+              :disabled="$store.app.evalRunning || !$store.app.testCases.length">
+        <span x-show="$store.app.evalRunning" style="display:inline-flex;align-items:center;gap:6px;">
+          <span class="spinner"></span> Running Eval...
+        </span>
+        <span x-show="!$store.app.evalRunning" x-text="'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
+      </button>
     </div>
   </div>
 </div>

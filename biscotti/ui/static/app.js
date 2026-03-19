@@ -91,6 +91,7 @@ document.addEventListener('alpine:init', () => {
     compareTarget: null,
     _expandedVersion: null,
     _expandedEvalCase: null,
+    _evalConfigOpen: true,
 
     // --- Test cases ---
     testCases: [],
@@ -249,6 +250,16 @@ document.addEventListener('alpine:init', () => {
         if (line.trim()) return `<div class="criteria-plain">${line}</div>`;
         return '';
       }).filter(Boolean).join('');
+    },
+    get parsedCriteria() {
+      if (!this.judgeCriteria) return [];
+      return this.judgeCriteria.split('\n').map(line => {
+        const m1 = line.match(/^-\s+(.+?)\s*\(weight\s+([\d.]+)\)\s*:\s*(.+)$/);
+        if (m1) return { name: m1[1], weight: m1[2], description: m1[3], _open: false };
+        const m2 = line.match(/^-\s+(.+?):\s*(.+)$/);
+        if (m2) return { name: m2[1], weight: '1.0', description: m2[2], _open: false };
+        return null;
+      }).filter(Boolean);
     },
 
     // --- Init ---
