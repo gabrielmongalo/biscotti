@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<script>document.documentElement.setAttribute('data-theme',localStorage.getItem('biscotti-theme')||'dark')</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>biscotti docs -- The prompt eval studio for AI agents</title>
+<meta name="description" content="Documentation for biscotti, the prompt eval studio for AI agents.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+/* ================================================================
+   CSS Variables -- unified with landing page tokens
+   ================================================================ */
+:root {
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Menlo', monospace;
+  --sidebar-w: 260px;
+}
+
+[data-theme="dark"] {
+  --bg: #16181d;
+  --bg-alt: #1a1d23;
+  --surface: #1e2128;
+  --border: rgba(200,210,230,0.08);
+  --border-hover: rgba(200,210,230,0.16);
+  --text: #e2e4e9;
+  --text-muted: #b0b4be;
+  --text-dim: #6b7080;
+  --accent: #c9a06c;
+  --accent-hover: #d4af7f;
+  --accent-dim: rgba(201,160,108,0.10);
+  --accent-border: rgba(201,160,108,0.25);
+  --accent-contrast: #16181d;
+
+  --code-keyword: #b48ead;
+  --code-string: #a3be8c;
+  --code-function: #88c0d0;
+  --code-comment: #616e88;
+  --code-decorator: #d08770;
+  --code-class: #ebcb8b;
+  --code-param: #d8dee9;
+  --code-operator: #81a1c1;
+  --code-shell: #a3be8c;
+}
+
+[data-theme="light"] {
+  --bg: #f5f4f1;
+  --bg-alt: #efeee9;
+  --surface: #ffffff;
+  --border: rgba(0,0,0,0.06);
+  --border-hover: rgba(0,0,0,0.12);
+  --text: #1c1917;
+  --text-muted: #57534e;
+  --text-dim: #a8a29e;
+  --accent: #a17a45;
+  --accent-hover: #8b6935;
+  --accent-dim: rgba(161,122,69,0.08);
+  --accent-border: rgba(161,122,69,0.20);
+  --accent-contrast: #ffffff;
+
+  --code-keyword: #7c3aed;
+  --code-string: #16a34a;
+  --code-function: #0891b2;
+  --code-comment: #a8a29e;
+  --code-decorator: #ea580c;
+  --code-class: #ca8a04;
+  --code-param: #44403c;
+  --code-operator: #2563eb;
+  --code-shell: #16a34a;
+}
+
+/* ================================================================
+   Reset & Base
+   ================================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+a { color: var(--accent); text-decoration: none; transition: color 0.2s ease; }
+a:hover { color: var(--accent-hover); }
+
+/* ================================================================
+   Layout -- sidebar + content
+   ================================================================ */
+.docs-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ================================================================
+   Sidebar
+   ================================================================ */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-w);
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+  padding: 20px 0;
+  z-index: 50;
+  transition: transform 0.25s ease;
+}
+
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 4px; }
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  padding: 0 20px;
+}
+
+.sidebar-brand:hover { color: var(--text); }
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 20px;
+  margin-bottom: 4px;
+}
+
+.sidebar-brand-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-back {
+  display: block;
+  padding: 0 20px;
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: var(--text-dim);
+  transition: color 0.2s ease;
+}
+
+.sidebar-back:hover { color: var(--accent); }
+
+/* Search trigger */
+.sidebar-search {
+  margin: 0 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.sidebar-search:hover { border-color: var(--border-hover); }
+
+.sidebar-search svg { color: var(--text-dim); flex-shrink: 0; }
+
+.sidebar-search span {
+  font-size: 13px;
+  color: var(--text-dim);
+  flex: 1;
+}
+
+.sidebar-search kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* Nav groups */
+.sidebar-group { margin-bottom: 20px; }
+
+.sidebar-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0 20px;
+  margin-bottom: 4px;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 5px 20px 5px 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+  transition: color 0.15s ease, background 0.15s ease;
+  border-left: 2px solid transparent;
+}
+
+.sidebar-link:hover {
+  color: var(--text);
+  background: var(--accent-dim);
+}
+
+.sidebar-link.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* ================================================================
+   Mobile top bar
+   ================================================================ */
+.mobile-bar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  height: 48px;
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hamburger {
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.mobile-bar-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 49;
+}
+
+.sidebar-backdrop.visible { display: block; }
+
+/* ================================================================
+   Content area
+   ================================================================ */
+.content {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-width: 0;
+}
+
+.content-inner {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 40px 40px 80px;
+}
+
+/* ================================================================
+   Typography
+   ================================================================ */
+.content h1 {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.content .page-subtitle {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-bottom: 48px;
+  line-height: 1.5;
+}
+
+.doc-section {
+  margin-bottom: 56px;
+}
+
+.doc-section h2 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  margin-bottom: 16px;
+  padding-top: 24px;
+  position: relative;
+}
+
+.doc-section h2 .anchor-link {
+  position: absolute;
+  left: -24px;
+  top: 24px;
+  opacity: 0;
+  color: var(--text-dim);
+  transition: opacity 0.15s ease, color 0.15s ease;
+  font-size: 18px;
+  text-decoration: none;
+  line-height: 1.3;
+}
+
+.doc-section h2:hover .anchor-link { opacity: 1; }
+.doc-section h2 .anchor-link:hover { color: var(--accent); }
+
+.doc-gif {
+  margin: 24px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+.doc-gif img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.doc-section h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin-top: 28px;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.doc-section p {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.doc-section p strong { color: var(--text); font-weight: 600; }
+
+.doc-section p code,
+.doc-section li code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--accent);
+}
+
+.doc-section ul, .doc-section ol {
+  margin-bottom: 16px;
+  padding-left: 20px;
+}
+
+.doc-section li {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.doc-section li strong { color: var(--text); }
+
+/* ================================================================
+   Code blocks -- matching landing page
+   ================================================================ */
+.code-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.code-header .lang {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.code-header .copy-btn {
+  position: relative;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.code-header .copy-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-muted);
+}
+
+.code-header .copy-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.code-header .copy-btn.copied {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+.code-body {
+  padding: 16px 18px;
+  overflow-x: auto;
+}
+
+.code-body pre {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre;
+  tab-size: 4;
+}
+
+/* Syntax highlighting */
+.kw { color: var(--code-keyword); }
+.str { color: var(--code-string); }
+.fn { color: var(--code-function); }
+.cm { color: var(--code-comment); font-style: italic; }
+.dec { color: var(--code-decorator); }
+.cls { color: var(--code-class); }
+.par { color: var(--code-param); }
+.op { color: var(--code-operator); }
+.sh { color: var(--code-shell); }
+
+/* ================================================================
+   API Table
+   ================================================================ */
+.api-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.api-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.api-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.api-table td {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  vertical-align: top;
+}
+
+.api-table tr:last-child td { border-bottom: none; }
+
+.api-table .method {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.api-table .method-get { color: var(--code-function); }
+.api-table .method-post { color: var(--code-string); }
+.api-table .method-put { color: var(--code-class); }
+.api-table .method-patch { color: var(--code-decorator); }
+.api-table .method-delete { color: #e07070; }
+
+.api-table .path {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* ================================================================
+   Theme toggle
+   ================================================================ */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.theme-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+[data-theme="dark"] .icon-moon { display: none; }
+[data-theme="dark"] .icon-sun { display: block; }
+[data-theme="light"] .icon-sun { display: none; }
+[data-theme="light"] .icon-moon { display: block; }
+
+.sidebar-footer {
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+}
+
+.sidebar-footer-text {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ================================================================
+   Search Modal
+   ================================================================ */
+.search-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0,0,0,0.5);
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+}
+
+.search-overlay.open { display: flex; }
+
+.search-modal {
+  width: 560px;
+  max-width: 90vw;
+  max-height: 480px;
+  background: var(--surface);
+  border: 1px solid var(--border-hover);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-input-wrap svg { color: var(--text-dim); flex-shrink: 0; }
+
+.search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--text);
+}
+
+.search-input::placeholder { color: var(--text-dim); }
+
+.search-hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.search-results {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px;
+}
+
+.search-results::-webkit-scrollbar { width: 4px; }
+.search-results::-webkit-scrollbar-track { background: transparent; }
+.search-results::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 4px; }
+
+.search-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 8px 10px 4px;
+}
+
+.search-result {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.search-result:hover,
+.search-result.selected {
+  background: var(--accent-dim);
+}
+
+.search-result-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.search-result-snippet {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result mark {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.search-empty {
+  text-align: center;
+  padding: 32px 16px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.search-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.search-footer kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-right: 4px;
+}
+
+/* ================================================================
+   Responsive
+   ================================================================ */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    z-index: 60;
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .mobile-bar { display: flex; }
+
+  .content {
+    margin-left: 0;
+  }
+
+  .content-inner {
+    padding: 64px 16px 60px;
+  }
+
+  .doc-section h2 .anchor-link { display: none; }
+
+  .code-body pre { font-size: 12px; }
+}
+
+/* ================================================================
+   Reduced motion
+   ================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- MOBILE TOP BAR -->
+<div class="mobile-bar" id="mobileBar">
+  <button class="hamburger" id="hamburgerBtn" aria-label="Open navigation">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <span class="mobile-bar-title">biscotti docs</span>
+  <button class="theme-toggle" id="themeToggleMobile" aria-label="Toggle theme">
+    <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
+</div>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <a href="/biscotti/home" class="sidebar-brand">
+      <span class="sidebar-brand-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color:var(--accent-contrast)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </span>
+      biscotti
+    </a>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+      <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+  <a href="/biscotti/home" class="sidebar-back">Back to Home</a>
+
+  <div class="sidebar-search" id="searchTrigger">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <span>Search docs...</span>
+    <kbd>&#8984;K</kbd>
+  </div>
+
+  <nav>
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">Getting Started</div>
+      <a href="#installation" class="sidebar-link" data-section="installation">Installation</a>
+      <a href="#quick-start" class="sidebar-link" data-section="quick-start">Quick Start</a>
+      <a href="#first-eval" class="sidebar-link" data-section="first-eval">Your First Eval</a>
+    </div>
+
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">Core Concepts</div>
+      <a href="#versioning" class="sidebar-link" data-section="versioning">Prompt Versioning</a>
+      <a href="#test-cases" class="sidebar-link" data-section="test-cases">Test Cases</a>
+      <a href="#variables" class="sidebar-link" data-section="variables">Variables</a>
+      <a href="#eval-system" class="sidebar-link" data-section="eval-system">Eval System</a>
+      <a href="#coaching" class="sidebar-link" data-section="coaching">Coaching</a>
+    </div>
+
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">Integrations</div>
+      <a href="#pydanticai" class="sidebar-link" data-section="pydanticai">PydanticAI</a>
+      <a href="#anthropic-sdk" class="sidebar-link" data-section="anthropic-sdk">Anthropic SDK</a>
+      <a href="#openai-sdk" class="sidebar-link" data-section="openai-sdk">OpenAI SDK</a>
+      <a href="#extended-callable" class="sidebar-link" data-section="extended-callable">Extended Callable</a>
+      <a href="#return-types" class="sidebar-link" data-section="return-types">Return Types</a>
+      <a href="#claude-code" class="sidebar-link" data-section="claude-code">Claude Code</a>
+    </div>
+
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">API Reference</div>
+      <a href="#rest-api" class="sidebar-link" data-section="rest-api">REST Endpoints</a>
+      <a href="#data-models" class="sidebar-link" data-section="data-models">Data Models</a>
+      <a href="#api-keys" class="sidebar-link" data-section="api-keys">API Keys</a>
+    </div>
+
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">Advanced</div>
+      <a href="#storage" class="sidebar-link" data-section="storage">Storage Options</a>
+      <a href="#export-import" class="sidebar-link" data-section="export-import">Export/Import</a>
+      <a href="#mounting" class="sidebar-link" data-section="mounting">Mounting Options</a>
+    </div>
+  </nav>
+
+</aside>
+
+<!-- SEARCH MODAL -->
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-modal" id="searchModal">
+    <div class="search-input-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search documentation..." autocomplete="off" spellcheck="false">
+      <span class="search-hint">esc</span>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+    <div class="search-footer">
+      <span><kbd>&#8593;</kbd><kbd>&#8595;</kbd> Navigate</span>
+      <span><kbd>&#8629;</kbd> Open</span>
+      <span><kbd>esc</kbd> Close</span>
+    </div>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<main class="docs-layout">
+  <div class="content">
+    <div class="content-inner">
+
+      <h1>Documentation</h1>
+      <p class="page-subtitle">Add prompt versioning, test cases, and AI-judged evals to your agents.</p>
+
+      <!-- ============================================================
+           Getting Started
+           ============================================================ -->
+
+      <section class="doc-section" id="installation">
+        <h2><a href="#installation" class="anchor-link">#</a>Installation</h2>
+        <p>Install biscotti with pip or uv. Then follow the <a href="#quick-start">Quick Start</a> to wire it into your app.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">terminal</span>
+            <button class="copy-btn" data-code="pip install biscotti">Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="sh">pip install biscotti</span></pre>
+          </div>
+        </div>
+        <p>With uv (recommended):</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">terminal</span>
+            <button class="copy-btn" data-code="uv add biscotti">Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="sh">uv add biscotti</span></pre>
+          </div>
+        </div>
+        <p>Try the demo without installing:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">terminal</span>
+            <button class="copy-btn" data-code="uvx biscotti dev">Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="sh">uvx biscotti dev</span></pre>
+          </div>
+        </div>
+        <p>Opens a demo playground at <code>http://localhost:8000/biscotti</code> with sample agents pre-configured.</p>
+      </section>
+
+      <section class="doc-section" id="quick-start">
+        <h2><a href="#quick-start" class="anchor-link">#</a>Quick Start</h2>
+        <p>Three steps to add biscotti to any FastAPI app. For more <a href="#mounting">mounting options</a>, see the Advanced section.</p>
+
+        <h3>Step 1: Decorate your agent</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">app.py</span>
+            <button class="copy-btn" data-code='from biscotti import Biscotti, biscotti
+
+@biscotti(
+    name="recipe agent",
+    description="Suggests recipes based on ingredients",
+    default_system_prompt="""You are a creative chef.
+Ingredients: {{ingredients}}
+Occasion: {{occasion}}""",
+)
+async def recipe_agent(user_message: str, system_prompt: str) -> str:
+    # your LLM call here
+    ...'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="kw">from</span> <span class="cls">biscotti</span> <span class="kw">import</span> Biscotti, biscotti
+
+<span class="dec">@biscotti</span>(
+    <span class="par">name</span><span class="op">=</span><span class="str">"recipe agent"</span>,
+    <span class="par">description</span><span class="op">=</span><span class="str">"Suggests recipes based on ingredients"</span>,
+    <span class="par">default_system_prompt</span><span class="op">=</span><span class="str">"""You are a creative chef.
+Ingredients: {{ingredients}}
+Occasion: {{occasion}}"""</span>,
+)
+<span class="kw">async def</span> <span class="fn">recipe_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">str</span>:
+    <span class="cm"># your LLM call here</span>
+    ...</pre>
+          </div>
+        </div>
+        <p>The decorator registers your agent, auto-detects <code>{{variable}}</code> placeholders (see <a href="#variables">Variables</a>), and seeds the first <a href="#versioning">prompt version</a> on startup.</p>
+
+        <h3>Step 2: Mount in FastAPI</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">app.py</span>
+            <button class="copy-btn" data-code='from fastapi import FastAPI
+
+app = FastAPI()
+bi = Biscotti()
+app.mount("/biscotti", bi.app)'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="kw">from</span> <span class="cls">fastapi</span> <span class="kw">import</span> FastAPI
+
+app <span class="op">=</span> <span class="cls">FastAPI</span>()
+bi <span class="op">=</span> <span class="cls">Biscotti</span>()
+app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)</pre>
+          </div>
+        </div>
+
+        <h3>Step 3: Open the UI</h3>
+        <p>Navigate to <code>http://localhost:8000/biscotti</code> and share the URL with your team. Next: write <a href="#test-cases">test cases</a> and run <a href="#first-eval">your first eval</a>.</p>
+      </section>
+
+      <section class="doc-section" id="first-eval">
+        <h2><a href="#first-eval" class="anchor-link">#</a>Your First Eval</h2>
+        <ol>
+          <li>Select an agent in the sidebar</li>
+          <li>Add <a href="#test-cases">test cases</a> in the Test Cases tab -- give each a name and user message</li>
+          <li>Open the Evals tab and click "Generate from Prompt" to auto-create scoring criteria</li>
+          <li>Set your judge model -- this requires an <a href="#api-keys">API key</a> (environment variable or the Settings panel)</li>
+          <li>Click "Run Eval" to score all test cases against your criteria</li>
+          <li>Edit the system prompt, save a new <a href="#versioning">version</a>, and re-run the eval to compare scores</li>
+        </ol>
+        <p>For details on how scoring works, see the <a href="#eval-system">Eval System</a>. After running an eval, use <a href="#coaching">Coaching</a> to get AI-generated improvement suggestions.</p>
+        <div class="doc-gif">
+          <img src="static/first-eval-walkthrough.gif" alt="Walkthrough: adding a test case, configuring judge criteria, and running an eval in biscotti" loading="lazy">
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Core Concepts
+           ============================================================ -->
+
+      <section class="doc-section" id="versioning">
+        <h2><a href="#versioning" class="anchor-link">#</a>Prompt Versioning</h2>
+        <p>On first startup, biscotti seeds v1 from your <code>default_system_prompt</code> (set during <a href="#quick-start">Quick Start</a>) and promotes it to live.</p>
+        <p>The workflow:</p>
+        <ol>
+          <li>Edit the prompt in the UI and save as v2, v3, etc. -- new versions always start as drafts</li>
+          <li>Promote a draft to live -- this archives the previous live version</li>
+          <li>Your agent automatically uses the live version at runtime -- no restart, no redeploy</li>
+        </ol>
+        <p>Each version tracks the full prompt text, a status (draft / current / archived), optional notes, and a timestamp. Run <a href="#eval-system">evals</a> against different versions to compare performance before promoting.</p>
+      </section>
+
+      <section class="doc-section" id="test-cases">
+        <h2><a href="#test-cases" class="anchor-link">#</a>Test Cases</h2>
+        <p>Test cases are named inputs you run against your agent. Each test case has:</p>
+        <ul>
+          <li><strong>Name</strong> -- a descriptive label (e.g., "simple greeting", "edge case - empty input")</li>
+          <li><strong>User message</strong> -- the input text sent to the agent</li>
+          <li><strong>Variable values</strong> -- optional key-value pairs for <code>{{variable}}</code> placeholders (see <a href="#variables">Variables</a>)</li>
+        </ul>
+        <p>Create test cases in the UI or via the <a href="#rest-api">REST API</a>. They persist across sessions and are used by the <a href="#eval-system">batch eval system</a>.</p>
+      </section>
+
+      <section class="doc-section" id="variables">
+        <h2><a href="#variables" class="anchor-link">#</a>Variables</h2>
+        <p>Use <code>{{variable}}</code> placeholders in your system prompts to make them dynamic. biscotti auto-detects them from the prompt text.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">app.py</span>
+            <button class="copy-btn" data-code='@biscotti(
+    name="support agent",
+    default_system_prompt="""You are a {{tone}} support agent for {{product}}.
+Always respond in {{language}}.""",
+)
+async def support_agent(user_message: str, system_prompt: str) -> str:
+    # system_prompt arrives with variables already substituted
+    ...'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="dec">@biscotti</span>(
+    <span class="par">name</span><span class="op">=</span><span class="str">"support agent"</span>,
+    <span class="par">default_system_prompt</span><span class="op">=</span><span class="str">"""You are a {{tone}} support agent for {{product}}.
+Always respond in {{language}}."""</span>,
+)
+<span class="kw">async def</span> <span class="fn">support_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">str</span>:
+    <span class="cm"># system_prompt arrives with variables already substituted</span>
+    ...</pre>
+          </div>
+        </div>
+        <p>Set variable values per <a href="#test-cases">test case</a> or per run. The UI shows input fields for each detected variable. You can also pass values programmatically via the <a href="#extended-callable">extended callable</a> <code>params</code> dict.</p>
+      </section>
+
+      <section class="doc-section" id="eval-system">
+        <h2><a href="#eval-system" class="anchor-link">#</a>Eval System</h2>
+        <p>biscotti includes an LLM-as-judge evaluation system. You need an <a href="#api-keys">API key</a> configured for at least one provider before running evals.</p>
+        <ol>
+          <li><strong>Generate criteria</strong> -- click "Generate from Prompt" to auto-create scoring rubrics from your system prompt</li>
+          <li><strong>Configure judge model</strong> -- pick any connected model (Anthropic, OpenAI)</li>
+          <li><strong>Run batch evals</strong> -- score all <a href="#test-cases">test cases</a> against your criteria in one click</li>
+          <li><strong>Track history</strong> -- compare scores across <a href="#versioning">prompt versions</a></li>
+        </ol>
+        <p>Each criterion has a name, description, and 1-5 scoring scale. The judge model evaluates each test case output against each criterion and returns a score with reasoning. After an eval completes, use <a href="#coaching">Coaching</a> to get targeted improvement suggestions.</p>
+      </section>
+
+      <section class="doc-section" id="coaching">
+        <h2><a href="#coaching" class="anchor-link">#</a>Coaching</h2>
+        <p>After running an <a href="#eval-system">eval</a>, click "Get Coaching" to get AI-generated suggestions for improving your system prompt. The coach analyzes:</p>
+        <ul>
+          <li>Which criteria scored low and why</li>
+          <li>Patterns across test cases</li>
+          <li>Specific prompt edits to improve scores</li>
+        </ul>
+        <p>Configure the coach model separately from the judge model in Settings. Both require an <a href="#api-keys">API key</a>.</p>
+      </section>
+
+      <!-- ============================================================
+           Integrations
+           ============================================================ -->
+
+      <section class="doc-section" id="pydanticai">
+        <h2><a href="#pydanticai" class="anchor-link">#</a>PydanticAI</h2>
+        <p>Wrap a PydanticAI agent with the <code>@biscotti</code> decorator. For richer telemetry, <a href="#return-types">return a dict</a> instead of a string. To accept UI-configured overrides, add the <a href="#extended-callable">extended callable</a> signature.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">app.py</span>
+            <button class="copy-btn" data-code='from pydantic_ai import Agent
+from biscotti import biscotti
+
+pydantic_agent = Agent(model="openai:gpt-4o")
+
+@biscotti(name="recipe agent")
+async def recipe_agent(user_message: str, system_prompt: str) -> str:
+    result = await pydantic_agent.run(
+        user_message,
+        system_prompt=system_prompt,
+    )
+    return result.output'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="kw">from</span> <span class="cls">pydantic_ai</span> <span class="kw">import</span> Agent
+<span class="kw">from</span> <span class="cls">biscotti</span> <span class="kw">import</span> biscotti
+
+pydantic_agent <span class="op">=</span> <span class="cls">Agent</span>(<span class="par">model</span><span class="op">=</span><span class="str">"openai:gpt-4o"</span>)
+
+<span class="dec">@biscotti</span>(<span class="par">name</span><span class="op">=</span><span class="str">"recipe agent"</span>)
+<span class="kw">async def</span> <span class="fn">recipe_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">str</span>:
+    result <span class="op">=</span> <span class="kw">await</span> pydantic_agent.<span class="fn">run</span>(
+        user_message,
+        <span class="par">system_prompt</span><span class="op">=</span>system_prompt,
+    )
+    <span class="kw">return</span> result.output</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="doc-section" id="anthropic-sdk">
+        <h2><a href="#anthropic-sdk" class="anchor-link">#</a>Anthropic SDK</h2>
+        <p>Use the Anthropic Python SDK directly. See <a href="#return-types">Return Types</a> for dict-based telemetry and <a href="#extended-callable">Extended Callable</a> for accepting UI overrides.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">app.py</span>
+            <button class="copy-btn" data-code='import anthropic
+from biscotti import biscotti
+
+client = anthropic.AsyncAnthropic()
+
+@biscotti(name="chat agent", default_system_prompt="You are helpful.")
+async def chat_agent(user_message: str, system_prompt: str) -> str:
+    response = await client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    return response.content[0].text'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="kw">import</span> <span class="cls">anthropic</span>
+<span class="kw">from</span> <span class="cls">biscotti</span> <span class="kw">import</span> biscotti
+
+client <span class="op">=</span> anthropic.<span class="cls">AsyncAnthropic</span>()
+
+<span class="dec">@biscotti</span>(<span class="par">name</span><span class="op">=</span><span class="str">"chat agent"</span>, <span class="par">default_system_prompt</span><span class="op">=</span><span class="str">"You are helpful."</span>)
+<span class="kw">async def</span> <span class="fn">chat_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">str</span>:
+    response <span class="op">=</span> <span class="kw">await</span> client.messages.<span class="fn">create</span>(
+        <span class="par">model</span><span class="op">=</span><span class="str">"claude-sonnet-4-6"</span>,
+        <span class="par">max_tokens</span><span class="op">=</span><span class="cls">1024</span>,
+        <span class="par">system</span><span class="op">=</span>system_prompt,
+        <span class="par">messages</span><span class="op">=</span>[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: user_message}],
+    )
+    <span class="kw">return</span> response.content[<span class="cls">0</span>].text</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="doc-section" id="openai-sdk">
+        <h2><a href="#openai-sdk" class="anchor-link">#</a>OpenAI SDK</h2>
+        <p>Use the OpenAI Python SDK directly. See <a href="#return-types">Return Types</a> for dict-based telemetry and <a href="#extended-callable">Extended Callable</a> for accepting UI overrides.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">app.py</span>
+            <button class="copy-btn" data-code='from openai import AsyncOpenAI
+from biscotti import biscotti
+
+client = AsyncOpenAI()
+
+@biscotti(name="gpt agent")
+async def gpt_agent(user_message: str, system_prompt: str) -> str:
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+    )
+    return response.choices[0].message.content'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="kw">from</span> <span class="cls">openai</span> <span class="kw">import</span> AsyncOpenAI
+<span class="kw">from</span> <span class="cls">biscotti</span> <span class="kw">import</span> biscotti
+
+client <span class="op">=</span> <span class="cls">AsyncOpenAI</span>()
+
+<span class="dec">@biscotti</span>(<span class="par">name</span><span class="op">=</span><span class="str">"gpt agent"</span>)
+<span class="kw">async def</span> <span class="fn">gpt_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">str</span>:
+    response <span class="op">=</span> <span class="kw">await</span> client.chat.completions.<span class="fn">create</span>(
+        <span class="par">model</span><span class="op">=</span><span class="str">"gpt-4o"</span>,
+        <span class="par">messages</span><span class="op">=</span>[
+            {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: system_prompt},
+            {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: user_message},
+        ],
+    )
+    <span class="kw">return</span> response.choices[<span class="cls">0</span>].message.content</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="doc-section" id="extended-callable">
+        <h2><a href="#extended-callable" class="anchor-link">#</a>Extended Callable</h2>
+        <p>Your callable can accept an optional third <code>params</code> dict to receive UI-configured overrides:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">app.py</span>
+            <button class="copy-btn" data-code='@biscotti(name="my agent", default_system_prompt="...")
+async def my_agent(user_message: str, system_prompt: str, params: dict) -> str:
+    model = params.get("model", "claude-sonnet-4-6")
+    temperature = params.get("temperature", 1.0)
+    # Use model and temperature in your SDK call...'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="dec">@biscotti</span>(<span class="par">name</span><span class="op">=</span><span class="str">"my agent"</span>, <span class="par">default_system_prompt</span><span class="op">=</span><span class="str">"..."</span>)
+<span class="kw">async def</span> <span class="fn">my_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>, <span class="par">params</span>: <span class="cls">dict</span>) <span class="op">-></span> <span class="cls">str</span>:
+    model <span class="op">=</span> params.<span class="fn">get</span>(<span class="str">"model"</span>, <span class="str">"claude-sonnet-4-6"</span>)
+    temperature <span class="op">=</span> params.<span class="fn">get</span>(<span class="str">"temperature"</span>, <span class="cls">1.0</span>)
+    <span class="cm"># Use model and temperature in your SDK call...</span></pre>
+          </div>
+        </div>
+        <p>Available params: <code>model</code>, <code>temperature</code>, <code>reasoning_effort</code>, <code>variable_values</code>. Combine this with <a href="#return-types">dict return types</a> for full telemetry.</p>
+      </section>
+
+      <section class="doc-section" id="return-types">
+        <h2><a href="#return-types" class="anchor-link">#</a>Return Types</h2>
+        <p>Your decorated function can return a string or a dict. Return a string for simple responses:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">python</span>
+            <button class="copy-btn" data-code='async def my_agent(user_message: str, system_prompt: str) -> str:
+    return "the response text"'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="kw">async def</span> <span class="fn">my_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">str</span>:
+    <span class="kw">return</span> <span class="str">"the response text"</span></pre>
+          </div>
+        </div>
+        <p>Return a dict to capture token usage and model metadata:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">python</span>
+            <button class="copy-btn" data-code='async def my_agent(user_message: str, system_prompt: str) -> dict:
+    return {
+        "output": "the response text",
+        "input_tokens": 150,
+        "output_tokens": 80,
+        "model": "gpt-4o",
+    }'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="kw">async def</span> <span class="fn">my_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">dict</span>:
+    <span class="kw">return</span> {
+        <span class="str">"output"</span>: <span class="str">"the response text"</span>,
+        <span class="str">"input_tokens"</span>: <span class="cls">150</span>,
+        <span class="str">"output_tokens"</span>: <span class="cls">80</span>,
+        <span class="str">"model"</span>: <span class="str">"gpt-4o"</span>,
+    }</pre>
+          </div>
+        </div>
+        <p>When you return a dict, biscotti tracks token usage and model info in the run history. Use this with the <a href="#extended-callable">extended callable</a> signature for full control over model selection and telemetry.</p>
+      </section>
+
+      <section class="doc-section" id="claude-code">
+        <h2><a href="#claude-code" class="anchor-link">#</a>Claude Code</h2>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">terminal</span>
+            <button class="copy-btn" data-code="biscotti init-claude">Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="sh">biscotti init-claude</span></pre>
+          </div>
+        </div>
+        <p>Installs a Claude Code skill in your project. Claude can then:</p>
+        <ul>
+          <li>Add <code>@biscotti</code> decorators to existing agent functions</li>
+          <li>Write <a href="#test-cases">test cases</a> for your agents</li>
+          <li>Debug integration issues</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           API Reference
+           ============================================================ -->
+
+      <section class="doc-section" id="rest-api">
+        <h2><a href="#rest-api" class="anchor-link">#</a>REST Endpoints</h2>
+        <p>biscotti exposes a REST API under <code>/biscotti/api/</code>. See <a href="#data-models">Data Models</a> for request/response schemas.</p>
+        <div class="api-table-wrap">
+          <table class="api-table">
+            <thead>
+              <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents</td><td>List registered agents</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}</td><td>Get agent details</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/versions</td><td>List prompt versions</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/versions</td><td>Create new version</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/versions/{id}</td><td>Get specific version</td></tr>
+              <tr><td class="method method-patch">PATCH</td><td class="path">/api/agents/{name}/versions/{id}</td><td>Update version</td></tr>
+              <tr><td class="method method-delete">DELETE</td><td class="path">/api/agents/{name}/versions/{id}</td><td>Delete version</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/versions/{id}/promote</td><td>Promote to live</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/test-cases</td><td>List test cases</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/test-cases</td><td>Create test case</td></tr>
+              <tr><td class="method method-delete">DELETE</td><td class="path">/api/agents/{name}/test-cases/{name}</td><td>Delete test case</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/run</td><td>Execute test run</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/runs</td><td>List run history</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/models</td><td>List available models</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/settings</td><td>Get eval settings</td></tr>
+              <tr><td class="method method-put">PUT</td><td class="path">/api/agents/{name}/settings</td><td>Update eval settings</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/generate-judge</td><td>Generate judge criteria</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/eval</td><td>Run batch eval</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/evals</td><td>List eval runs</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/evals/{id}</td><td>Get eval details</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/coach</td><td>Get coaching suggestions</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/export</td><td>Export agent config</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/import</td><td>Import agent config</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/settings/status</td><td>Provider auth status</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/settings/api-key</td><td>Set API key (session)</td></tr>
+              <tr><td class="method method-delete">DELETE</td><td class="path">/api/settings/api-key/{provider}</td><td>Remove API key</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Full OpenAPI docs available at <code>/biscotti/openapi</code>.</p>
+      </section>
+
+      <section class="doc-section" id="data-models">
+        <h2><a href="#data-models" class="anchor-link">#</a>Data Models</h2>
+        <p>Key models used by the <a href="#rest-api">REST API</a>:</p>
+        <h3>AgentMeta</h3>
+        <p>Agent registration info (name, description, variables, tags, models).</p>
+        <h3>PromptVersion</h3>
+        <p>A versioned prompt with fields: <code>id</code>, <code>agent_name</code>, <code>version_number</code>, <code>body</code>, <code>status</code> (draft/current/archived), <code>notes</code>, <code>created_at</code>.</p>
+        <h3>TestCase</h3>
+        <p>Test input with fields: <code>name</code>, <code>user_message</code>, <code>variable_values</code>.</p>
+        <h3>RunLog</h3>
+        <p>Execution record with fields: <code>id</code>, <code>agent_name</code>, <code>version_id</code>, <code>user_message</code>, <code>output</code>, <code>input_tokens</code>, <code>output_tokens</code>, <code>latency_ms</code>, <code>model</code>, <code>cost</code>, <code>created_at</code>.</p>
+        <h3>EvalRun</h3>
+        <p>Batch eval with fields: <code>id</code>, <code>agent_name</code>, <code>version_id</code>, <code>judge_model</code>, <code>criteria</code>, <code>results</code> (per test case per criterion), <code>aggregate_scores</code>, <code>created_at</code>.</p>
+      </section>
+
+      <section class="doc-section" id="api-keys">
+        <h2><a href="#api-keys" class="anchor-link">#</a>API Keys</h2>
+        <p>The <a href="#eval-system">eval</a> and <a href="#coaching">coaching</a> systems need API keys for their LLM judge and coach models.</p>
+        <p>Resolution order: environment variable, then in-memory UI key, then none.</p>
+        <h3>Environment variables</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">terminal</span>
+            <button class="copy-btn" data-code='export ANTHROPIC_API_KEY=sk-ant-...
+export OPENAI_API_KEY=sk-...'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="sh">export ANTHROPIC_API_KEY=sk-ant-...</span>
+<span class="sh">export OPENAI_API_KEY=sk-...</span></pre>
+          </div>
+        </div>
+        <h3>UI settings panel</h3>
+        <p>Open Settings in the main app and enter keys per provider. Keys are session-only and never written to disk.</p>
+      </section>
+
+      <!-- ============================================================
+           Advanced
+           ============================================================ -->
+
+      <section class="doc-section" id="storage">
+        <h2><a href="#storage" class="anchor-link">#</a>Storage Options</h2>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">python</span>
+            <button class="copy-btn" data-code='# SQLite file (default)
+Biscotti(storage="biscotti.db")
+
+# In-memory (for tests)
+Biscotti(storage=":memory:")
+
+# Absolute path
+Biscotti(storage="sqlite:////var/data/biscotti.db")'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="cm"># SQLite file (default)</span>
+<span class="cls">Biscotti</span>(<span class="par">storage</span><span class="op">=</span><span class="str">"biscotti.db"</span>)
+
+<span class="cm"># In-memory (for tests)</span>
+<span class="cls">Biscotti</span>(<span class="par">storage</span><span class="op">=</span><span class="str">":memory:"</span>)
+
+<span class="cm"># Absolute path</span>
+<span class="cls">Biscotti</span>(<span class="par">storage</span><span class="op">=</span><span class="str">"sqlite:////var/data/biscotti.db"</span>)</pre>
+          </div>
+        </div>
+        <p>SQLite is the only storage backend. Data persists across restarts, and the database is auto-initialized on first startup. Pass the <code>storage</code> option when configuring your <a href="#mounting">Biscotti instance</a>.</p>
+      </section>
+
+      <section class="doc-section" id="export-import">
+        <h2><a href="#export-import" class="anchor-link">#</a>Export/Import</h2>
+        <p>Export an agent's full configuration (<a href="#versioning">prompt versions</a>, <a href="#test-cases">test cases</a>, settings) as JSON via the <a href="#rest-api">REST API</a>:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">http</span>
+            <button class="copy-btn" data-code="GET /biscotti/api/agents/{name}/export">Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="fn">GET</span> <span class="str">/biscotti/api/agents/{name}/export</span></pre>
+          </div>
+        </div>
+        <p>Import into another instance:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">http</span>
+            <button class="copy-btn" data-code="POST /biscotti/api/agents/{name}/import">Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="fn">POST</span> <span class="str">/biscotti/api/agents/{name}/import</span></pre>
+          </div>
+        </div>
+        <p>Use this to share agent configurations across environments or back up before major changes.</p>
+      </section>
+
+      <section class="doc-section" id="mounting">
+        <h2><a href="#mounting" class="anchor-link">#</a>Mounting Options</h2>
+        <p>Choose how biscotti integrates with your FastAPI app. Combine with <a href="#storage">Storage Options</a> to control where data lives.</p>
+        <h3>As a sub-app (recommended)</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">python</span>
+            <button class="copy-btn" data-code='app = FastAPI()
+bi = Biscotti()
+app.mount("/biscotti", bi.app)'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre>app <span class="op">=</span> <span class="cls">FastAPI</span>()
+bi <span class="op">=</span> <span class="cls">Biscotti</span>()
+app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)</pre>
+          </div>
+        </div>
+        <h3>As an included router</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">python</span>
+            <button class="copy-btn" data-code='app = FastAPI()
+bi = Biscotti()
+app.include_router(bi.router, prefix="/biscotti")'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre>app <span class="op">=</span> <span class="cls">FastAPI</span>()
+bi <span class="op">=</span> <span class="cls">Biscotti</span>()
+app.<span class="fn">include_router</span>(bi.router, <span class="par">prefix</span><span class="op">=</span><span class="str">"/biscotti"</span>)</pre>
+          </div>
+        </div>
+        <h3>Custom title</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">python</span>
+            <button class="copy-btn" data-code='bi = Biscotti(title="My Prompt Studio")'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre>bi <span class="op">=</span> <span class="cls">Biscotti</span>(<span class="par">title</span><span class="op">=</span><span class="str">"My Prompt Studio"</span>)</pre>
+          </div>
+        </div>
+        <h3>Context manager for clean shutdown</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">python</span>
+            <button class="copy-btn" data-code='async with Biscotti() as bi:
+    app.mount("/biscotti", bi.app)'>Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="kw">async with</span> <span class="cls">Biscotti</span>() <span class="kw">as</span> bi:
+    app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)</pre>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  // ----------------------------------------------------------------
+  // Theme toggle
+  // ----------------------------------------------------------------
+  function toggleTheme() {
+    var current = document.documentElement.getAttribute('data-theme');
+    var next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('biscotti-theme', next);
+  }
+
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  document.getElementById('themeToggleMobile').addEventListener('click', toggleTheme);
+
+  // ----------------------------------------------------------------
+  // Mobile sidebar
+  // ----------------------------------------------------------------
+  var sidebar = document.getElementById('sidebar');
+  var backdrop = document.getElementById('sidebarBackdrop');
+  var hamburger = document.getElementById('hamburgerBtn');
+
+  function openSidebar() {
+    sidebar.classList.add('open');
+    backdrop.classList.add('visible');
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    backdrop.classList.remove('visible');
+  }
+
+  hamburger.addEventListener('click', openSidebar);
+  backdrop.addEventListener('click', closeSidebar);
+
+  // Close sidebar on nav link click (mobile)
+  document.querySelectorAll('.sidebar-link').forEach(function (link) {
+    link.addEventListener('click', function () {
+      if (window.innerWidth <= 768) closeSidebar();
+    });
+  });
+
+  // ----------------------------------------------------------------
+  // Active section highlighting via IntersectionObserver
+  // ----------------------------------------------------------------
+  var sections = document.querySelectorAll('.doc-section[id]');
+  var sidebarLinks = document.querySelectorAll('.sidebar-link[data-section]');
+  var currentActive = null;
+
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        var id = entry.target.getAttribute('id');
+        if (currentActive) currentActive.classList.remove('active');
+        var link = document.querySelector('.sidebar-link[data-section="' + id + '"]');
+        if (link) {
+          link.classList.add('active');
+          currentActive = link;
+        }
+      }
+    });
+  }, {
+    rootMargin: '-80px 0px -60% 0px',
+    threshold: 0
+  });
+
+  sections.forEach(function (s) { observer.observe(s); });
+
+  // ----------------------------------------------------------------
+  // Copy buttons
+  // ----------------------------------------------------------------
+  document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var code = btn.getAttribute('data-code');
+      if (!code) return;
+      navigator.clipboard.writeText(code).then(function () {
+        var orig = btn.textContent;
+        btn.textContent = 'Copied';
+        btn.classList.add('copied');
+        setTimeout(function () {
+          btn.textContent = orig;
+          btn.classList.remove('copied');
+        }, 1500);
+      });
+    });
+  });
+
+  // ----------------------------------------------------------------
+  // Search
+  // ----------------------------------------------------------------
+  var searchOverlay = document.getElementById('searchOverlay');
+  var searchInput = document.getElementById('searchInput');
+  var searchResults = document.getElementById('searchResults');
+  var searchTrigger = document.getElementById('searchTrigger');
+  var selectedIndex = -1;
+
+  // Build search index from DOM
+  var searchIndex = [];
+  var groupMap = {
+    'installation': 'Getting Started',
+    'quick-start': 'Getting Started',
+    'first-eval': 'Getting Started',
+    'versioning': 'Core Concepts',
+    'test-cases': 'Core Concepts',
+    'variables': 'Core Concepts',
+    'eval-system': 'Core Concepts',
+    'coaching': 'Core Concepts',
+    'pydanticai': 'Integrations',
+    'anthropic-sdk': 'Integrations',
+    'openai-sdk': 'Integrations',
+    'extended-callable': 'Integrations',
+    'return-types': 'Integrations',
+    'claude-code': 'Integrations',
+    'rest-api': 'API Reference',
+    'data-models': 'API Reference',
+    'api-keys': 'API Reference',
+    'storage': 'Advanced',
+    'export-import': 'Advanced',
+    'mounting': 'Advanced'
+  };
+
+  sections.forEach(function (section) {
+    var id = section.getAttribute('id');
+    var heading = section.querySelector('h2');
+    if (!heading) return;
+    var title = heading.textContent.replace(/^#\s*/, '');
+    // Collect text content from paragraphs and list items
+    var textEls = section.querySelectorAll('p, li');
+    var text = '';
+    textEls.forEach(function (el) { text += el.textContent + ' '; });
+    text = text.trim().substring(0, 300);
+    searchIndex.push({
+      id: id,
+      title: title,
+      group: groupMap[id] || '',
+      text: text
+    });
+  });
+
+  function openSearch() {
+    searchOverlay.classList.add('open');
+    searchInput.value = '';
+    searchInput.focus();
+    selectedIndex = -1;
+    renderResults('');
+  }
+
+  function closeSearch() {
+    searchOverlay.classList.remove('open');
+  }
+
+  searchTrigger.addEventListener('click', openSearch);
+
+  searchOverlay.addEventListener('click', function (e) {
+    if (e.target === searchOverlay) closeSearch();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    var modKey = isMac ? e.metaKey : e.ctrlKey;
+    if (modKey && e.key === 'k') {
+      e.preventDefault();
+      if (searchOverlay.classList.contains('open')) {
+        closeSearch();
+      } else {
+        openSearch();
+      }
+      return;
+    }
+
+    if (!searchOverlay.classList.contains('open')) return;
+
+    if (e.key === 'Escape') {
+      closeSearch();
+      return;
+    }
+
+    var items = searchResults.querySelectorAll('.search-result');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+      updateSelection(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, 0);
+      updateSelection(items);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0 && items[selectedIndex]) {
+        var href = items[selectedIndex].getAttribute('data-href');
+        if (href) {
+          closeSearch();
+          window.location.hash = href;
+        }
+      }
+    }
+  });
+
+  function updateSelection(items) {
+    items.forEach(function (item, i) {
+      item.classList.toggle('selected', i === selectedIndex);
+    });
+    if (items[selectedIndex]) {
+      items[selectedIndex].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  searchInput.addEventListener('input', function () {
+    selectedIndex = -1;
+    renderResults(searchInput.value);
+  });
+
+  function highlightMatch(text, terms) {
+    if (!terms.length) return escapeHtml(text);
+    var escaped = escapeHtml(text);
+    terms.forEach(function (term) {
+      var re = new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+      escaped = escaped.replace(re, '<mark>$1</mark>');
+    });
+    return escaped;
+  }
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function renderResults(query) {
+    query = query.trim().toLowerCase();
+    if (!query) {
+      // Show all items grouped
+      var html = '';
+      var lastGroup = '';
+      searchIndex.forEach(function (item) {
+        if (item.group !== lastGroup) {
+          html += '<div class="search-group-label">' + escapeHtml(item.group) + '</div>';
+          lastGroup = item.group;
+        }
+        html += '<div class="search-result" data-href="' + item.id + '">';
+        html += '<div class="search-result-title">' + escapeHtml(item.title) + '</div>';
+        html += '</div>';
+      });
+      searchResults.innerHTML = html;
+      bindResultClicks();
+      return;
+    }
+
+    var terms = query.split(/\s+/).filter(Boolean);
+    var matches = searchIndex.filter(function (item) {
+      var haystack = (item.title + ' ' + item.text).toLowerCase();
+      return terms.every(function (t) { return haystack.indexOf(t) !== -1; });
+    });
+
+    if (!matches.length) {
+      searchResults.innerHTML = '<div class="search-empty">No results for "' + escapeHtml(query) + '"</div>';
+      return;
+    }
+
+    var html = '';
+    var lastGroup = '';
+    matches.forEach(function (item) {
+      if (item.group !== lastGroup) {
+        html += '<div class="search-group-label">' + escapeHtml(item.group) + '</div>';
+        lastGroup = item.group;
+      }
+      // Find a snippet containing one of the terms
+      var snippet = item.text.substring(0, 120);
+      var lowerText = item.text.toLowerCase();
+      var firstPos = -1;
+      for (var i = 0; i < terms.length; i++) {
+        var p = lowerText.indexOf(terms[i]);
+        if (p !== -1 && (firstPos === -1 || p < firstPos)) firstPos = p;
+      }
+      if (firstPos > 40) {
+        snippet = '...' + item.text.substring(firstPos - 20, firstPos + 100);
+      }
+
+      html += '<div class="search-result" data-href="' + item.id + '">';
+      html += '<div class="search-result-title">' + highlightMatch(item.title, terms) + '</div>';
+      html += '<div class="search-result-snippet">' + highlightMatch(snippet, terms) + '</div>';
+      html += '</div>';
+    });
+
+    searchResults.innerHTML = html;
+    bindResultClicks();
+  }
+
+  function bindResultClicks() {
+    searchResults.querySelectorAll('.search-result').forEach(function (el, i) {
+      el.addEventListener('click', function () {
+        var href = el.getAttribute('data-href');
+        closeSearch();
+        window.location.hash = href;
+      });
+      el.addEventListener('mouseenter', function () {
+        selectedIndex = i;
+        updateSelection(searchResults.querySelectorAll('.search-result'));
+      });
+    });
+  }
+
+  // ----------------------------------------------------------------
+  // Smooth scroll offset for hash links (account for mobile bar)
+  // ----------------------------------------------------------------
+  document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      var target = document.getElementById(a.getAttribute('href').substring(1));
+      if (target && window.innerWidth <= 768) {
+        e.preventDefault();
+        var y = target.getBoundingClientRect().top + window.scrollY - 56;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+        history.pushState(null, '', a.getAttribute('href'));
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

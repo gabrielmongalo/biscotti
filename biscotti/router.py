@@ -49,9 +49,17 @@ def build_router(store: PromptStore) -> APIRouter:
     async def ui_root() -> FileResponse:
         return FileResponse(_UI_DIR / "index.html")
 
-    @router.get("/landing", response_class=HTMLResponse, include_in_schema=False)
-    async def ui_landing() -> FileResponse:
+    @router.get("/home", response_class=HTMLResponse, include_in_schema=False)
+    async def ui_home() -> FileResponse:
         return FileResponse(_UI_DIR / "landing.html")
+
+    @router.get("/docs", response_class=HTMLResponse, include_in_schema=False)
+    async def ui_docs() -> FileResponse:
+        return FileResponse(_UI_DIR / "docs.html")
+
+    @router.get("/static/{filename:path}", include_in_schema=False)
+    async def ui_static(filename: str) -> FileResponse:
+        return FileResponse(_UI_DIR / filename)
 
     @router.get("/app.js", include_in_schema=False)
     async def ui_js() -> FileResponse:

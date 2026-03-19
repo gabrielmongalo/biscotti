@@ -738,26 +738,27 @@
       <div class="agents-header">
         <h2>Agents</h2>
         <span class="agents-count" x-text="$store.app.agents.length + ' agents'"></span>
+        <div class="agents-search">
+          <i data-lucide="search"></i>
+          <input type="text" placeholder="Search agents..."
+            x-model="$store.app._agentSearch"
+            @input="setTimeout(() => lucide.createIcons(), 0)">
+        </div>
       </div>
       <div class="agents-grid">
-        <template x-for="agent in $store.app.agents" :key="agent.name">
+        <template x-for="agent in $store.app.agents.filter(a => !$store.app._agentSearch || a.name.toLowerCase().includes($store.app._agentSearch.toLowerCase()) || (a.tags || []).some(t => t.toLowerCase().includes($store.app._agentSearch.toLowerCase())))" :key="agent.name">
           <button class="agent-card"
                   :class="{ active: $store.app.currentAgent === agent.name }"
                   @click="$store.app.selectAgent(agent.name); $store.app.switchView('playground')">
-            <div class="agent-card-header">
-              <div class="agent-card-avatar" x-text="agent.name.charAt(0).toUpperCase()"></div>
-              <h3 class="agent-card-name" x-text="agent.name"></h3>
-            </div>
-            <p class="agent-card-desc" x-text="agent.description"></p>
-            <div class="agent-card-meta">
-              <template x-if="agent.tags && agent.tags.length > 0">
-                <div class="agent-card-tags">
-                  <template x-for="tag in agent.tags" :key="tag">
-                    <span class="agent-card-tag" x-text="tag"></span>
-                  </template>
-                </div>
-              </template>
-            </div>
+            <span class="agent-card-name" x-text="agent.name"></span>
+            <span class="agent-card-stats" x-text="(agent.test_case_count || 0) + ' tests · ' + (agent.version_count || 0) + ' versions'"></span>
+            <template x-if="agent.tags && agent.tags.length > 0">
+              <div class="agent-card-tags">
+                <template x-for="tag in agent.tags" :key="tag">
+                  <span class="agent-card-tag" x-text="tag"></span>
+                </template>
+              </div>
+            </template>
           </button>
         </template>
       </div>
