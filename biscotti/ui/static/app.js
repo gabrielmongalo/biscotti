@@ -122,9 +122,10 @@ document.addEventListener('alpine:init', () => {
     temperature: 1.0,
     reasoningEffort: null,
 
-    // --- Notes modal ---
-    notesModalOpen: false,
+    // --- Inline save ---
+    _savingInline: false,
     saveNotes: '',
+    _bannerDismissed: false,
 
     // --- Confirm modal ---
     confirmOpen: false,
@@ -321,6 +322,7 @@ document.addEventListener('alpine:init', () => {
       if (this.activeView === 'evals') {
         this.loadEvalHistory();
       }
+      setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
     },
 
     // --- Versions ---
@@ -336,15 +338,13 @@ document.addEventListener('alpine:init', () => {
       this.isDirty = false;
     },
 
-    async saveVersion() {
+    saveVersion() {
       if (!this.prompt.trim()) { showToast('Prompt cannot be empty', 'error'); return; }
-      this.saveNotes = '';
-      this.notesModalOpen = true;
+      this._savingInline = true;
     },
 
     async confirmSaveVersion() {
       const notes = this.saveNotes.trim();
-      this.notesModalOpen = false;
       try {
         const pv = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/versions`, 'POST', {
           agent_name: this.currentAgent,
@@ -355,6 +355,8 @@ document.addEventListener('alpine:init', () => {
         await this.loadVersions();
         const saved = this.versions.find(v => v.id === pv.id);
         if (saved) this.loadVersion(saved);
+        this._savingInline = false;
+        this.saveNotes = '';
         showToast(`Saved as v${pv.version}`, 'success');
       } catch (e) {
         showToast('Failed to save: ' + e.message, 'error');
@@ -885,7 +887,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Escape') {
     store.tcSaving = false;
-    store.notesModalOpen = false;
+    store._savingInline = false;
     store.resolveConfirm(false);
     if (store.compareTarget) { store.compareTarget = null; return; }
     if (store.keyModalOpen) store.closeKeyModal();

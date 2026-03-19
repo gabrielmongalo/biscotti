@@ -123,6 +123,17 @@
 
   <!-- ========== PLAYGROUND VIEW ========== -->
   <div class="view" x-show="$store.app.activeView === 'playground'">
+
+  <!-- API key banner -->
+  <div class="api-key-banner" x-show="$store.app.connectedProviders.length === 0 && !$store.app._bannerDismissed" x-transition>
+    <i data-lucide="alert-triangle"></i>
+    <span>No API key configured -- add one in Settings to run tests</span>
+    <button class="btn btn-sm btn-ghost" @click="$store.app.openKeyManager()">Add Key</button>
+    <button class="banner-dismiss" @click="$store.app._bannerDismissed = true">
+      <i data-lucide="x"></i>
+    </button>
+  </div>
+
   <div id="panels">
     <!-- Left: Prompt editor -->
     <div id="editor-panel">
@@ -199,12 +210,42 @@
           </template>
         </div>
       </div>
+
+      <!-- Inline save action bar -->
+      <div class="editor-action-bar" x-show="$store.app.isDirty" x-transition>
+        <div class="editor-dirty-indicator">
+          <span class="dirty-dot"></span> Unsaved changes
+        </div>
+        <div class="editor-actions">
+          <button class="btn btn-sm btn-ghost" @click="$store.app.discardChanges()">Discard</button>
+          <template x-if="$store.app._savingInline">
+            <input type="text" class="save-notes-input" placeholder="Version notes (optional)..."
+                   x-model="$store.app.saveNotes"
+                   @keydown.enter="$store.app.confirmSaveVersion()"
+                   @keydown.escape="$store.app._savingInline = false">
+          </template>
+          <button class="btn btn-sm btn-primary"
+                  @click="$store.app._savingInline ? $store.app.confirmSaveVersion() : ($store.app._savingInline = true)"
+                  x-text="$store.app._savingInline ? 'Confirm Save' : 'Save Version'">
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="panel-resize-handle" id="panel-resize-handle"></div>
 
     <!-- Right: Test Runner -->
     <div id="right-panel">
+        <!-- Empty state: no test cases -->
+        <div class="empty-state" x-show="$store.app.testCases.length === 0 && !$store.app.tcSaving">
+          <i data-lucide="flask-conical" style="width:40px;height:40px;color:var(--muted)"></i>
+          <h3>Write your first test</h3>
+          <p>Create a test case with a user message and variable values to test your prompt.</p>
+          <button class="btn btn-primary" @click="$store.app.startSaveTestCase()">
+            <i data-lucide="plus"></i> Create Test Case
+          </button>
+        </div>
+
         <div style="padding:20px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;flex:1;">
 
           <!-- Test cases (pill bar) -->
@@ -363,12 +404,9 @@
             <span class="metric-item"><span class="metric-label">Cost</span> <span class="metric-value" x-text="'$' + ($store.app.metrics?.cost || 0).toFixed(4)"></span></span>
           </div>
 
-          <!-- Version actions -->
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-ghost btn-sm" x-show="$store.app.isDirty" @click="$store.app.discardChanges()">Discard</button>
-            <button class="btn btn-primary" style="flex:1;" :disabled="!$store.app.isDirty" @click="$store.app.saveVersion()">Save Version</button>
+          <!-- Promote version (only when not dirty) -->
+          <div style="display:flex;gap:8px;" x-show="!$store.app.isDirty && $store.app.currentVersionId && $store.app.currentVersion?.status !== 'current'">
             <button class="btn btn-promote" style="flex:1;"
-                    x-show="!$store.app.isDirty && $store.app.currentVersionId && $store.app.currentVersion?.status !== 'current'"
                     @click="$store.app.promoteVersion()">Set as Current</button>
           </div>
 
@@ -682,20 +720,6 @@
 <!-- ============================================================
      MODALS
      ============================================================ -->
-<div id="notes-modal-overlay" :class="{ open: $store.app.notesModalOpen }" @click.self="$store.app.notesModalOpen = false">
-  <div id="notes-modal">
-    <h3>Save New Version</h3>
-    <div class="field-group">
-      <div class="field-label">Notes <span style="text-transform:none;font-weight:400;letter-spacing:0;">(optional)</span></div>
-      <input type="text" x-model="$store.app.saveNotes" placeholder="What changed in this version?"
-             @keydown.enter="$store.app.confirmSaveVersion()">
-    </div>
-    <div style="display:flex;gap:8px;margin-top:4px;">
-      <button class="btn btn-ghost" style="flex:1;" @click="$store.app.notesModalOpen = false">Cancel</button>
-      <button class="btn btn-primary" style="flex:2;" @click="$store.app.confirmSaveVersion()">Save Version</button>
-    </div>
-  </div>
-</div>
 
 <div id="confirm-overlay" :class="{ open: $store.app.confirmOpen }" @click.self="$store.app.resolveConfirm(false)">
   <div id="confirm-modal">
