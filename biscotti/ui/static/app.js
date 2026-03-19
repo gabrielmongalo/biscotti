@@ -84,6 +84,7 @@ document.addEventListener('alpine:init', () => {
 
     // --- UI state ---
     sidebarCollapsed: false,
+    activeView: 'playground',
     activeTab: 'run',
     isDirty: false,
     diffActive: false,
@@ -262,6 +263,21 @@ document.addEventListener('alpine:init', () => {
       if (this.agents.length) {
         await this.selectAgent(this.agents[0].name);
       }
+      // Initialize Lucide icons after DOM update
+      setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
+    },
+
+    // --- View switching ---
+    switchView(view) {
+      this.activeView = view;
+      if (view === 'evals') {
+        this.loadEvalSettings();
+        this.loadEvalHistory();
+      } else if (view === 'versions') {
+        this.loadVersions();
+      }
+      // Re-render Lucide icons after view change
+      setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
     },
 
     // --- Agent selection ---
