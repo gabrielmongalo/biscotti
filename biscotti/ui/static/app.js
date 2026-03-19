@@ -85,7 +85,6 @@ document.addEventListener('alpine:init', () => {
     // --- UI state ---
     sidebarCollapsed: false,
     activeView: 'playground',
-    activeTab: 'run',
     isDirty: false,
     diffActive: false,
     theme: localStorage.getItem('biscotti-theme') || 'dark',
@@ -835,12 +834,6 @@ document.addEventListener('alpine:init', () => {
       this.theme = this.theme === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', this.theme);
       localStorage.setItem('biscotti-theme', this.theme);
-    },
-
-    // --- Tab switching ---
-    switchTab(name) {
-      this.activeTab = name;
-      if (name === 'evals') { this.loadEvalSettings(); this.loadEvalHistory(); }
     },
 
     // --- Diff ---
