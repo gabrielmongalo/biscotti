@@ -85,6 +85,7 @@ document.addEventListener('alpine:init', () => {
     // --- UI state ---
     sidebarCollapsed: false,
     activeView: 'playground',
+    _agentDropdownOpen: false,
     isDirty: false,
     diffActive: false,
     theme: localStorage.getItem('biscotti-theme') || 'dark',
