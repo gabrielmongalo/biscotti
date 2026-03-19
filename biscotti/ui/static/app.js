@@ -298,8 +298,9 @@ document.addEventListener('alpine:init', () => {
       this.outputState = 'empty';
       this.metrics = null;
       this.selectedTestCase = '';
+      // Always load settings (provider status + coach model needed globally)
+      this.loadEvalSettings();
       if (this.activeTab === 'evals') {
-        this.loadEvalSettings();
         this.loadEvalHistory();
       }
     },
@@ -629,7 +630,11 @@ document.addEventListener('alpine:init', () => {
       return modelStr.split(':')[0] || '';
     },
 
-    requireKey(provider, callback) {
+    async requireKey(provider, callback) {
+      // Ensure provider status is loaded
+      if (!Object.keys(this.providerStatus).length) {
+        try { this.providerStatus = await api('/api/settings/status'); } catch {}
+      }
       if (this.providerStatus[provider]) {
         callback();
         return;
@@ -640,7 +645,11 @@ document.addEventListener('alpine:init', () => {
       this.keyModalOpen = true;
     },
 
-    openKeyManager() {
+    async openKeyManager() {
+      // Ensure provider status is loaded
+      if (!Object.keys(this.providerStatus).length) {
+        try { this.providerStatus = await api('/api/settings/status'); } catch {}
+      }
       this.keyModalProvider = this.disconnectedProviders.length ? this.disconnectedProviders[0] : 'anthropic';
       this.keyModalValue = '';
       this.keyModalCallback = null;

@@ -728,45 +728,41 @@
       </p>
 
       <!-- Connected providers list -->
-      <template x-if="$store.app.connectedProviders.length">
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
-          <template x-for="p in $store.app.connectedProviders" :key="p">
-            <span class="provider-pill">
-              <span class="provider-pill-dot"></span>
-              <span x-text="p.charAt(0).toUpperCase() + p.slice(1)"></span>
-              <button class="provider-pill-x" @click="$store.app.disconnectProvider(p)" title="Disconnect">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </span>
-          </template>
-        </div>
-      </template>
+      <div x-show="$store.app.connectedProviders.length" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
+        <template x-for="p in $store.app.connectedProviders" :key="p">
+          <span class="provider-pill">
+            <span class="provider-pill-dot"></span>
+            <span x-text="p.charAt(0).toUpperCase() + p.slice(1)"></span>
+            <button class="provider-pill-x" @click="$store.app.disconnectProvider(p)" title="Disconnect">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </span>
+        </template>
+      </div>
 
       <!-- Add key form -->
-      <template x-if="$store.app.disconnectedProviders.length">
-        <div style="display:flex;gap:8px;align-items:center;">
-          <div class="provider-select-wrap" @click.outside="$store.app.keyModalProviderDropdownOpen = false">
-            <button class="provider-select-trigger" @click="$store.app.keyModalProviderDropdownOpen = !$store.app.keyModalProviderDropdownOpen">
-              <span x-text="$store.app.keyModalProvider.charAt(0).toUpperCase() + $store.app.keyModalProvider.slice(1)"></span>
-              <svg class="tc-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <div class="provider-select-dropdown" :class="{ open: $store.app.keyModalProviderDropdownOpen }">
-              <template x-for="prov in $store.app.disconnectedProviders" :key="prov">
-                <div class="provider-select-item"
-                     :class="{ selected: $store.app.keyModalProvider === prov }"
-                     @click="$store.app.keyModalProvider = prov; $store.app.keyModalProviderDropdownOpen = false"
-                     x-text="prov.charAt(0).toUpperCase() + prov.slice(1)"></div>
-              </template>
-            </div>
+      <div x-show="$store.app.disconnectedProviders.length" style="display:flex;gap:8px;align-items:center;">
+        <div class="provider-select-wrap" @click.outside="$store.app.keyModalProviderDropdownOpen = false">
+          <button class="provider-select-trigger" @click="$store.app.keyModalProviderDropdownOpen = !$store.app.keyModalProviderDropdownOpen">
+            <span x-text="$store.app.keyModalProvider.charAt(0).toUpperCase() + $store.app.keyModalProvider.slice(1)"></span>
+            <svg class="tc-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="provider-select-dropdown" :class="{ open: $store.app.keyModalProviderDropdownOpen }">
+            <template x-for="prov in $store.app.disconnectedProviders" :key="prov">
+              <div class="provider-select-item"
+                   :class="{ selected: $store.app.keyModalProvider === prov }"
+                   @click="$store.app.keyModalProvider = prov; $store.app.keyModalProviderDropdownOpen = false"
+                   x-text="prov.charAt(0).toUpperCase() + prov.slice(1)"></div>
+            </template>
           </div>
-          <input type="password" class="key-input" style="flex:1;"
-                 x-model="$store.app.keyModalValue"
-                 :placeholder="$store.app.keyModalProvider === 'anthropic' ? 'sk-ant-...' : 'sk-...'"
-                 @keydown.enter="$store.app.submitModalKey()"
-                 @keydown.escape="$store.app.closeKeyModal()">
-          <button class="btn btn-primary btn-sm" @click="$store.app.submitModalKey()">Connect</button>
         </div>
-      </template>
+        <input type="password" class="key-input" style="flex:1;"
+               x-model="$store.app.keyModalValue"
+               :placeholder="$store.app.keyModalProvider === 'anthropic' ? 'sk-ant-...' : 'sk-...'"
+               @keydown.enter="$store.app.submitModalKey()"
+               @keydown.escape="$store.app.closeKeyModal()">
+        <button class="btn btn-primary btn-sm" @click="$store.app.submitModalKey()">Connect</button>
+      </div>
     </div>
     <div class="key-modal-footer">
       <button class="btn btn-ghost btn-sm" @click="$store.app.closeKeyModal()">
