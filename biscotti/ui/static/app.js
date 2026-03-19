@@ -90,6 +90,8 @@ document.addEventListener('alpine:init', () => {
     diffActive: false,
     theme: localStorage.getItem('biscotti-theme') || 'dark',
     compareTarget: null,
+    _expandedVersion: null,
+    _expandedEvalCase: null,
 
     // --- Test cases ---
     testCases: [],
@@ -394,6 +396,10 @@ document.addEventListener('alpine:init', () => {
     },
 
     compareVersion(v) {
+      this.compareTarget = v;
+    },
+
+    startCompare(v) {
       this.compareTarget = v;
     },
 
@@ -881,6 +887,7 @@ document.addEventListener('keydown', (e) => {
     store.tcSaving = false;
     store.notesModalOpen = false;
     store.resolveConfirm(false);
+    if (store.compareTarget) { store.compareTarget = null; return; }
     if (store.keyModalOpen) store.closeKeyModal();
     if (store.coachResult) { store.coachResult = null; store.coachPanelOpen = false; }
   }

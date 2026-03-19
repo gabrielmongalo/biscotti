@@ -398,14 +398,284 @@
   </div>
   </div><!-- /playground view -->
 
-  <!-- ========== VERSIONS VIEW (placeholder) ========== -->
+  <!-- ========== VERSIONS VIEW ========== -->
   <div class="view" x-show="$store.app.activeView === 'versions'">
-    <div class="versions-view"><p style="padding:24px;color:var(--muted)">Versions view -- coming soon</p></div>
+    <div class="versions-view">
+      <div class="versions-header">
+        <h2 class="versions-title">Version History</h2>
+        <span class="versions-count" x-text="$store.app.versions.length + ' versions'"></span>
+      </div>
+
+      <!-- Empty state -->
+      <template x-if="!$store.app.versions.length">
+        <div class="empty-state">
+          <div class="empty-icon"><i data-lucide="git-branch" style="width:48px;height:48px;"></i></div>
+          <div class="empty-title">No versions yet</div>
+          <div>Save your first prompt version from the Playground.</div>
+        </div>
+      </template>
+
+      <!-- Version timeline -->
+      <div class="vt-timeline">
+        <template x-for="v in $store.app.versions" :key="v.id">
+          <div class="vt-card" @click="$store.app._expandedVersion = ($store.app._expandedVersion === v.id ? null : v.id)">
+            <div class="vt-dot" :class="{ current: v.status === 'current' }"></div>
+            <div class="vt-body">
+              <div class="vt-row-top">
+                <span class="vt-version" x-text="'v' + v.version"></span>
+                <span class="vt-status" :class="'status-' + v.status" x-text="v.status"></span>
+                <span class="vt-time" x-text="formatDate(v.created_at)"></span>
+                <div class="vt-actions">
+                  <button class="btn btn-ghost btn-sm" x-show="v.status !== 'current'"
+                          @click.stop="$store.app.promoteVersion(v.id)" title="Set as current">Promote</button>
+                  <button class="btn btn-ghost btn-sm" @click.stop="$store.app.startCompare(v)" title="Compare with current">Compare</button>
+                  <button class="vt-delete-btn" @click.stop="$store.app.deleteVersion(v.id)" title="Delete version">
+                    <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="vt-notes" x-show="v.notes" x-text="v.notes"></div>
+              <div class="vt-prompt-preview"
+                   :class="{ expanded: $store.app._expandedVersion === v.id }"
+                   x-text="v.system_prompt"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Compare overlay -->
+      <div class="vt-compare" x-show="$store.app.compareTarget" x-transition.opacity.duration.150ms style="display:none;">
+        <div class="vt-compare-header">
+          <h3>Compare Versions</h3>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-primary btn-sm"
+                    x-show="$store.app.compareTarget && $store.app.compareTarget.status !== 'current'"
+                    @click="$store.app.promoteVersion($store.app.compareTarget.id)">Promote This Version</button>
+            <button class="btn btn-ghost btn-sm" @click="$store.app.compareTarget = null">Close Compare</button>
+          </div>
+        </div>
+        <div class="vt-compare-columns">
+          <div class="vt-compare-col">
+            <div class="vt-compare-label">
+              <span x-text="'v' + ($store.app.compareTarget?.version || '')"></span>
+              <span class="vt-status" :class="'status-' + ($store.app.compareTarget?.status || 'draft')" x-text="$store.app.compareTarget?.status"></span>
+            </div>
+            <pre class="vt-compare-prompt" x-text="$store.app.compareTarget?.system_prompt || ''"></pre>
+          </div>
+          <div class="vt-compare-col">
+            <div class="vt-compare-label">
+              <span x-text="'v' + ($store.app.currentVersion?.version || '')"></span>
+              <span class="vt-status status-current">current</span>
+            </div>
+            <pre class="vt-compare-prompt" x-text="$store.app.currentVersion?.system_prompt || ''"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- ========== EVALS VIEW (placeholder) ========== -->
+  <!-- ========== EVALS VIEW ========== -->
   <div class="view" x-show="$store.app.activeView === 'evals'">
-    <div class="evals-view"><p style="padding:24px;color:var(--muted)">Evals view -- coming soon</p></div>
+    <div class="evals-view">
+
+      <!-- Score overview strip -->
+      <div class="eval-overview" x-show="$store.app.evalResult">
+        <div class="eval-stat-card">
+          <div class="eval-stat-label">Avg Score</div>
+          <div class="eval-stat-value"
+               :class="{ good: $store.app.evalResult?.average_score >= 3.5, warn: $store.app.evalResult?.average_score < 3 && $store.app.evalResult?.average_score >= 0 }"
+               x-text="($store.app.evalResult?.average_score || 0).toFixed(1)"></div>
+        </div>
+        <div class="eval-stat-card">
+          <div class="eval-stat-label">Pass Rate</div>
+          <div class="eval-stat-value"
+               x-text="($store.app.evalResult?.case_details?.filter(c => c.score >= 3).length || 0) + '/' + ($store.app.evalResult?.case_details?.length || 0)"></div>
+        </div>
+        <div class="eval-stat-card">
+          <div class="eval-stat-label">Best Score</div>
+          <div class="eval-stat-value good"
+               x-text="$store.app.evalResult?.case_details?.length ? Math.max(...$store.app.evalResult.case_details.map(c => c.score)).toFixed(1) : '--'"></div>
+        </div>
+        <div class="eval-stat-card">
+          <div class="eval-stat-label">Worst Score</div>
+          <div class="eval-stat-value"
+               :class="{ warn: $store.app.evalResult?.case_details?.length && Math.min(...$store.app.evalResult.case_details.map(c => c.score)) < 3 }"
+               x-text="$store.app.evalResult?.case_details?.length ? Math.min(...$store.app.evalResult.case_details.map(c => c.score)).toFixed(1) : '--'"></div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty-state" x-show="!$store.app.evalResult && !$store.app.evalHistory.length && !$store.app.evalRunning">
+        <div class="empty-icon"><i data-lucide="bar-chart-2" style="width:48px;height:48px;"></i></div>
+        <div class="empty-title">Run your first eval</div>
+        <div>Configure judge criteria and test cases below, then run an eval to see how your prompt performs.</div>
+      </div>
+
+      <!-- Eval history selector -->
+      <div class="eval-history-selector" x-show="$store.app.evalHistory.length">
+        <label class="field-label" style="margin-bottom:0;">Past Runs</label>
+        <select class="eval-history-select"
+                @change="if ($event.target.value) $store.app.loadEvalRun($event.target.value)">
+          <option value="">Select a past run...</option>
+          <template x-for="h in $store.app.evalHistory" :key="h.id">
+            <option :value="h.id"
+                    :selected="$store.app.evalResult?.id === h.id"
+                    x-text="formatDate(h.created_at) + ' -- v' + (h.prompt_version || '?') + ' -- ' + (h.average_score || 0).toFixed(1) + ' avg'"></option>
+          </template>
+        </select>
+      </div>
+
+      <!-- Configuration section -->
+      <div class="eval-config-section">
+        <div class="eval-content">
+          <!-- Left: Judge config -->
+          <div class="eval-config-col">
+            <div class="field-label">Judge Model</div>
+            <div class="typeahead-wrap" @click.outside="$store.app.judgeModelDropdownOpen = false">
+              <input type="text" class="model-input"
+                     x-model="$store.app.judgeModel"
+                     @focus="$store.app.judgeModelDropdownOpen = true"
+                     @input="$store.app.judgeModelDropdownOpen = true; $store.app.judgeModelHighlightIdx = -1"
+                     @keydown.escape="$store.app.judgeModelDropdownOpen = false"
+                     @keydown.arrow-down.prevent="$store.app.judgeModelHighlightIdx = Math.min($store.app.judgeModelHighlightIdx + 1, $store.app.judgeModelOptions.length - 1)"
+                     @keydown.arrow-up.prevent="$store.app.judgeModelHighlightIdx = Math.max($store.app.judgeModelHighlightIdx - 1, 0)"
+                     @keydown.enter.prevent="if ($store.app.judgeModelHighlightIdx >= 0) $store.app.selectJudgeModel($store.app.judgeModelOptions[$store.app.judgeModelHighlightIdx])"
+                     placeholder="Select judge model..."
+                     autocomplete="off">
+              <div class="typeahead-dropdown" :class="{ open: $store.app.judgeModelDropdownOpen && $store.app.judgeModelOptions.length }">
+                <template x-for="provider in Object.keys($store.app.judgeModelGrouped)" :key="provider">
+                  <div>
+                    <div class="typeahead-group" x-text="provider"></div>
+                    <template x-for="m in $store.app.judgeModelGrouped[provider]" :key="m">
+                      <div class="typeahead-item"
+                           :class="{ highlighted: $store.app.judgeModelOptions.indexOf(m) === $store.app.judgeModelHighlightIdx }"
+                           @mousedown.prevent="$store.app.selectJudgeModel(m)"
+                           x-text="m"></div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <div style="margin-top:14px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <div class="field-label" style="margin-bottom:0;">Criteria</div>
+                <button class="btn btn-ghost btn-sm" style="font-size:11px;"
+                        @click="$store.app.criteriaEditing = !$store.app.criteriaEditing"
+                        x-text="$store.app.criteriaEditing ? 'Show Formatted' : 'Edit Raw'"></button>
+              </div>
+              <!-- Formatted criteria display -->
+              <div class="criteria-display" x-show="!$store.app.criteriaEditing && $store.app.judgeCriteria"
+                   x-html="$store.app.formattedCriteria"
+                   @click="$store.app.criteriaEditing = true"></div>
+              <div x-show="!$store.app.criteriaEditing && !$store.app.judgeCriteria"
+                   class="criteria-display" style="color:var(--muted);font-size:12px;display:flex;align-items:center;justify-content:center;"
+                   @click="$store.app.criteriaEditing = true">
+                No criteria defined. Click to edit or generate.
+              </div>
+              <!-- Raw editor -->
+              <textarea x-show="$store.app.criteriaEditing"
+                        class="msg-input" style="min-height:120px;font-family:var(--mono);font-size:12px;"
+                        x-model="$store.app.judgeCriteria"
+                        placeholder="- Criterion Name (weight 1.0): Description of what to evaluate"></textarea>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button class="btn btn-ghost btn-sm" @click="$store.app.generateJudge()"
+                      :disabled="$store.app.evalGenerating">
+                <span x-show="$store.app.evalGenerating" style="display:inline-flex;align-items:center;gap:4px;">
+                  <span class="spinner" style="width:11px;height:11px;"></span> Generating...
+                </span>
+                <span x-show="!$store.app.evalGenerating">Generate from Prompt</span>
+              </button>
+              <button class="btn btn-ghost btn-sm" x-show="$store.app.evalSettingsDirty"
+                      @click="$store.app.saveEvalSettings()">Save Settings</button>
+            </div>
+          </div>
+
+          <!-- Right: Test cases -->
+          <div class="eval-config-col">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <div class="field-label" style="margin-bottom:0;">Test Cases</div>
+              <span class="eval-tc-count" x-text="$store.app.testCases.length + ' cases'"></span>
+            </div>
+            <div class="eval-tc-list">
+              <template x-for="tc in $store.app.testCases" :key="tc.name">
+                <div class="eval-tc-row">
+                  <span class="eval-tc-name" x-text="tc.name"></span>
+                  <span class="eval-tc-msg" x-text="tc.user_message"></span>
+                  <button class="provider-disconnect" @click="$store.app.deleteTestCaseByName(tc.name)" title="Delete">
+                    <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                  </button>
+                </div>
+              </template>
+              <template x-if="!$store.app.testCases.length">
+                <div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">
+                  No test cases yet. Add some from the Playground.
+                </div>
+              </template>
+            </div>
+            <!-- Inline add test case -->
+            <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%;"
+                    x-show="!$store.app.evalAddTcOpen"
+                    @click="$store.app.evalAddTcOpen = true">
+              <i data-lucide="plus" style="width:12px;height:12px;"></i> Add Test Case
+            </button>
+            <div class="eval-add-tc" x-show="$store.app.evalAddTcOpen" x-transition.duration.150ms>
+              <input type="text" class="model-input" placeholder="Name" x-model="$store.app.evalAddTcName"
+                     style="font-size:12px;">
+              <textarea class="msg-input" placeholder="User message" x-model="$store.app.evalAddTcMsg"
+                        style="min-height:50px;font-size:12px;"></textarea>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-primary btn-sm" @click="$store.app.saveEvalTestCase()">Add</button>
+                <button class="btn btn-ghost btn-sm" @click="$store.app.evalAddTcOpen = false">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Run eval button -->
+        <button class="btn btn-primary" style="width:100%;margin-top:16px;padding:10px;"
+                @click="$store.app.runEval()"
+                :disabled="$store.app.evalRunning || !$store.app.testCases.length">
+          <span x-show="$store.app.evalRunning" style="display:inline-flex;align-items:center;gap:6px;">
+            <span class="spinner"></span> Running Eval...
+          </span>
+          <span x-show="!$store.app.evalRunning" x-text="'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
+        </button>
+      </div>
+
+      <!-- Results grid -->
+      <div class="eval-results-section" x-show="$store.app.evalResult?.case_details?.length">
+        <div class="field-label" style="margin-bottom:10px;">Results</div>
+        <div class="eval-results-cards">
+          <template x-for="(cd, ci) in ($store.app.evalResult?.case_details || [])" :key="ci">
+            <div class="eval-result-card"
+                 :class="{ passed: cd.score >= 3.5, borderline: cd.score >= 2.5 && cd.score < 3.5, failed: cd.score < 2.5 }">
+              <div class="eval-result-header" @click="$store.app._expandedEvalCase = ($store.app._expandedEvalCase === ci ? null : ci)">
+                <span class="eval-result-name" x-text="cd.test_case_name"></span>
+                <span class="eval-result-score" :style="'color:' + scoreColor(cd.score)" x-text="cd.score.toFixed(1)"></span>
+                <button class="eval-result-expand">
+                  <i data-lucide="chevron-down" style="width:14px;height:14px;"
+                     :style="$store.app._expandedEvalCase === ci ? 'transform:rotate(180deg)' : ''"></i>
+                </button>
+              </div>
+              <!-- Criteria breakdown -->
+              <div class="eval-result-criteria" x-show="$store.app._expandedEvalCase === ci" x-transition.duration.150ms>
+                <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
+                  <div class="eval-cr-row" :class="cr.passed ? 'cr-passed' : 'cr-failed'">
+                    <span class="eval-cr-name" x-text="cr.criterion"></span>
+                    <span class="eval-case-badge" :class="cr.passed ? 'badge-pass' : 'badge-fail'"
+                          x-text="cr.passed ? 'Pass' : 'Fail'"></span>
+                    <div class="eval-cr-note" x-show="cr.note" x-text="cr.note"></div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
