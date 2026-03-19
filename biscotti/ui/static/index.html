@@ -99,82 +99,47 @@
         </div>
       </div>
 
-      <!-- Coach Panel (slides in below editor toolbar) -->
+      <!-- Coach Panel (inline: model selector + analyze button only) -->
       <div class="coach-panel" x-show="$store.app.coachPanelOpen" x-transition.duration.150ms>
-        <!-- Ready to coach (no results yet) -->
-        <div x-show="!$store.app.coachResult && !$store.app.coachLoading && !$store.app.coachError" style="padding:12px 16px;">
-          <p style="font-size:12px;color:var(--text2);margin-bottom:8px;">
-            Get AI suggestions to improve your prompt's clarity, structure, and effectiveness.
-          </p>
-          <!-- Coach model selector -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Model</span>
-            <div class="typeahead-wrap" style="flex:1;" @click.outside="$store.app.coachModelDropdownOpen = false">
-              <input type="text" class="model-input"
-                     x-model="$store.app.coachModel"
-                     @focus="$store.app.coachModelDropdownOpen = true"
-                     @input="$store.app.coachModelDropdownOpen = true; $store.app.coachModelHighlightIdx = -1"
-                     @keydown.escape="$store.app.coachModelDropdownOpen = false"
-                     @keydown.arrow-down.prevent="$store.app.coachModelHighlightIdx = Math.min($store.app.coachModelHighlightIdx + 1, $store.app.coachModelOptions.length - 1)"
-                     @keydown.arrow-up.prevent="$store.app.coachModelHighlightIdx = Math.max($store.app.coachModelHighlightIdx - 1, 0)"
-                     @keydown.enter.prevent="if ($store.app.coachModelHighlightIdx >= 0) $store.app.selectCoachModel($store.app.coachModelOptions[$store.app.coachModelHighlightIdx])"
-                     placeholder="Select model..."
-                     autocomplete="off"
-                     style="font-size:12px;">
-              <div class="typeahead-dropdown" :class="{ open: $store.app.coachModelDropdownOpen && $store.app.coachModelOptions.length }">
-                <template x-for="provider in Object.keys($store.app.coachModelGrouped)" :key="provider">
-                  <div>
-                    <div class="typeahead-group" x-text="provider"></div>
-                    <template x-for="m in $store.app.coachModelGrouped[provider]" :key="m">
-                      <div class="typeahead-item"
-                           :class="{ highlighted: $store.app.coachModelOptions.indexOf(m) === $store.app.coachModelHighlightIdx }"
-                           @mousedown.prevent="$store.app.selectCoachModel(m)"
-                           x-text="m"></div>
-                    </template>
-                  </div>
-                </template>
-              </div>
+        <div style="padding:12px 16px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Coach Model</span>
+          <div class="typeahead-wrap" style="flex:1;max-width:280px;" @click.outside="$store.app.coachModelDropdownOpen = false">
+            <input type="text" class="model-input"
+                   x-model="$store.app.coachModel"
+                   @focus="$store.app.coachModelDropdownOpen = true"
+                   @input="$store.app.coachModelDropdownOpen = true; $store.app.coachModelHighlightIdx = -1"
+                   @keydown.escape="$store.app.coachModelDropdownOpen = false"
+                   @keydown.arrow-down.prevent="$store.app.coachModelHighlightIdx = Math.min($store.app.coachModelHighlightIdx + 1, $store.app.coachModelOptions.length - 1)"
+                   @keydown.arrow-up.prevent="$store.app.coachModelHighlightIdx = Math.max($store.app.coachModelHighlightIdx - 1, 0)"
+                   @keydown.enter.prevent="if ($store.app.coachModelHighlightIdx >= 0) $store.app.selectCoachModel($store.app.coachModelOptions[$store.app.coachModelHighlightIdx])"
+                   placeholder="Select model..."
+                   autocomplete="off"
+                   style="font-size:12px;">
+            <div class="typeahead-dropdown" :class="{ open: $store.app.coachModelDropdownOpen && $store.app.coachModelOptions.length }">
+              <template x-for="provider in Object.keys($store.app.coachModelGrouped)" :key="provider">
+                <div>
+                  <div class="typeahead-group" x-text="provider"></div>
+                  <template x-for="m in $store.app.coachModelGrouped[provider]" :key="m">
+                    <div class="typeahead-item"
+                         :class="{ highlighted: $store.app.coachModelOptions.indexOf(m) === $store.app.coachModelHighlightIdx }"
+                         @mousedown.prevent="$store.app.selectCoachModel(m)"
+                         x-text="m"></div>
+                  </template>
+                </div>
+              </template>
             </div>
           </div>
           <button class="btn btn-primary btn-sm"
                   @click="$store.app.runCoach()"
-                  :disabled="!$store.app.coachModel"
-                  style="font-size:12px;padding:6px 14px;">Analyze Prompt</button>
+                  :disabled="!$store.app.coachModel || $store.app.coachLoading"
+                  style="font-size:12px;padding:6px 14px;">
+            <span x-show="$store.app.coachLoading" style="display:inline-flex;align-items:center;gap:4px;">
+              <span class="spinner" style="width:11px;height:11px;"></span> Analyzing...
+            </span>
+            <span x-show="!$store.app.coachLoading">Analyze Prompt</span>
+          </button>
+          <span x-show="$store.app.coachError && !$store.app.coachLoading" style="font-size:11px;color:var(--red);" x-text="$store.app.coachError"></span>
         </div>
-
-        <!-- Loading -->
-        <div x-show="$store.app.coachLoading" style="padding:12px 16px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">
-          <span class="spinner" style="width:12px;height:12px;"></span> Analyzing your prompt...
-        </div>
-
-        <!-- Error -->
-        <div x-show="$store.app.coachError && !$store.app.coachLoading" style="padding:12px 16px;font-size:12px;color:var(--red);">
-          <span x-text="$store.app.coachError"></span>
-          <button class="btn btn-ghost btn-sm" @click="$store.app.runCoach()" style="margin-left:8px;font-size:11px;padding:2px 8px;">Retry</button>
-        </div>
-
-        <!-- Coach results -->
-        <template x-if="$store.app.coachResult && !$store.app.coachLoading">
-          <div style="padding:12px 16px;max-height:300px;overflow-y:auto;">
-            <div class="coach-summary" x-text="$store.app.coachResult.summary"></div>
-
-            <template x-for="(s, si) in $store.app.coachResult.suggestions" :key="si">
-              <div class="coach-suggestion">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                  <span class="coach-action-badge" :class="'badge-' + s.action" x-text="s.action"></span>
-                  <span style="font-weight:600;font-size:12px;color:var(--text);" x-text="s.title"></span>
-                </div>
-                <div style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:4px;" x-text="s.description"></div>
-                <pre x-show="s.suggested_text" class="coach-code-block" x-text="s.suggested_text"></pre>
-              </div>
-            </template>
-
-            <div class="coach-actions">
-              <button class="btn btn-primary btn-sm" @click="$store.app.applyCoachPrompt()" style="font-size:12px;padding:6px 14px;">Apply Revised Prompt</button>
-              <button class="btn btn-ghost btn-sm" @click="$store.app.coachResult = null; $store.app.coachPanelOpen = false;" style="font-size:11px;padding:4px 10px;">Dismiss</button>
-            </div>
-          </div>
-        </template>
       </div>
 
       <div class="editor-wrap">
@@ -799,5 +764,45 @@
   document.addEventListener('scroll', e => { if (e.target.id === 'prompt-editor') { document.getElementById('prompt-backdrop').scrollTop = e.target.scrollTop; } }, true);
 })();
 </script>
+
+<!-- ============================================================
+     COACH DRAWER (slide-over from right)
+     ============================================================ -->
+<div id="coach-drawer-overlay"
+     x-show="$store.app.coachResult && !$store.app.coachLoading"
+     @click.self="$store.app.coachResult = null; $store.app.coachPanelOpen = false">
+  <div id="coach-drawer">
+    <div class="coach-drawer-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4c0 2 2 3 2 6h4c0-3 2-4 2-6a4 4 0 0 0-4-4z"/><line x1="10" y1="16" x2="14" y2="16"/><line x1="10" y1="19" x2="14" y2="19"/></svg>
+        <span style="font-weight:600;font-size:14px;color:var(--text);">Coach Analysis</span>
+      </div>
+      <button class="coach-drawer-close" @click="$store.app.coachResult = null; $store.app.coachPanelOpen = false" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="coach-drawer-body">
+      <div class="coach-summary" x-text="$store.app.coachResult?.summary"></div>
+
+      <template x-for="(s, si) in ($store.app.coachResult?.suggestions || [])" :key="si">
+        <div class="coach-suggestion">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span class="coach-action-badge" :class="'badge-' + s.action" x-text="s.action"></span>
+            <span style="font-weight:600;font-size:12px;color:var(--text);" x-text="s.title"></span>
+          </div>
+          <div style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:4px;" x-text="s.description"></div>
+          <pre x-show="s.suggested_text" class="coach-code-block" x-text="s.suggested_text"></pre>
+        </div>
+      </template>
+    </div>
+
+    <div class="coach-drawer-footer">
+      <button class="btn btn-primary" @click="$store.app.applyCoachPrompt()" style="font-size:13px;padding:8px 20px;flex:1;">Apply Revised Prompt</button>
+      <button class="btn btn-ghost" @click="$store.app.coachResult = null; $store.app.coachPanelOpen = false" style="font-size:12px;padding:8px 14px;">Dismiss</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

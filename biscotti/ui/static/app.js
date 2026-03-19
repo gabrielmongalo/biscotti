@@ -801,6 +801,7 @@ document.addEventListener('alpine:init', () => {
       this.prompt = this.coachResult.revised_prompt;
       this.isDirty = true;
       this.diffActive = true;
+      this.coachResult = null;
       this.coachPanelOpen = false;
       showToast('Coach suggestions applied -- review the diff and save when ready', 'success');
     },
@@ -865,5 +866,6 @@ document.addEventListener('keydown', (e) => {
     store.notesModalOpen = false;
     store.resolveConfirm(false);
     if (store.keyModalOpen) store.closeKeyModal();
+    if (store.coachResult) { store.coachResult = null; store.coachPanelOpen = false; }
   }
 });

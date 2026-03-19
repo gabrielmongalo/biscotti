@@ -9,23 +9,27 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
-/* ========================================
-   CSS Variables
-   ======================================== */
+/* ================================================================
+   CSS Variables -- unified with main app tokens
+   ================================================================ */
 :root {
   --font-body: 'DM Sans', system-ui, sans-serif;
   --font-mono: 'DM Mono', 'Menlo', monospace;
 }
 
 [data-theme="dark"] {
-  --bg: #0f1117;
-  --bg-code: #12141a;
-  --border: #2a2d36;
-  --text: #e8e6e3;
-  --text-muted: #8b8d94;
-  --text-dim: #5c5e66;
+  --bg: #16181d;
+  --bg-alt: #1a1d23;
+  --surface: #1e2128;
+  --border: rgba(200,210,230,0.08);
+  --border-hover: rgba(200,210,230,0.16);
+  --text: #e2e4e9;
+  --text-muted: #b0b4be;
+  --text-dim: #6b7080;
   --accent: #c9a06c;
   --accent-hover: #d4af7f;
+  --accent-dim: rgba(201,160,108,0.10);
+  --accent-border: rgba(201,160,108,0.25);
 
   --code-keyword: #b48ead;
   --code-string: #a3be8c;
@@ -39,14 +43,18 @@
 }
 
 [data-theme="light"] {
-  --bg: #fafaf9;
-  --bg-code: #f5f5f4;
-  --border: #e7e5e4;
+  --bg: #f5f4f1;
+  --bg-alt: #efeee9;
+  --surface: #ffffff;
+  --border: rgba(0,0,0,0.06);
+  --border-hover: rgba(0,0,0,0.12);
   --text: #1c1917;
-  --text-muted: #78716c;
+  --text-muted: #57534e;
   --text-dim: #a8a29e;
   --accent: #a17a45;
   --accent-hover: #8b6935;
+  --accent-dim: rgba(161,122,69,0.08);
+  --accent-border: rgba(161,122,69,0.20);
 
   --code-keyword: #7c3aed;
   --code-string: #16a34a;
@@ -59,9 +67,9 @@
   --code-shell: #16a34a;
 }
 
-/* ========================================
+/* ================================================================
    Reset & Base
-   ======================================== */
+   ================================================================ */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html {
@@ -78,21 +86,21 @@ body {
   overflow-x: hidden;
 }
 
-a { color: var(--accent); text-decoration: none; }
+a { color: var(--accent); text-decoration: none; transition: color 0.2s ease; }
 a:hover { color: var(--accent-hover); }
 
-/* ========================================
+/* ================================================================
    Layout
-   ======================================== */
+   ================================================================ */
 .container {
   max-width: 1120px;
   margin: 0 auto;
   padding: 0 24px;
 }
 
-/* ========================================
-   Navigation -- minimal, barely there
-   ======================================== */
+/* ================================================================
+   Nav -- blur backdrop, scroll-aware border
+   ================================================================ */
 .nav {
   position: fixed;
   top: 0;
@@ -100,7 +108,15 @@ a:hover { color: var(--accent-hover); }
   right: 0;
   z-index: 100;
   padding: 0 24px;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.3s ease;
+}
+
+.nav.scrolled {
+  border-bottom-color: var(--border);
 }
 
 .nav-inner {
@@ -115,12 +131,14 @@ a:hover { color: var(--accent-hover); }
 .nav-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 18px;
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.01em;
 }
+
+.nav-brand:hover { color: var(--text); }
 
 .nav-brand-icon {
   width: 28px;
@@ -135,38 +153,46 @@ a:hover { color: var(--accent-hover); }
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 24px;
 }
 
 .nav-links a {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--text-muted);
-  transition: color .2s;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  transition: color 0.2s ease;
 }
 
 .nav-links a:hover { color: var(--text); }
 
-/* ========================================
-   Hero -- top-aligned, natural flow
-   ======================================== */
+/* ================================================================
+   Hero -- split layout, code on the right
+   ================================================================ */
 .hero {
-  text-align: center;
-  padding: 160px 24px 100px;
+  padding: 120px 24px 80px;
 }
 
 .hero-inner {
-  max-width: 640px;
+  max-width: 1120px;
   margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.hero-copy {
+  text-align: left;
 }
 
 .hero h1 {
-  font-size: clamp(40px, 6vw, 56px);
+  font-size: clamp(40px, 5vw, 56px);
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.1;
   color: var(--text);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .hero h1 .accent-dot {
@@ -174,7 +200,7 @@ a:hover { color: var(--accent-hover); }
 }
 
 .hero .tagline {
-  font-size: clamp(17px, 2.5vw, 20px);
+  font-size: 18px;
   font-weight: 400;
   color: var(--text-muted);
   line-height: 1.5;
@@ -185,45 +211,72 @@ a:hover { color: var(--accent-hover); }
   font-size: 15px;
   color: var(--text-dim);
   line-height: 1.6;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .hero-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 12px;
-  flex-wrap: wrap;
 }
 
+.hero-code {
+  position: relative;
+}
+
+.hero-code .code-block {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+[data-theme="light"] .hero-code .code-block {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+}
+
+/* ================================================================
+   Buttons -- primary, ghost, tertiary with all states
+   ================================================================ */
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 10px 24px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  border: none;
-  transition: background .2s, color .2s, border-color .2s;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn:active {
+  transform: scale(0.98);
 }
 
 .btn-primary {
   background: var(--accent);
   color: #16181d;
+  border-color: var(--accent);
 }
 
 .btn-primary:hover {
   background: var(--accent-hover);
+  border-color: var(--accent-hover);
   color: #16181d;
 }
 
 .btn-ghost {
   background: transparent;
   color: var(--text-muted);
-  border: 1px solid var(--border);
+  border-color: var(--border-hover);
 }
 
 .btn-ghost:hover {
@@ -236,85 +289,15 @@ a:hover { color: var(--accent-hover); }
   height: 16px;
 }
 
-/* ========================================
-   Features -- flat, no cards
-   ======================================== */
-.features {
-  padding: 60px 24px 100px;
-}
-
-.section-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-dim);
-  margin-bottom: 12px;
-  text-align: center;
-}
-
-.section-title {
-  font-size: clamp(24px, 3.5vw, 32px);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  text-align: center;
-  color: var(--text);
-  margin-bottom: 56px;
-}
-
-.features-grid {
-  max-width: 1120px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 32px;
-}
-
-.feature-item {
-  text-align: left;
-}
-
-.feature-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-  color: var(--text-muted);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-.feature-item h3 {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--text);
-}
-
-.feature-item p {
-  font-size: 14px;
-  line-height: 1.65;
-  color: var(--text-muted);
-}
-
-/* ========================================
-   Quick Start -- code is the hero
-   ======================================== */
-.quickstart {
-  padding: 60px 24px 120px;
-}
-
-.quickstart-content {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
+/* ================================================================
+   Code blocks -- elevated surface for depth
+   ================================================================ */
 .code-block {
-  background: var(--bg-code);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .code-header {
@@ -332,20 +315,31 @@ a:hover { color: var(--accent-hover); }
 }
 
 .code-header .copy-btn {
+  position: relative;
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 4px;
   padding: 3px 8px;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-dim);
   cursor: pointer;
-  transition: all .2s;
+  transition: all 0.15s ease;
 }
 
 .code-header .copy-btn:hover {
-  border-color: var(--text-dim);
+  border-color: var(--border-hover);
   color: var(--text-muted);
+}
+
+.code-header .copy-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.code-header .copy-btn.copied {
+  color: var(--accent);
+  border-color: var(--accent-border);
 }
 
 .code-body {
@@ -373,41 +367,220 @@ a:hover { color: var(--accent-hover); }
 .op { color: var(--code-operator); }
 .sh { color: var(--code-shell); }
 
+/* ================================================================
+   Feature Strip -- single row, 3 items, alt background
+   ================================================================ */
+.features {
+  background: var(--bg-alt);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 64px 24px;
+}
+
+.features-strip {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.feature-item {
+  text-align: left;
+}
+
+.feature-item:hover h3 {
+  color: var(--text);
+}
+
+.feature-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.feature-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.feature-item h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--text);
+  transition: color 0.2s ease;
+}
+
+.feature-item p {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* ================================================================
+   Quick Start -- numbered steps
+   ================================================================ */
+.quickstart {
+  padding: 64px 24px 80px;
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.section-title {
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--text);
+  margin-bottom: 48px;
+}
+
+.quickstart-content {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.step {
+  margin-bottom: 32px;
+}
+
+.step:last-child {
+  margin-bottom: 0;
+}
+
 .step-label {
   font-family: var(--font-mono);
   font-size: 13px;
+  font-weight: 400;
   color: var(--text-dim);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
 }
 
 .claude-badge {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 18px;
+  padding: 16px 0;
   font-size: 14px;
   color: var(--text-muted);
-  margin-top: 16px;
+  line-height: 1.5;
 }
-.claude-badge code {
-  font-family: var(--font-mono);
-  color: var(--accent);
-  font-size: 13px;
-}
+
 .claude-badge strong {
   color: var(--text);
 }
+
 .claude-logo {
   color: var(--accent);
   flex-shrink: 0;
 }
 
-/* ========================================
-   Footer
-   ======================================== */
-.footer {
+/* ================================================================
+   Closing CTA Bar
+   ================================================================ */
+.cta-bar {
+  background: var(--bg-alt);
   border-top: 1px solid var(--border);
-  padding: 40px 24px;
+  border-bottom: 1px solid var(--border);
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.cta-bar h2 {
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text);
+  margin-bottom: 24px;
+}
+
+.cta-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cta-install {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cta-install code {
+  color: var(--text);
+}
+
+.cta-install .copy-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: color 0.15s ease;
+  display: flex;
+  align-items: center;
+}
+
+.cta-install .copy-btn:hover {
+  color: var(--text-muted);
+}
+
+.cta-install .copy-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cta-install .copy-btn.copied {
+  color: var(--accent);
+}
+
+/* ================================================================
+   Footer
+   ================================================================ */
+.footer {
+  padding: 32px 24px;
   text-align: center;
 }
 
@@ -420,24 +593,48 @@ a:hover { color: var(--accent-hover); }
 .footer a:hover { color: var(--text); }
 .footer .sep { margin: 0 8px; opacity: .4; }
 
-/* ========================================
+/* ================================================================
    Responsive
-   ======================================== */
+   ================================================================ */
 @media (max-width: 768px) {
-  .features-grid { grid-template-columns: 1fr; gap: 24px; }
-  .hero { padding: 120px 20px 60px; }
+  .hero { padding: 96px 20px 48px; }
+  .hero-inner {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .hero-copy { text-align: center; }
   .hero h1 { font-size: 36px; }
-  .nav-links a.hide-mobile { display: none; }
-  .hero-actions { flex-direction: column; }
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+  }
   .btn { width: 100%; justify-content: center; }
+  .features-strip {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .nav-links a.hide-mobile { display: none; }
   .code-body pre { font-size: 12px; }
+  .cta-actions { flex-direction: column; }
+  .cta-install { width: 100%; justify-content: center; }
+}
+
+/* ================================================================
+   Reduced motion
+   ================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+  html { scroll-behavior: auto; }
 }
 </style>
 </head>
 <body>
 
 <!-- NAV -->
-<nav class="nav">
+<nav class="nav" id="nav">
   <div class="nav-inner">
     <a href="#" class="nav-brand">
       <span class="nav-brand-icon">
@@ -453,65 +650,81 @@ a:hover { color: var(--accent-hover); }
   </div>
 </nav>
 
-<!-- HERO -->
-<section class="hero">
+<!-- HERO SPLIT -->
+<section class="hero" id="hero">
   <div class="hero-inner">
-    <h1>biscotti<span class="accent-dot">.</span></h1>
-    <p class="tagline">Ship prompts like you ship code</p>
-    <p class="subtext">
-      Version, test, score, and promote system prompts in the browser.<br>
-      No code changes needed.
-    </p>
-    <div class="hero-actions">
-      <a href="/biscotti/" class="btn btn-primary">Open Studio</a>
-      <a href="https://github.com/gabrielmongalo/biscotti" target="_blank" rel="noopener" class="btn btn-ghost">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-        GitHub
-      </a>
+    <div class="hero-copy">
+      <h1>Ship prompts like you ship code<span class="accent-dot">.</span></h1>
+      <p class="tagline">Version, test, and score system prompts in the browser. No code changes needed.</p>
+      <p class="subtext">
+        The eval studio for AI agents. Decorate your agent function, mount the UI, and iterate on prompts with real test cases and AI judges.
+      </p>
+      <div class="hero-actions">
+        <a href="#quickstart" class="btn btn-primary">Get Started</a>
+        <a href="https://github.com/gabrielmongalo/biscotti" target="_blank" rel="noopener" class="btn btn-ghost">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+    <div class="hero-code">
+      <div class="code-block">
+        <div class="code-header">
+          <span class="lang">app.py</span>
+          <button class="copy-btn" data-code="from biscotti import Biscotti, biscotti
+
+@biscotti(name=&quot;my agent&quot;, default_system_prompt=&quot;You are helpful.&quot;)
+async def my_agent(user_message: str, system_prompt: str) -> str:
+    # Your existing agent code
+    ...
+
+bi = Biscotti()
+app.mount(&quot;/biscotti&quot;, bi.app)">Copy</button>
+        </div>
+        <div class="code-body">
+<pre><span class="kw">from</span> <span class="cls">biscotti</span> <span class="kw">import</span> Biscotti, biscotti
+
+<span class="dec">@biscotti</span>(<span class="par">name</span><span class="op">=</span><span class="str">"my agent"</span>, <span class="par">default_system_prompt</span><span class="op">=</span><span class="str">"You are helpful."</span>)
+<span class="kw">async def</span> <span class="fn">my_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">str</span>:
+    <span class="cm"># Your existing agent code</span>
+    ...
+
+bi <span class="op">=</span> <span class="cls">Biscotti</span>()
+app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)</pre>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- FEATURES -->
+<!-- FEATURE STRIP -->
 <section class="features" id="features">
-  <div class="container">
-    <p class="section-label">What You Get</p>
-    <h2 class="section-title">Test, Score, Iterate</h2>
-    <div class="features-grid">
+  <div class="features-strip">
 
-      <div class="feature-item">
-        <div class="feature-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        </div>
-        <h3>Version Every Change</h3>
-        <p>Save every iteration with notes. Compare versions side-by-side and roll back when needed.</p>
+    <div class="feature-item">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
       </div>
-
-      <div class="feature-item">
-        <div class="feature-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        </div>
-        <h3>Run Real Test Cases</h3>
-        <p>Define test inputs, run them against your live agent, and see how each prompt change affects the output.</p>
-      </div>
-
-      <div class="feature-item">
-        <div class="feature-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-        </div>
-        <h3>Score with AI Judges</h3>
-        <p>Auto-generate scoring criteria from your prompt. Batch-evaluate every test case and track scores across versions.</p>
-      </div>
-
-      <div class="feature-item">
-        <div class="feature-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4c0 2 2 3 2 6h4c0-3 2-4 2-6a4 4 0 0 0-4-4z"/><line x1="10" y1="16" x2="14" y2="16"/><line x1="10" y1="19" x2="14" y2="19"/></svg>
-        </div>
-        <h3>Get Prompt Coaching</h3>
-        <p>Get specific suggestions to improve your prompt. See what's weak and apply fixes in one click.</p>
-      </div>
-
+      <h3>Version Every Change</h3>
+      <p>Save iterations with notes, compare side-by-side, and roll back when needed.</p>
     </div>
+
+    <div class="feature-item">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h3>Run Real Test Cases</h3>
+      <p>Define test inputs, run them against your live agent, and see the impact.</p>
+    </div>
+
+    <div class="feature-item">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+      </div>
+      <h3>Score with AI Judges</h3>
+      <p>Auto-generate criteria, batch-evaluate, and track scores across versions.</p>
+    </div>
+
   </div>
 </section>
 
@@ -523,8 +736,8 @@ a:hover { color: var(--accent-hover); }
 
     <div class="quickstart-content">
 
-      <div>
-        <p class="step-label">Install</p>
+      <div class="step">
+        <p class="step-label"><span class="step-number">1</span> Install</p>
         <div class="code-block">
           <div class="code-header">
             <span class="lang">terminal</span>
@@ -536,26 +749,8 @@ a:hover { color: var(--accent-hover); }
         </div>
       </div>
 
-      <div>
-        <div class="claude-badge">
-          <svg class="claude-logo" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-            <path d="m3.127 10.604 3.135-1.76.053-.153-.053-.085H6.11l-.525-.032-1.791-.048-1.554-.065-1.505-.08-.38-.081L0 7.832l.036-.234.32-.214.455.04 1.009.069 1.513.105 1.097.064 1.626.17h.259l.036-.105-.089-.065-.068-.064-1.566-1.062-1.695-1.121-.887-.646-.48-.327-.243-.306-.104-.67.435-.48.585.04.15.04.593.456 1.267.981 1.654 1.218.242.202.097-.068.012-.049-.109-.181-.9-1.626-.96-1.655-.428-.686-.113-.411a2 2 0 0 1-.068-.484l.496-.674L4.446 0l.662.089.279.242.411.94.666 1.48 1.033 2.014.302.597.162.553.06.17h.105v-.097l.085-1.134.157-1.392.154-1.792.052-.504.25-.605.497-.327.387.186.319.456-.045.294-.19 1.23-.37 1.93-.243 1.29h.142l.161-.16.654-.868 1.097-1.372.484-.545.565-.601.363-.287h.686l.505.751-.226.775-.707.895-.585.759-.839 1.13-.524.904.048.072.125-.012 1.897-.403 1.024-.186 1.223-.21.553.258.06.263-.218.536-1.307.323-1.533.307-2.284.54-.028.02.032.04 1.029.098.44.024h1.077l2.005.15.525.346.315.424-.053.323-.807.411-3.631-.863-.872-.218h-.12v.073l.726.71 1.331 1.202 1.667 1.55.084.383-.214.302-.226-.032-1.464-1.101-.565-.497-1.28-1.077h-.084v.113l.295.432 1.557 2.34.08.718-.112.234-.404.141-.444-.08-.911-1.28-.94-1.44-.759-1.291-.093.053-.448 4.821-.21.246-.484.186-.403-.307-.214-.496.214-.98.258-1.28.21-1.016.19-1.263.112-.42-.008-.028-.092.012-.953 1.307-1.448 1.957-1.146 1.227-.274.109-.477-.247.045-.44.266-.39 1.586-2.018.956-1.25.617-.723-.004-.105h-.036l-4.212 2.736-.75.096-.324-.302.04-.496.154-.162 1.267-.871z"/>
-          </svg>
-          <span>Works with <strong>Claude Code</strong> -- set up integration, write test cases, and debug issues with AI assistance</span>
-        </div>
-        <div class="code-block">
-          <div class="code-header">
-            <span class="lang">terminal</span>
-            <button class="copy-btn" data-code="biscotti init-claude">Copy</button>
-          </div>
-          <div class="code-body">
-<pre><span class="sh">biscotti init-claude</span></pre>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <p class="step-label">Add to your project</p>
+      <div class="step">
+        <p class="step-label"><span class="step-number">2</span> Decorate your agent</p>
         <div class="code-block">
           <div class="code-header">
             <span class="lang">app.py</span>
@@ -583,7 +778,41 @@ app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)<
         </div>
       </div>
 
+      <div class="step">
+        <p class="step-label"><span class="step-number">3</span> Open the UI</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">terminal</span>
+            <button class="copy-btn" data-code="biscotti dev">Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="sh">biscotti dev</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="claude-badge">
+        <svg class="claude-logo" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="m3.127 10.604 3.135-1.76.053-.153-.053-.085H6.11l-.525-.032-1.791-.048-1.554-.065-1.505-.08-.38-.081L0 7.832l.036-.234.32-.214.455.04 1.009.069 1.513.105 1.097.064 1.626.17h.259l.036-.105-.089-.065-.068-.064-1.566-1.062-1.695-1.121-.887-.646-.48-.327-.243-.306-.104-.67.435-.48.585.04.15.04.593.456 1.267.981 1.654 1.218.242.202.097-.068.012-.049-.109-.181-.9-1.626-.96-1.655-.428-.686-.113-.411a2 2 0 0 1-.068-.484l.496-.674L4.446 0l.662.089.279.242.411.94.666 1.48 1.033 2.014.302.597.162.553.06.17h.105v-.097l.085-1.134.157-1.392.154-1.792.052-.504.25-.605.497-.327.387.186.319.456-.045.294-.19 1.23-.37 1.93-.243 1.29h.142l.161-.16.654-.868 1.097-1.372.484-.545.565-.601.363-.287h.686l.505.751-.226.775-.707.895-.585.759-.839 1.13-.524.904.048.072.125-.012 1.897-.403 1.024-.186 1.223-.21.553.258.06.263-.218.536-1.307.323-1.533.307-2.284.54-.028.02.032.04 1.029.098.44.024h1.077l2.005.15.525.346.315.424-.053.323-.807.411-3.631-.863-.872-.218h-.12v.073l.726.71 1.331 1.202 1.667 1.55.084.383-.214.302-.226-.032-1.464-1.101-.565-.497-1.28-1.077h-.084v.113l.295.432 1.557 2.34.08.718-.112.234-.404.141-.444-.08-.911-1.28-.94-1.44-.759-1.291-.093.053-.448 4.821-.21.246-.484.186-.403-.307-.214-.496.214-.98.258-1.28.21-1.016.19-1.263.112-.42-.008-.028-.092.012-.953 1.307-1.448 1.957-1.146 1.227-.274.109-.477-.247.045-.44.266-.39 1.586-2.018.956-1.25.617-.723-.004-.105h-.036l-4.212 2.736-.75.096-.324-.302.04-.496.154-.162 1.267-.871z"/>
+        </svg>
+        <span>Works with <strong>Claude Code</strong> -- run <code style="font-family:var(--font-mono);color:var(--accent);font-size:13px;">biscotti init-claude</code> to set up integration</span>
+      </div>
+
     </div>
+  </div>
+</section>
+
+<!-- CLOSING CTA -->
+<section class="cta-bar">
+  <h2>Ready to ship better prompts?</h2>
+  <div class="cta-actions">
+    <div class="cta-install">
+      <code>uv add biscotti</code>
+      <button class="copy-btn" data-code="uv add biscotti" aria-label="Copy install command">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      </button>
+    </div>
+    <a href="/biscotti/" class="btn btn-primary">Open Studio</a>
   </div>
 </section>
 
@@ -597,14 +826,34 @@ app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)<
 
 <script>
 (function () {
-  // Copy buttons
+  // Nav scroll border -- IntersectionObserver on hero
+  var nav = document.getElementById('nav');
+  var hero = document.getElementById('hero');
+  if (nav && hero) {
+    var observer = new IntersectionObserver(function (entries) {
+      nav.classList.toggle('scrolled', !entries[0].isIntersecting);
+    }, { threshold: 0, rootMargin: '-56px 0px 0px 0px' });
+    observer.observe(hero);
+  }
+
+  // Copy buttons with animated feedback
   document.querySelectorAll('.copy-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var code = btn.getAttribute('data-code');
+      if (!code) return;
       navigator.clipboard.writeText(code).then(function () {
-        var orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(function () { btn.textContent = orig; }, 1500);
+        var orig = btn.innerHTML;
+        var isIconBtn = btn.querySelector('svg');
+        if (isIconBtn) {
+          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        } else {
+          btn.textContent = 'Copied';
+        }
+        btn.classList.add('copied');
+        setTimeout(function () {
+          btn.innerHTML = orig;
+          btn.classList.remove('copied');
+        }, 1500);
       });
     });
   });
