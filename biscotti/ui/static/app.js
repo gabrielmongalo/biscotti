@@ -316,7 +316,7 @@ document.addEventListener('alpine:init', () => {
       this.selectedTestCase = '';
       // Always load settings (provider status + coach model needed globally)
       this.loadEvalSettings();
-      if (this.activeTab === 'evals') {
+      if (this.activeView === 'evals') {
         this.loadEvalHistory();
       }
     },
@@ -540,7 +540,7 @@ document.addEventListener('alpine:init', () => {
       if (!this.userMessage.trim()) { showToast('Enter a user message first', 'error'); return; }
       this.running = true;
       this.runElapsed = 0;
-      this._runTimer = setInterval(() => { this.runElapsed++; }, 1000);
+      this._runTimer = setInterval(() => { this.runElapsed += 0.1; }, 100);
       this.output = '';
       this.outputState = 'empty';
       this.metrics = null;
@@ -874,8 +874,8 @@ document.addEventListener('keydown', (e) => {
 
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
     e.preventDefault();
-    if (store.activeTab === 'run') store.runTest();
-    else if (store.activeTab === 'evals') store.runEval();
+    if (store.activeView === 'playground') store.runTest();
+    else if (store.activeView === 'evals') store.runEval();
   }
   if (e.key === 'Escape') {
     store.tcSaving = false;
