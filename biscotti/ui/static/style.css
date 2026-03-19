@@ -1324,20 +1324,28 @@
     box-shadow: var(--shadow-md);
     animation: slideUp 0.2s ease;
   }
-  .key-modal-header h3 {
+  #key-modal h3 {
     font-size: 15px;
     font-weight: 600;
     color: var(--text);
     margin: 0;
   }
-  .key-modal-body {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  .key-modal-desc {
+    font-size: 13px;
+    color: var(--text2);
+    margin: 0;
+    line-height: 1.5;
   }
-  .key-modal-footer {
+  .key-modal-form-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .key-modal-actions {
     display: flex;
     justify-content: flex-end;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
   }
 
   /* Keyboard shortcut hints */
