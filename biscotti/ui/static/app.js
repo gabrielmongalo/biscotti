@@ -157,6 +157,8 @@ document.addEventListener('alpine:init', () => {
     coachOpen: false,
     coachPanelOpen: false,
     coachModel: '',
+    coachModelDropdownOpen: false,
+    coachModelHighlightIdx: -1,
 
     // --- API Key Modal ---
     keyModalOpen: false,
@@ -197,6 +199,29 @@ document.addEventListener('alpine:init', () => {
     get judgeModelGrouped() {
       const groups = {};
       for (const m of this.judgeModelOptions) {
+        const provider = m.split(':')[0] || 'other';
+        if (!groups[provider]) groups[provider] = [];
+        groups[provider].push(m);
+      }
+      return groups;
+    },
+    get coachModelOptions() {
+      const models = {
+        anthropic: ['anthropic:claude-sonnet-4-6', 'anthropic:claude-opus-4-6', 'anthropic:claude-haiku-4-5'],
+        openai: ['openai:gpt-4o', 'openai:gpt-4o-mini', 'openai:gpt-4.1', 'openai:gpt-4.1-mini', 'openai:o3', 'openai:o3-mini'],
+      };
+      const connected = this.connectedProviders;
+      let all = [];
+      for (const p of connected) {
+        if (models[p]) all = all.concat(models[p]);
+      }
+      if (!all.length) all = models.anthropic.concat(models.openai);
+      const q = (this.coachModel || '').toLowerCase();
+      return all.filter(m => !q || m.toLowerCase().includes(q));
+    },
+    get coachModelGrouped() {
+      const groups = {};
+      for (const m of this.coachModelOptions) {
         const provider = m.split(':')[0] || 'other';
         if (!groups[provider]) groups[provider] = [];
         groups[provider].push(m);
@@ -575,6 +600,7 @@ document.addEventListener('alpine:init', () => {
         this.judgeCriteria = s.judge_criteria || '';
         this._savedJudgeModel = this.judgeModel;
         this._savedJudgeCriteria = this.judgeCriteria;
+        this.coachModel = s.coach_model || '';
         this.providerStatus = await api('/api/settings/status');
       } catch { /* ignore on first load */ }
     },
@@ -583,6 +609,18 @@ document.addEventListener('alpine:init', () => {
       this.judgeModel = name;
       this.judgeModelDropdownOpen = false;
       this.judgeModelHighlightIdx = -1;
+    },
+
+    selectCoachModel(name) {
+      this.coachModel = name;
+      this.coachModelDropdownOpen = false;
+      this.coachModelHighlightIdx = -1;
+      // Persist to backend
+      if (this.currentAgent) {
+        api(`/api/agents/${encodeURIComponent(this.currentAgent)}/settings`, 'PUT', {
+          coach_model: name,
+        }).catch(() => {});
+      }
     },
 
     // --- API Key Modal ---

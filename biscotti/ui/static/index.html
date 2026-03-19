@@ -106,7 +106,40 @@
           <p style="font-size:12px;color:var(--text2);margin-bottom:8px;">
             Get AI suggestions to improve your prompt's clarity, structure, and effectiveness.
           </p>
-          <button class="btn btn-primary btn-sm" @click="$store.app.runCoach()" style="font-size:12px;padding:6px 14px;">Analyze Prompt</button>
+          <!-- Coach model selector -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Model</span>
+            <div class="typeahead-wrap" style="flex:1;" @click.outside="$store.app.coachModelDropdownOpen = false">
+              <input type="text" class="model-input"
+                     x-model="$store.app.coachModel"
+                     @focus="$store.app.coachModelDropdownOpen = true"
+                     @input="$store.app.coachModelDropdownOpen = true; $store.app.coachModelHighlightIdx = -1"
+                     @keydown.escape="$store.app.coachModelDropdownOpen = false"
+                     @keydown.arrow-down.prevent="$store.app.coachModelHighlightIdx = Math.min($store.app.coachModelHighlightIdx + 1, $store.app.coachModelOptions.length - 1)"
+                     @keydown.arrow-up.prevent="$store.app.coachModelHighlightIdx = Math.max($store.app.coachModelHighlightIdx - 1, 0)"
+                     @keydown.enter.prevent="if ($store.app.coachModelHighlightIdx >= 0) $store.app.selectCoachModel($store.app.coachModelOptions[$store.app.coachModelHighlightIdx])"
+                     placeholder="Select model..."
+                     autocomplete="off"
+                     style="font-size:12px;">
+              <div class="typeahead-dropdown" :class="{ open: $store.app.coachModelDropdownOpen && $store.app.coachModelOptions.length }">
+                <template x-for="provider in Object.keys($store.app.coachModelGrouped)" :key="provider">
+                  <div>
+                    <div class="typeahead-group" x-text="provider"></div>
+                    <template x-for="m in $store.app.coachModelGrouped[provider]" :key="m">
+                      <div class="typeahead-item"
+                           :class="{ highlighted: $store.app.coachModelOptions.indexOf(m) === $store.app.coachModelHighlightIdx }"
+                           @mousedown.prevent="$store.app.selectCoachModel(m)"
+                           x-text="m"></div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm"
+                  @click="$store.app.runCoach()"
+                  :disabled="!$store.app.coachModel"
+                  style="font-size:12px;padding:6px 14px;">Analyze Prompt</button>
         </div>
 
         <!-- Loading -->
