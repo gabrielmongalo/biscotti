@@ -1883,7 +1883,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--muted);
+    color: var(--text2);
     margin-bottom: 4px;
   }
   .eval-reasoning-text {
