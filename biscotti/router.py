@@ -397,6 +397,7 @@ def build_router(store: PromptStore) -> APIRouter:
 
         eval_id = (body or {}).get("eval_id")
         prompt_text = (body or {}).get("prompt")
+        custom_system_prompt = (body or {}).get("coach_system_prompt")
 
         # Get the prompt to coach on (explicit or current version)
         if prompt_text:
@@ -420,6 +421,7 @@ def build_router(store: PromptStore) -> APIRouter:
                 case_details=case_details,
                 test_cases=test_cases,
                 model=coach_model,
+                custom_system_prompt=custom_system_prompt,
             )
         else:
             # Prompt-only coaching (no eval needed)
@@ -427,6 +429,7 @@ def build_router(store: PromptStore) -> APIRouter:
             coach_result = await coach_prompt(
                 system_prompt=system_prompt,
                 model=coach_model,
+                custom_system_prompt=custom_system_prompt,
             )
 
         return coach_result.model_dump()

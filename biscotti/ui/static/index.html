@@ -623,34 +623,10 @@
   <div class="view" x-show="$store.app.activeView === 'evals'">
     <div class="evals-view">
 
-      <!-- Compact summary bar -->
-      <div class="eval-summary-bar" x-show="$store.app.evalResult">
-        <div class="eval-summary-stat">
-          <span class="eval-summary-label">Avg</span>
-          <span class="eval-summary-value"
-                :class="{ good: $store.app.evalResult?.avg_score >= 3.5, warn: $store.app.evalResult?.avg_score < 3 }"
-                x-text="($store.app.evalResult?.avg_score || 0).toFixed(1)"></span>
-        </div>
-        <span class="eval-summary-sep"></span>
-        <div class="eval-summary-stat">
-          <span class="eval-summary-label">Pass</span>
-          <span class="eval-summary-value"
-                x-text="($store.app.evalResult?.case_details?.filter(c => c.score >= 3).length || 0) + '/' + ($store.app.evalResult?.case_details?.length || 0)"></span>
-        </div>
-        <span class="eval-summary-sep"></span>
-        <div class="eval-summary-stat">
-          <span class="eval-summary-label">Best</span>
-          <span class="eval-summary-value good"
-                x-text="$store.app.evalResult?.case_details?.length ? Math.max(...$store.app.evalResult.case_details.map(c => c.score)).toFixed(1) : '--'"></span>
-        </div>
-        <span class="eval-summary-sep"></span>
-        <div class="eval-summary-stat">
-          <span class="eval-summary-label">Worst</span>
-          <span class="eval-summary-value"
-                :class="{ warn: $store.app.evalResult?.case_details?.length && Math.min(...$store.app.evalResult.case_details.map(c => c.score)) < 3 }"
-                x-text="$store.app.evalResult?.case_details?.length ? Math.min(...$store.app.evalResult.case_details.map(c => c.score)).toFixed(1) : '--'"></span>
-        </div>
-        <div style="margin-left:auto;" x-show="$store.app.evalHistory.length">
+      <!-- Page header -->
+      <div class="evals-page-header">
+        <span class="evals-page-title">Evals</span>
+        <div x-show="$store.app.evalHistory.length">
           <select class="eval-history-select-inline"
                   @change="if ($event.target.value) $store.app.loadEvalRun($event.target.value)">
             <template x-for="h in $store.app.evalHistory" :key="h.id">
@@ -662,24 +638,78 @@
         </div>
       </div>
 
-      <!-- Empty state -->
-      <div class="empty-state" x-show="!$store.app.evalResult && !$store.app.evalHistory.length && !$store.app.evalRunning">
-        <div class="empty-icon"><i data-lucide="bar-chart-2" style="width:48px;height:48px;"></i></div>
-        <div class="empty-title">Run your first eval</div>
-        <div>Configure judge criteria and test cases below, then run an eval to see how your prompt performs.</div>
-      </div>
+      <!-- Results zone (hero) -->
+      <div class="eval-results-zone">
+        <!-- Stats row — bonded to results -->
+        <div class="eval-stats-row" x-show="$store.app.evalResult">
+          <div class="eval-summary-stat">
+            <span class="eval-summary-label">Avg</span>
+            <span class="eval-summary-value"
+                  :class="{ good: $store.app.evalResult?.avg_score >= 3.5, warn: $store.app.evalResult?.avg_score < 3 }"
+                  x-text="($store.app.evalResult?.avg_score || 0).toFixed(1)"></span>
+          </div>
+          <span class="eval-summary-sep"></span>
+          <div class="eval-summary-stat">
+            <span class="eval-summary-label">Pass</span>
+            <span class="eval-summary-value"
+                  x-text="($store.app.evalResult?.case_details?.filter(c => c.score >= 3).length || 0) + '/' + ($store.app.evalResult?.case_details?.length || 0)"></span>
+          </div>
+          <span class="eval-summary-sep"></span>
+          <div class="eval-summary-stat">
+            <span class="eval-summary-label">Best</span>
+            <span class="eval-summary-value good"
+                  x-text="$store.app.evalResult?.case_details?.length ? Math.max(...$store.app.evalResult.case_details.map(c => c.score)).toFixed(1) : '--'"></span>
+          </div>
+          <span class="eval-summary-sep"></span>
+          <div class="eval-summary-stat">
+            <span class="eval-summary-label">Worst</span>
+            <span class="eval-summary-value"
+                  :class="{ warn: $store.app.evalResult?.case_details?.length && Math.min(...$store.app.evalResult.case_details.map(c => c.score)) < 3 }"
+                  x-text="$store.app.evalResult?.case_details?.length ? Math.min(...$store.app.evalResult.case_details.map(c => c.score)).toFixed(1) : '--'"></span>
+          </div>
+        </div>
 
-      <!-- Eval history selector (standalone, when no results yet) -->
-      <div class="eval-history-selector" x-show="$store.app.evalHistory.length && !$store.app.evalResult">
-        <label class="field-label" style="margin-bottom:0;">Past Runs</label>
-        <select class="eval-history-select"
-                @change="if ($event.target.value) $store.app.loadEvalRun($event.target.value)">
-          <option value="">Select a past run...</option>
-          <template x-for="h in $store.app.evalHistory" :key="h.id">
-            <option :value="h.id"
-                    x-text="formatDate(h.created_at) + ' -- v' + (h.prompt_version || '?') + ' -- ' + (h.avg_score || 0).toFixed(1) + ' avg'"></option>
+        <!-- Empty state -->
+        <div class="empty-state" x-show="!$store.app.evalResult && !$store.app.evalHistory.length && !$store.app.evalRunning">
+          <div class="empty-icon"><i data-lucide="bar-chart-2" style="width:48px;height:48px;"></i></div>
+          <div class="empty-title">No results yet</div>
+          <div>Configure criteria and test cases below, then run an eval.</div>
+        </div>
+
+        <!-- Result rows -->
+        <div class="eval-results-table" x-show="$store.app.evalResult?.case_details?.length">
+          <template x-for="(cd, ci) in ($store.app.evalResult?.case_details || [])" :key="ci">
+            <div class="eval-result-row"
+                 :class="{ passed: cd.score >= 3.5, borderline: cd.score >= 2.5 && cd.score < 3.5, failed: cd.score < 2.5 }">
+              <div class="eval-result-header" @click="$store.app._expandedEvalCase = ($store.app._expandedEvalCase === ci ? null : ci)">
+                <span class="eval-result-indicator"></span>
+                <span class="eval-result-name" x-text="cd.test_case || cd.test_case_name || 'Case ' + (ci + 1)"></span>
+                <span class="eval-result-criteria-summary">
+                  <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
+                    <span class="eval-cr-dot" :class="cr.passed ? 'dot-pass' : 'dot-fail'" :title="cr.criterion"></span>
+                  </template>
+                </span>
+                <span class="eval-result-score" :style="'color:' + scoreColor(cd.score)" x-text="cd.score != null ? cd.score.toFixed(1) : 'ERR'"></span>
+                <i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--muted);flex-shrink:0;"
+                   :style="$store.app._expandedEvalCase === ci ? 'transform:rotate(180deg)' : ''"></i>
+              </div>
+              <div class="eval-result-detail" x-show="$store.app._expandedEvalCase === ci" x-transition.duration.150ms>
+                <div class="eval-result-error" x-show="cd.error" x-text="cd.error"></div>
+                <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
+                  <div class="eval-cr-row" :class="cr.passed ? 'cr-passed' : 'cr-failed'">
+                    <span class="eval-cr-icon" x-text="cr.passed ? '✓' : '✗'"></span>
+                    <span class="eval-cr-name" x-text="cr.criterion"></span>
+                    <div class="eval-cr-note" x-show="cr.note" x-text="cr.note"></div>
+                  </div>
+                </template>
+                <div class="eval-reasoning" x-show="cd.reasoning">
+                  <div class="eval-reasoning-label">Judge Reasoning</div>
+                  <div class="eval-reasoning-text" x-text="cd.reasoning"></div>
+                </div>
+              </div>
+            </div>
           </template>
-        </select>
+        </div>
       </div>
 
       <!-- Configuration (collapsible) -->
@@ -839,51 +869,16 @@
         </div>
       </div>
 
-      <!-- Run eval button (always visible, outside collapsible config) -->
-      <button class="btn btn-primary" style="width:100%;padding:8px;"
-              @click="$store.app.runEval()"
-              :disabled="$store.app.evalRunning || !$store.app.testCases.length">
-        <span x-show="$store.app.evalRunning" style="display:inline-flex;align-items:center;gap:6px;">
-          <span class="spinner"></span> Running Eval...
-        </span>
-        <span x-show="!$store.app.evalRunning" x-text="'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
-      </button>
-
-      <!-- Results table (below config + run button = natural flow) -->
-      <div class="eval-results-section" x-show="$store.app.evalResult?.case_details?.length">
-        <div class="eval-results-table">
-          <template x-for="(cd, ci) in ($store.app.evalResult?.case_details || [])" :key="ci">
-            <div class="eval-result-row"
-                 :class="{ passed: cd.score >= 3.5, borderline: cd.score >= 2.5 && cd.score < 3.5, failed: cd.score < 2.5 }">
-              <div class="eval-result-header" @click="$store.app._expandedEvalCase = ($store.app._expandedEvalCase === ci ? null : ci)">
-                <span class="eval-result-indicator"></span>
-                <span class="eval-result-name" x-text="cd.test_case || cd.test_case_name || 'Case ' + (ci + 1)"></span>
-                <span class="eval-result-criteria-summary">
-                  <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
-                    <span class="eval-cr-dot" :class="cr.passed ? 'dot-pass' : 'dot-fail'" :title="cr.criterion"></span>
-                  </template>
-                </span>
-                <span class="eval-result-score" :style="'color:' + scoreColor(cd.score)" x-text="cd.score != null ? cd.score.toFixed(1) : 'ERR'"></span>
-                <i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--muted);flex-shrink:0;"
-                   :style="$store.app._expandedEvalCase === ci ? 'transform:rotate(180deg)' : ''"></i>
-              </div>
-              <div class="eval-result-detail" x-show="$store.app._expandedEvalCase === ci" x-transition.duration.150ms>
-                <div class="eval-result-error" x-show="cd.error" x-text="cd.error"></div>
-                <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
-                  <div class="eval-cr-row" :class="cr.passed ? 'cr-passed' : 'cr-failed'">
-                    <span class="eval-cr-icon" x-text="cr.passed ? '\u2713' : '\u2717'"></span>
-                    <span class="eval-cr-name" x-text="cr.criterion"></span>
-                    <div class="eval-cr-note" x-show="cr.note" x-text="cr.note"></div>
-                  </div>
-                </template>
-                <div class="eval-reasoning" x-show="cd.reasoning">
-                  <div class="eval-reasoning-label">Judge Reasoning</div>
-                  <div class="eval-reasoning-text" x-text="cd.reasoning"></div>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
+      <!-- Sticky run button -->
+      <div class="eval-run-sticky">
+        <button class="btn btn-primary eval-run-btn"
+                @click="$store.app.runEval()"
+                :disabled="$store.app.evalRunning || !$store.app.testCases.length">
+          <span x-show="$store.app.evalRunning" style="display:inline-flex;align-items:center;gap:6px;">
+            <span class="spinner"></span> Running Eval...
+          </span>
+          <span x-show="!$store.app.evalRunning" x-text="'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
+        </button>
       </div>
     </div>
   </div>

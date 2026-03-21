@@ -21,6 +21,18 @@ async function api(path, method = 'GET', body = null) {
   return res.json();
 }
 
+// Auto-load most recent eval run after history loads
+async function autoLoadLatestEval() {
+  const s = Alpine.store('app');
+  if (s.evalResult || !s.evalHistory.length || !s.currentAgent) return;
+  try {
+    const data = await api(`/api/agents/${encodeURIComponent(s.currentAgent)}/evals/${s.evalHistory[0].id}`);
+    s.evalResult = data;
+    s.evalResultsOpen = true;
+    setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
+  } catch { /* ignore */ }
+}
+
 // ================================================================
 // Utilities
 // ================================================================
@@ -144,7 +156,7 @@ document.addEventListener('alpine:init', () => {
     judgeCriteria: '',
     _savedJudgeModel: '',
     _savedJudgeCriteria: '',
-    criteriaEditing: false,
+    criteriaOpenIdx: -1,
     evalRunning: false,
     evalGenerating: false,
     evalTestCasesOpen: true,
@@ -155,16 +167,40 @@ document.addEventListener('alpine:init', () => {
     evalAddTcOpen: false,
     evalAddTcName: '',
     evalAddTcMsg: '',
+    evalAddTcVars: {},
 
-    // --- Coach ---
+    // --- Coach (review mode) ---
     coachResult: null,
     coachLoading: false,
     coachError: null,
-    coachOpen: false,
     coachPanelOpen: false,
     coachModel: '',
     coachModelDropdownOpen: false,
     coachModelHighlightIdx: -1,
+    coachReviewMode: false,
+    coachSuggestions: [],
+    coachExpandedIdx: -1,
+    coachPromptSnapshot: '',
+    coachPromptEditorOpen: false,
+    coachCustomPrompt: '',
+    coachDefaultPrompt: `You are an expert prompt engineer. Your job is to review an AI agent's system prompt and suggest specific, actionable improvements.
+
+Your suggestions must be:
+- Specific: include the exact text to add, replace, or remove
+- Actionable: each suggestion should be independently implementable
+- Prioritized: list the highest-impact change first
+- Practical: focus on clarity, structure, constraint specificity, and output formatting
+
+When eval results are provided, ground suggestions in the specific failures.
+When reviewing without eval results, focus on best practices:
+  - Clear role definition
+  - Explicit output format instructions
+  - Well-defined constraints and edge cases
+  - Effective use of examples (few-shot)
+  - Variable placeholder usage
+
+Do not rewrite the prompt's core purpose or domain.
+Always provide a complete revised_prompt with all suggestions applied.`,
 
     // --- API Key Modal ---
     keyModalOpen: false,
@@ -256,12 +292,50 @@ document.addEventListener('alpine:init', () => {
     get parsedCriteria() {
       if (!this.judgeCriteria) return [];
       return this.judgeCriteria.split('\n').map(line => {
-        const m1 = line.match(/^-\s+(.+?)\s*\(weight\s+([\d.]+)\)\s*:\s*(.+)$/);
-        if (m1) return { name: m1[1], weight: m1[2], description: m1[3], _open: false };
-        const m2 = line.match(/^-\s+(.+?):\s*(.+)$/);
-        if (m2) return { name: m2[1], weight: '1.0', description: m2[2], _open: false };
+        const m1 = line.match(/^-\s+(.*?)\s*\(weight\s+([\d.]+)\)\s*:\s*(.*)$/);
+        if (m1) return { name: m1[1] || '', weight: m1[2], description: m1[3] || '' };
+        const m2 = line.match(/^-\s+(.*?):\s*(.*)$/);
+        if (m2) return { name: m2[1] || '', weight: '1.0', description: m2[2] || '' };
         return null;
       }).filter(Boolean);
+    },
+
+    serializeCriteria(criteria) {
+      return criteria.map(c => {
+        const w = parseFloat(c.weight) || 1.0;
+        return `- ${c.name} (weight ${w.toFixed(1)}): ${c.description}`;
+      }).join('\n');
+    },
+
+    toggleCriterion(idx) {
+      this.criteriaOpenIdx = this.criteriaOpenIdx === idx ? -1 : idx;
+      setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
+    },
+
+    updateCriterion(idx, field, value) {
+      const items = this.parsedCriteria;
+      if (!items[idx]) return;
+      items[idx][field] = value;
+      this.judgeCriteria = this.serializeCriteria(items);
+    },
+
+    addCriterion() {
+      const items = this.parsedCriteria;
+      items.push({ name: 'New Criterion', weight: '1.0', description: 'Describe what to evaluate' });
+      this.judgeCriteria = this.serializeCriteria(items);
+      this.criteriaOpenIdx = items.length - 1;
+      setTimeout(() => {
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        const rows = document.querySelectorAll('.criterion-row');
+        if (rows.length) rows[rows.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    },
+
+    removeCriterion(idx) {
+      const items = this.parsedCriteria;
+      items.splice(idx, 1);
+      this.judgeCriteria = this.serializeCriteria(items);
+      this.criteriaOpenIdx = -1;
     },
 
     // --- Init ---
@@ -287,11 +361,10 @@ document.addEventListener('alpine:init', () => {
       this.activeView = view;
       if (view === 'evals') {
         this.loadEvalSettings();
-        this.loadEvalHistory();
+        this.loadEvalHistory().then(() => autoLoadLatestEval());
       } else if (view === 'versions') {
         this.loadVersions();
       }
-      // Re-render Lucide icons after view change
       setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
     },
 
@@ -332,7 +405,7 @@ document.addEventListener('alpine:init', () => {
       // Always load settings (provider status + coach model needed globally)
       this.loadEvalSettings();
       if (this.activeView === 'evals') {
-        this.loadEvalHistory();
+        this.loadEvalHistory().then(() => autoLoadLatestEval());
       }
       setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
     },
@@ -369,6 +442,8 @@ document.addEventListener('alpine:init', () => {
         if (saved) this.loadVersion(saved);
         this._savingInline = false;
         this.saveNotes = '';
+        // Auto-dismiss remaining coach suggestions on save
+        if (this.coachReviewMode) this.exitReviewMode();
         showToast(`Saved as v${pv.version}`, 'success');
       } catch (e) {
         showToast('Failed to save: ' + e.message, 'error');
@@ -499,10 +574,11 @@ document.addEventListener('alpine:init', () => {
       if (!name || !msg) return;
       try {
         await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/test-cases`, 'POST', {
-          agent_name: this.currentAgent, name, user_message: msg, variable_values: {},
+          agent_name: this.currentAgent, name, user_message: msg, variable_values: { ...this.evalAddTcVars },
         });
         this.evalAddTcName = '';
         this.evalAddTcMsg = '';
+        this.evalAddTcVars = {};
         this.evalAddTcOpen = false;
         await this.loadTestCases();
         showToast('Test case added', 'success');
@@ -774,6 +850,7 @@ document.addEventListener('alpine:init', () => {
           prompt_version_id: this.currentVersionId || null,
         });
         this.evalResult = result;
+        this._evalConfigOpen = false;
         this.coachResult = null;
         await this.loadEvalHistory();
         showToast('Eval complete', 'success');
@@ -822,8 +899,11 @@ document.addEventListener('alpine:init', () => {
       try {
         const body = { prompt: this.prompt };
         if (this.coachModel) body.coach_model = this.coachModel;
+        if (this.coachCustomPrompt.trim()) body.coach_system_prompt = this.coachCustomPrompt.trim();
         if (this.evalResult?.id) body.eval_id = this.evalResult.id;
         this.coachResult = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/coach`, 'POST', body);
+        this.coachPanelOpen = false;
+        this.enterReviewMode();
       } catch (e) {
         this.coachError = e.message || 'Coach analysis failed';
         showToast('Coach failed: ' + e.message, 'error');
@@ -832,14 +912,274 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    applyCoachPrompt() {
-      if (!this.coachResult?.revised_prompt) return;
-      this.prompt = this.coachResult.revised_prompt;
-      this.isDirty = true;
-      this.diffActive = true;
+    // Find line position for a suggestion's search_text/location_hint in the prompt
+    _findSuggestionLines(s) {
+      const promptLines = this.prompt.split('\n');
+      let lineStart = -1, lineEnd = -1;
+
+      if (s.search_text) {
+        // 1. Exact match
+        const searchIdx = this.prompt.indexOf(s.search_text);
+        if (searchIdx >= 0) {
+          lineStart = this.prompt.slice(0, searchIdx).split('\n').length - 1;
+          lineEnd = lineStart + s.search_text.split('\n').length - 1;
+          return { lineStart, lineEnd };
+        }
+        // 2. Normalized match (collapse whitespace)
+        const normSearch = s.search_text.replace(/\s+/g, ' ').trim();
+        const normPrompt = this.prompt.replace(/\s+/g, ' ').trim();
+        const normIdx = normPrompt.indexOf(normSearch);
+        if (normIdx >= 0) {
+          // Map back: count newlines in original prompt up to the approximate char position
+          const approxOrigIdx = Math.min(normIdx, this.prompt.length - 1);
+          // Find the first line that contains the start of the normalized match
+          let charCount = 0;
+          for (let i = 0; i < promptLines.length; i++) {
+            charCount += promptLines[i].length + 1; // +1 for newline
+            if (charCount > normIdx) {
+              lineStart = i;
+              break;
+            }
+          }
+          if (lineStart >= 0) {
+            lineEnd = Math.min(lineStart + s.search_text.split('\n').length - 1, promptLines.length - 1);
+            return { lineStart, lineEnd };
+          }
+        }
+        // 3. Line-by-line fuzzy: find the first line of search_text in the prompt
+        const searchLines = s.search_text.split('\n').map(l => l.trim()).filter(Boolean);
+        if (searchLines.length > 0) {
+          const firstLine = searchLines[0];
+          for (let i = 0; i < promptLines.length; i++) {
+            const trimmed = promptLines[i].trim();
+            if (trimmed && (trimmed.includes(firstLine) || firstLine.includes(trimmed))) {
+              lineStart = i;
+              lineEnd = Math.min(i + searchLines.length - 1, promptLines.length - 1);
+              return { lineStart, lineEnd };
+            }
+          }
+        }
+      }
+
+      // 4. location_hint fallback
+      if (s.location_hint) {
+        const hintIdx = this.prompt.indexOf(s.location_hint);
+        if (hintIdx >= 0) {
+          lineStart = this.prompt.slice(0, hintIdx).split('\n').length - 1;
+          return { lineStart, lineEnd: lineStart };
+        }
+        // Try partial match on location_hint
+        for (let i = 0; i < promptLines.length; i++) {
+          if (promptLines[i].trim().includes(s.location_hint.trim())) {
+            return { lineStart: i, lineEnd: i };
+          }
+        }
+      }
+
+      // 5. Last resort: place at end
+      return { lineStart: promptLines.length - 1, lineEnd: promptLines.length - 1 };
+    },
+
+    enterReviewMode() {
+      if (!this.coachResult?.suggestions?.length) return;
+      this.coachPromptSnapshot = this.prompt;
+      const totalLines = this.prompt.split('\n').length;
+      this.coachSuggestions = this.coachResult.suggestions.map((s, idx) => {
+        const { lineStart, lineEnd } = this._findSuggestionLines(s);
+        const matched = !(lineStart === totalLines - 1 && lineEnd === totalLines - 1 && !s.search_text?.includes(this.prompt.split('\n')[totalLines - 1]?.trim()));
+        return { ...s, idx, lineStart, lineEnd, matched, status: 'pending' };
+      });
+      // Spread unmatched suggestions evenly across the prompt instead of dumping at end
+      const unmatched = this.coachSuggestions.filter(s => !s.matched);
+      if (unmatched.length > 0) {
+        const step = Math.max(1, Math.floor(totalLines / (unmatched.length + 1)));
+        unmatched.forEach((s, i) => {
+          s.lineStart = Math.min((i + 1) * step, totalLines - 1);
+          s.lineEnd = s.lineStart;
+        });
+      }
+      // De-duplicate: ensure each suggestion has a unique lineStart so badges don't stack
+      const usedStarts = new Set();
+      for (const s of this.coachSuggestions) {
+        while (usedStarts.has(s.lineStart) && s.lineStart < totalLines - 1) {
+          s.lineStart++;
+          s.lineEnd = Math.max(s.lineEnd, s.lineStart);
+        }
+        // Also try going upward if stuck at the bottom
+        while (usedStarts.has(s.lineStart) && s.lineStart > 0) {
+          s.lineStart--;
+        }
+        usedStarts.add(s.lineStart);
+      }
+      this.coachReviewMode = true;
+      this.coachExpandedIdx = -1;
+      setTimeout(() => lucide.createIcons(), 50);
+    },
+
+    get reviewLines() {
+      if (!this.coachReviewMode) return [];
+      const lines = this.prompt.split('\n');
+      return lines.map((text, i) => {
+        const suggestions = this.coachSuggestions.filter(
+          s => s.status === 'pending' && i >= s.lineStart && i <= s.lineEnd
+        );
+        // Suggestions that START on this line (for showing badges)
+        const startsHere = this.coachSuggestions.filter(
+          s => s.status === 'pending' && s.lineStart === i
+        );
+        const action = suggestions.length > 0 ? suggestions[0].action : null;
+        return {
+          text, num: i + 1, lineIdx: i, action,
+          suggestionIdx: suggestions.length > 0 ? suggestions[0].idx : -1,
+          badgeCount: startsHere.length,
+        };
+      });
+    },
+
+    get pendingSuggestions() {
+      return this.coachSuggestions.filter(s => s.status === 'pending');
+    },
+
+    toggleReviewComment(idx) {
+      if (this.coachExpandedIdx === idx) {
+        // If collapsing, try to show next suggestion on same line
+        const s = this.coachSuggestions[idx];
+        if (s) {
+          const siblings = this.coachSuggestions.filter(
+            sib => sib.status === 'pending' && sib.lineEnd === s.lineEnd && sib.idx !== idx
+          );
+          if (siblings.length > 0) {
+            this.coachExpandedIdx = siblings[0].idx;
+            setTimeout(() => lucide.createIcons(), 50);
+            return;
+          }
+        }
+        this.coachExpandedIdx = -1;
+      } else {
+        this.coachExpandedIdx = idx;
+      }
+      setTimeout(() => lucide.createIcons(), 50);
+    },
+
+    acceptSuggestion(idx) {
+      const s = this.coachSuggestions[idx];
+      if (!s || s.status !== 'pending') return;
+      if (s.action === 'delete' && s.search_text) {
+        this.prompt = this.prompt.replace(s.search_text, '');
+      } else if (s.action === 'replace' && s.search_text && s.suggested_text) {
+        this.prompt = this.prompt.replace(s.search_text, s.suggested_text);
+      } else if (s.action === 'insert' && s.suggested_text) {
+        if (s.search_text) {
+          const pos = this.prompt.indexOf(s.search_text);
+          if (pos >= 0) {
+            const end = pos + s.search_text.length;
+            this.prompt = this.prompt.slice(0, end) + '\n' + s.suggested_text + this.prompt.slice(end);
+          } else {
+            this.prompt += '\n' + s.suggested_text;
+          }
+        } else {
+          this.prompt += '\n' + s.suggested_text;
+        }
+      }
+      s.status = 'accepted';
+      this.isDirty = this.prompt !== this.originalPrompt;
+      this.recalcLinePositions();
+      this.checkReviewComplete();
+      setTimeout(() => lucide.createIcons(), 50);
+    },
+
+    dismissSuggestion(idx) {
+      const s = this.coachSuggestions[idx];
+      if (s) s.status = 'dismissed';
+      this.checkReviewComplete();
+    },
+
+    acceptAllSuggestions() {
+      const pending = this.coachSuggestions.filter(s => s.status === 'pending');
+      for (const s of pending) this.acceptSuggestion(s.idx);
+    },
+
+    dismissAllSuggestions() {
+      this.coachSuggestions.forEach(s => { if (s.status === 'pending') s.status = 'dismissed'; });
+      this.exitReviewMode();
+    },
+
+    recalcLinePositions() {
+      const totalLines = this.prompt.split('\n').length;
+      const pending = this.coachSuggestions.filter(s => s.status === 'pending');
+      // Re-find positions
+      for (const s of pending) {
+        const { lineStart, lineEnd } = this._findSuggestionLines(s);
+        s.lineStart = lineStart;
+        s.lineEnd = lineEnd;
+      }
+      // De-duplicate: ensure unique lineStarts
+      const usedStarts = new Set();
+      for (const s of pending) {
+        while (usedStarts.has(s.lineStart) && s.lineStart < totalLines - 1) {
+          s.lineStart++;
+          s.lineEnd = Math.max(s.lineEnd, s.lineStart);
+        }
+        while (usedStarts.has(s.lineStart) && s.lineStart > 0) {
+          s.lineStart--;
+        }
+        usedStarts.add(s.lineStart);
+      }
+    },
+
+    checkReviewComplete() {
+      if (this.pendingSuggestions.length === 0) {
+        this.exitReviewMode();
+      }
+    },
+
+    exitReviewMode() {
+      this.coachReviewMode = false;
+      this.coachSuggestions = [];
+      this.coachExpandedIdx = -1;
       this.coachResult = null;
-      this.coachPanelOpen = false;
-      showToast('Coach suggestions applied -- review the diff and save when ready', 'success');
+    },
+
+    async rerunCoach() {
+      // Exit review, re-analyze with current (possibly modified) prompt
+      this.exitReviewMode();
+      this.coachPanelOpen = true;
+      await this.runCoach();
+    },
+
+    async rerunSuggestion(idx) {
+      const s = this.coachSuggestions[idx];
+      if (!s || s.status !== 'pending') return;
+      const model = this.coachModel || this.judgeModel;
+      if (!model) return;
+      this.coachLoading = true;
+      try {
+        const section = s.search_text || s.location_hint || '';
+        const body = {
+          prompt: this.prompt,
+          coach_model: model,
+          focus_section: section,
+        };
+        if (this.evalResult?.id) body.eval_id = this.evalResult.id;
+        const result = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/coach`, 'POST', body);
+        // Replace this suggestion with the first one from the new result
+        if (result.suggestions?.length > 0) {
+          const newS = result.suggestions[0];
+          s.action = newS.action;
+          s.title = newS.title;
+          s.description = newS.description;
+          s.search_text = newS.search_text || s.search_text;
+          s.suggested_text = newS.suggested_text || '';
+          s.location_hint = newS.location_hint || '';
+          this.recalcLinePositions();
+          showToast('Suggestion refreshed', 'success');
+        }
+      } catch (e) {
+        showToast('Re-run failed: ' + e.message, 'error');
+      } finally {
+        this.coachLoading = false;
+        setTimeout(() => lucide.createIcons(), 50);
+      }
     },
 
     // --- Theme ---
