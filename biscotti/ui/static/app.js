@@ -21,18 +21,6 @@ async function api(path, method = 'GET', body = null) {
   return res.json();
 }
 
-// Auto-load most recent eval run after history loads
-async function autoLoadLatestEval() {
-  const s = Alpine.store('app');
-  if (s.evalResult || !s.evalHistory.length || !s.currentAgent) return;
-  try {
-    const data = await api(`/api/agents/${encodeURIComponent(s.currentAgent)}/evals/${s.evalHistory[0].id}`);
-    s.evalResult = data;
-    s.evalResultsOpen = true;
-    setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
-  } catch { /* ignore */ }
-}
-
 // ================================================================
 // Utilities
 // ================================================================
@@ -139,7 +127,7 @@ document.addEventListener('alpine:init', () => {
     // --- Inline save ---
     _savingInline: false,
     saveNotes: '',
-    _bannerDismissed: false,
+    _bannerDismissed: sessionStorage.getItem('biscotti-banner-dismissed') === '1',
 
     // --- Confirm modal ---
     confirmOpen: false,
@@ -150,10 +138,18 @@ document.addEventListener('alpine:init', () => {
     // --- Evals ---
     judgeConfigOpen: false,
     providerStatus: {},
-    judgeModel: 'anthropic:claude-sonnet-4-6',
+    judgeModel: '',
+    judgeModelProvider: '',
+    judgeModelName: '',
     judgeModelDropdownOpen: false,
     judgeModelHighlightIdx: -1,
+    judgeProviderDropdownOpen: false,
+    judgeProviderHighlightIdx: -1,
+    _fixedDropdownRect: null,
+    judgeModelNameDropdownOpen: false,
+    judgeModelNameHighlightIdx: -1,
     judgeCriteria: '',
+    criteriaRows: [],
     _savedJudgeModel: '',
     _savedJudgeCriteria: '',
     criteriaOpenIdx: -1,
@@ -175,8 +171,14 @@ document.addEventListener('alpine:init', () => {
     coachError: null,
     coachPanelOpen: false,
     coachModel: '',
+    coachModelProvider: '',
+    coachModelName: '',
     coachModelDropdownOpen: false,
     coachModelHighlightIdx: -1,
+    coachProviderDropdownOpen: false,
+    coachProviderHighlightIdx: -1,
+    coachModelNameDropdownOpen: false,
+    coachModelNameHighlightIdx: -1,
     coachReviewMode: false,
     coachSuggestions: [],
     coachExpandedIdx: -1,
@@ -211,7 +213,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
 
     // --- Computed ---
     get evalSettingsDirty() {
-      return this.judgeModel !== this._savedJudgeModel || this.judgeCriteria !== this._savedJudgeCriteria;
+      return this.judgeModel !== this._savedJudgeModel || this.serializeCriteria(this.criteriaRows) !== this._savedJudgeCriteria;
     },
     get variables() {
       return [...new Set([...this.prompt.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]))];
@@ -219,24 +221,89 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     get promptTokens() { return estimateTokens(this.prompt); },
     get msgTokens() { return estimateTokens(this.userMessage); },
     get connectedProviders() {
-      return Object.entries(this.providerStatus).filter(([, ok]) => ok).map(([id]) => id);
+      return Object.entries(this.providerStatus).filter(([, ok]) => ok).map(([id]) => id)
+        .sort((a, b) => (this._PROVIDER_LABELS[a] || a).localeCompare(this._PROVIDER_LABELS[b] || b));
     },
     get disconnectedProviders() {
-      return Object.entries(this.providerStatus).filter(([, ok]) => !ok).map(([id]) => id);
+      return Object.entries(this.providerStatus).filter(([, ok]) => !ok).map(([id]) => id)
+        .sort((a, b) => (this._PROVIDER_LABELS[a] || a).localeCompare(this._PROVIDER_LABELS[b] || b));
+    },
+    get _suggestedModels() {
+      return [
+        // Anthropic
+        'anthropic:claude-opus-4-6',
+        'anthropic:claude-opus-4-5',
+        'anthropic:claude-sonnet-4-6',
+        'anthropic:claude-sonnet-4-5',
+        'anthropic:claude-haiku-4-5',
+        'anthropic:claude-3-5-sonnet-20241022',
+        'anthropic:claude-3-5-haiku-20241022',
+        'anthropic:claude-3-opus-20240229',
+        // OpenAI
+        'openai:gpt-4.5',
+        'openai:gpt-4.1',
+        'openai:gpt-4.1-mini',
+        'openai:gpt-4o',
+        'openai:gpt-4o-mini',
+        'openai:o4-mini',
+        'openai:o3',
+        'openai:o3-mini',
+        'openai:o1',
+        // Google Gemini
+        'gemini:gemini-2.5-pro',
+        'gemini:gemini-2.0-flash',
+        'gemini:gemini-1.5-pro',
+        'gemini:gemini-1.5-flash',
+        // Mistral
+        'mistral:mistral-large-latest',
+        'mistral:mistral-small-latest',
+        'mistral:codestral-latest',
+        // Groq
+        'groq:llama-3.3-70b-versatile',
+        'groq:llama-3.1-8b-instant',
+        'groq:gemma2-9b-it',
+        // DeepSeek
+        'deepseek:deepseek-chat',
+        'deepseek:deepseek-reasoner',
+        // xAI
+        'xai:grok-3',
+        'xai:grok-3-mini',
+        'xai:grok-2',
+        // Cohere
+        'cohere:command-r-plus',
+        'cohere:command-r',
+      ];
+    },
+    get judgeProviderOptions() {
+      return Object.entries(this._PROVIDER_LABELS)
+        .map(([id, label]) => ({ id, label }))
+        .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+    },
+    get judgeFilteredProviders() {
+      const q = (this.judgeModelProvider || '').toLowerCase();
+      if (!q) return this.judgeProviderOptions;
+      return this.judgeProviderOptions.filter(p =>
+        p.id.toLowerCase().includes(q) || p.label.toLowerCase().includes(q)
+      );
+    },
+    get judgeFilteredModelNames() {
+      const provider = (this.judgeModelProvider || '').toLowerCase();
+      const q = (this.judgeModelName || '').toLowerCase();
+      return this._suggestedModels
+        .filter(m => {
+          const [p, ...rest] = m.split(':');
+          if (provider && p !== provider) return false;
+          const modelPart = rest.join(':') || m;
+          return !q || modelPart.toLowerCase().includes(q);
+        })
+        .map(m => {
+          const [, ...rest] = m.split(':');
+          return rest.length ? rest.join(':') : m;
+        });
     },
     get judgeModelOptions() {
-      const models = {
-        anthropic: ['anthropic:claude-sonnet-4-6', 'anthropic:claude-opus-4-6', 'anthropic:claude-haiku-4-5'],
-        openai: ['openai:gpt-4o', 'openai:gpt-4o-mini', 'openai:gpt-4.1', 'openai:gpt-4.1-mini', 'openai:o3', 'openai:o3-mini'],
-      };
-      const connected = this.connectedProviders;
-      let all = [];
-      for (const p of connected) {
-        if (models[p]) all = all.concat(models[p]);
-      }
-      if (!all.length) all = models.anthropic.concat(models.openai);
       const q = (this.judgeModel || '').toLowerCase();
-      return all.filter(m => !q || m.toLowerCase().includes(q));
+      return this._suggestedModels.filter(m => !q || m.toLowerCase().includes(q));
     },
     get judgeModelGrouped() {
       const groups = {};
@@ -247,19 +314,31 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       }
       return groups;
     },
+    get coachFilteredProviders() {
+      const q = (this.coachModelProvider || '').toLowerCase();
+      if (!q) return this.judgeProviderOptions;
+      return this.judgeProviderOptions.filter(p =>
+        p.id.toLowerCase().includes(q) || p.label.toLowerCase().includes(q)
+      );
+    },
+    get coachFilteredModelNames() {
+      const provider = (this.coachModelProvider || '').toLowerCase();
+      const q = (this.coachModelName || '').toLowerCase();
+      return this._suggestedModels
+        .filter(m => {
+          const [p, ...rest] = m.split(':');
+          if (provider && p !== provider) return false;
+          const modelPart = rest.join(':') || m;
+          return !q || modelPart.toLowerCase().includes(q);
+        })
+        .map(m => {
+          const [, ...rest] = m.split(':');
+          return rest.length ? rest.join(':') : m;
+        });
+    },
     get coachModelOptions() {
-      const models = {
-        anthropic: ['anthropic:claude-sonnet-4-6', 'anthropic:claude-opus-4-6', 'anthropic:claude-haiku-4-5'],
-        openai: ['openai:gpt-4o', 'openai:gpt-4o-mini', 'openai:gpt-4.1', 'openai:gpt-4.1-mini', 'openai:o3', 'openai:o3-mini'],
-      };
-      const connected = this.connectedProviders;
-      let all = [];
-      for (const p of connected) {
-        if (models[p]) all = all.concat(models[p]);
-      }
-      if (!all.length) all = models.anthropic.concat(models.openai);
       const q = (this.coachModel || '').toLowerCase();
-      return all.filter(m => !q || m.toLowerCase().includes(q));
+      return this._suggestedModels.filter(m => !q || m.toLowerCase().includes(q));
     },
     get coachModelGrouped() {
       const groups = {};
@@ -289,22 +368,87 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         return '';
       }).filter(Boolean).join('');
     },
-    get parsedCriteria() {
-      if (!this.judgeCriteria) return [];
-      return this.judgeCriteria.split('\n').map(line => {
+    loadCriteriaRows() {
+      if (!this.judgeCriteria) {
+        this.criteriaRows = [];
+        return;
+      }
+      this.criteriaRows = this.judgeCriteria.split('\n').map(line => {
         const m1 = line.match(/^-\s+(.*?)\s*\(weight\s+([\d.]+)\)\s*:\s*(.*)$/);
         if (m1) return { name: m1[1] || '', weight: m1[2], description: m1[3] || '' };
         const m2 = line.match(/^-\s+(.*?):\s*(.*)$/);
-        if (m2) return { name: m2[1] || '', weight: '1.0', description: m2[2] || '' };
+        if (m2) return { name: m2[1] || '', weight: '', description: m2[2] || '' };
         return null;
       }).filter(Boolean);
     },
 
     serializeCriteria(criteria) {
       return criteria.map(c => {
-        const w = parseFloat(c.weight) || 1.0;
-        return `- ${c.name} (weight ${w.toFixed(1)}): ${c.description}`;
+        const name = (c.name || '').trim();
+        const desc = (c.description || '').trim();
+        const wRaw = String(c.weight || '').trim();
+        if (wRaw !== '') {
+          let w = parseFloat(wRaw);
+          if (isNaN(w)) w = 1.0;
+          w = Math.min(1, Math.max(0, w));
+          return `- ${name} (weight ${w.toFixed(1)}): ${desc}`;
+        }
+        return `- ${name}: ${desc}`;
       }).join('\n');
+    },
+
+    syncJudgeModel() {
+      this.judgeModel = (this.judgeModelProvider && this.judgeModelName)
+        ? this.judgeModelProvider + ':' + this.judgeModelName
+        : '';
+    },
+
+    syncCoachModel() {
+      this.coachModel = (this.coachModelProvider && this.coachModelName)
+        ? this.coachModelProvider + ':' + this.coachModelName
+        : '';
+    },
+
+    selectJudgeProvider(providerId) {
+      this.judgeModelProvider = providerId;
+      this.judgeProviderDropdownOpen = false;
+      this.judgeProviderHighlightIdx = -1;
+      // Clear model name if it doesn't belong to this provider
+      const names = this._suggestedModels
+        .filter(m => m.split(':')[0] === providerId)
+        .map(m => { const [, ...r] = m.split(':'); return r.join(':'); });
+      if (this.judgeModelName && !names.includes(this.judgeModelName)) {
+        this.judgeModelName = '';
+      }
+      this.syncJudgeModel();
+    },
+
+    selectJudgeModelName(modelName) {
+      this.judgeModelName = modelName;
+      this.judgeModelNameDropdownOpen = false;
+      this.judgeModelNameHighlightIdx = -1;
+      this.syncJudgeModel();
+    },
+
+    selectCoachProvider(providerId) {
+      this.coachModelProvider = providerId;
+      this.coachProviderDropdownOpen = false;
+      this.coachProviderHighlightIdx = -1;
+      // Clear model name if it doesn't belong to this provider
+      const names = this._suggestedModels
+        .filter(m => m.split(':')[0] === providerId)
+        .map(m => { const [, ...r] = m.split(':'); return r.join(':'); });
+      if (this.coachModelName && !names.includes(this.coachModelName)) {
+        this.coachModelName = '';
+      }
+      this.syncCoachModel();
+    },
+
+    selectCoachModelName(modelName) {
+      this.coachModelName = modelName;
+      this.coachModelNameDropdownOpen = false;
+      this.coachModelNameHighlightIdx = -1;
+      this.syncCoachModel();
     },
 
     toggleCriterion(idx) {
@@ -312,18 +456,9 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
     },
 
-    updateCriterion(idx, field, value) {
-      const items = this.parsedCriteria;
-      if (!items[idx]) return;
-      items[idx][field] = value;
-      this.judgeCriteria = this.serializeCriteria(items);
-    },
-
     addCriterion() {
-      const items = this.parsedCriteria;
-      items.push({ name: 'New Criterion', weight: '1.0', description: 'Describe what to evaluate' });
-      this.judgeCriteria = this.serializeCriteria(items);
-      this.criteriaOpenIdx = items.length - 1;
+      this.criteriaRows.push({ name: '', description: '', weight: '' });
+      this.criteriaOpenIdx = this.criteriaRows.length - 1;
       setTimeout(() => {
         if (typeof lucide !== 'undefined') lucide.createIcons();
         const rows = document.querySelectorAll('.criterion-row');
@@ -332,10 +467,13 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     },
 
     removeCriterion(idx) {
-      const items = this.parsedCriteria;
-      items.splice(idx, 1);
-      this.judgeCriteria = this.serializeCriteria(items);
+      this.criteriaRows.splice(idx, 1);
       this.criteriaOpenIdx = -1;
+    },
+
+    async saveCriteria() {
+      this.judgeCriteria = this.serializeCriteria(this.criteriaRows);
+      await this.saveEvalSettings();
     },
 
     // --- Init ---
@@ -361,7 +499,19 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.activeView = view;
       if (view === 'evals') {
         this.loadEvalSettings();
-        this.loadEvalHistory().then(() => autoLoadLatestEval());
+        this.loadEvalHistory().then(() => {
+          const s = Alpine.store('app');
+          if (!s.evalHistory.length || !s.currentAgent) return;
+          const latestId = s.evalHistory[0].id;
+          if (s.evalResult && s.evalResult.id === latestId) return;
+          api(`/api/agents/${encodeURIComponent(s.currentAgent)}/evals/${latestId}`)
+            .then(data => {
+              Alpine.store('app').evalResult = data;
+              Alpine.store('app').evalResultsOpen = true;
+              setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
+            })
+            .catch(() => {});
+        });
       } else if (view === 'versions') {
         this.loadVersions();
       }
@@ -405,7 +555,19 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       // Always load settings (provider status + coach model needed globally)
       this.loadEvalSettings();
       if (this.activeView === 'evals') {
-        this.loadEvalHistory().then(() => autoLoadLatestEval());
+        this.loadEvalHistory().then(() => {
+          const s = Alpine.store('app');
+          if (!s.evalHistory.length || !s.currentAgent) return;
+          const latestId = s.evalHistory[0].id;
+          if (s.evalResult && s.evalResult.id === latestId) return;
+          api(`/api/agents/${encodeURIComponent(s.currentAgent)}/evals/${latestId}`)
+            .then(data => {
+              Alpine.store('app').evalResult = data;
+              Alpine.store('app').evalResultsOpen = true;
+              setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
+            })
+            .catch(() => {});
+        });
       }
       setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
     },
@@ -675,6 +837,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       } catch (e) {
         this.outputState = 'error';
         this.output = 'Request failed: ' + e.message;
+        showToast('Run failed: ' + e.message, 'error');
       } finally {
         clearInterval(this._runTimer);
         this._runTimer = null;
@@ -709,10 +872,20 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       if (!this.currentAgent) return;
       try {
         const s = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/settings`);
-        this.judgeModel = s.judge_model || 'anthropic:claude-sonnet-4-6';
+        // Parse judge_model into provider + name split
+        const [jProvider, ...jRest] = (s.judge_model || '').split(':');
+        this.judgeModelProvider = jRest.length ? jProvider : '';
+        this.judgeModelName = jRest.length ? jRest.join(':') : (s.judge_model || '');
+        this.judgeModel = s.judge_model || '';
         this.judgeCriteria = s.judge_criteria || '';
         this._savedJudgeModel = this.judgeModel;
         this._savedJudgeCriteria = this.judgeCriteria;
+        this.loadCriteriaRows();
+        this.criteriaOpenIdx = -1;
+        // Parse coach_model into provider + name split
+        const [cProvider, ...cRest] = (s.coach_model || '').split(':');
+        this.coachModelProvider = cRest.length ? cProvider : '';
+        this.coachModelName = cRest.length ? cRest.join(':') : (s.coach_model || '');
         this.coachModel = s.coach_model || '';
         this.providerStatus = await api('/api/settings/status');
       } catch { /* ignore on first load */ }
@@ -720,12 +893,18 @@ Always provide a complete revised_prompt with all suggestions applied.`,
 
     selectJudgeModel(name) {
       this.judgeModel = name;
+      const [p, ...r] = (name || '').split(':');
+      this.judgeModelProvider = r.length ? p : '';
+      this.judgeModelName = r.length ? r.join(':') : (name || '');
       this.judgeModelDropdownOpen = false;
       this.judgeModelHighlightIdx = -1;
     },
 
     selectCoachModel(name) {
       this.coachModel = name;
+      const [p, ...r] = (name || '').split(':');
+      this.coachModelProvider = r.length ? p : '';
+      this.coachModelName = r.length ? r.join(':') : (name || '');
       this.coachModelDropdownOpen = false;
       this.coachModelHighlightIdx = -1;
       // Persist to backend
@@ -734,6 +913,42 @@ Always provide a complete revised_prompt with all suggestions applied.`,
           coach_model: name,
         }).catch(() => {});
       }
+    },
+
+    // --- Provider detection ---
+    _PROVIDER_LABELS: {
+      'anthropic': 'Anthropic',
+      'azure': 'Azure OpenAI',
+      'cohere': 'Cohere',
+      'deepseek': 'DeepSeek',
+      'gemini': 'Google (Gemini)',
+      'groq': 'Groq',
+      'meta': 'Meta (Llama)',
+      'mistral': 'Mistral',
+      'ollama': 'Ollama',
+      'openai': 'OpenAI',
+      'openai-compatible': 'OpenAI-compatible',
+      'together': 'Together AI',
+      'xai': 'xAI (Grok)',
+    },
+    providerLabel(id) {
+      return this._PROVIDER_LABELS[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+    },
+    detectProvider(modelStr) {
+      if (!modelStr) return null;
+      const s = modelStr.trim().toLowerCase();
+      // Explicit prefix (PydanticAI format: "provider:model")
+      if (s.includes(':')) {
+        const prefix = s.split(':')[0];
+        return this._PROVIDER_LABELS[prefix] || prefix;
+      }
+      // Heuristics for bare model names
+      if (s.startsWith('gpt-') || s.startsWith('o1') || s.startsWith('o3') || s.startsWith('o4') || s === 'chatgpt-4o-latest') return 'OpenAI';
+      if (s.startsWith('claude-')) return 'Anthropic';
+      if (s.startsWith('gemini-')) return 'Google';
+      if (s.startsWith('mistral-') || s.startsWith('mixtral-')) return 'Mistral';
+      if (s.startsWith('llama') || s.startsWith('qwen') || s.startsWith('phi-') || s.startsWith('deepseek')) return 'Ollama / Local';
+      return null;
     },
 
     // --- API Key Modal ---
@@ -774,7 +989,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       try {
         await api('/api/settings/api-key', 'POST', { provider: this.keyModalProvider, key });
         this.keyModalValue = '';
-        const label = this.keyModalProvider.charAt(0).toUpperCase() + this.keyModalProvider.slice(1);
+        const label = this.providerLabel(this.keyModalProvider);
         showToast(`${label} key saved`, 'success');
         await this.loadEvalSettings();
         this.keyModalOpen = false;
@@ -807,6 +1022,8 @@ Always provide a complete revised_prompt with all suggestions applied.`,
 
     async saveEvalSettings(silent = false) {
       if (!this.currentAgent) return;
+      // Sync criteriaRows → judgeCriteria before sending
+      this.judgeCriteria = this.serializeCriteria(this.criteriaRows);
       try {
         await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/settings`, 'PUT', {
           judge_model: this.judgeModel,
@@ -827,6 +1044,8 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         await this.saveEvalSettings(true);
         const result = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/generate-judge`, 'POST');
         this.judgeCriteria = result.criteria;
+        this.loadCriteriaRows();
+        this.criteriaOpenIdx = -1;
         showToast('Judge criteria generated', 'success');
       } catch (e) {
         showToast('Failed: ' + e.message, 'error');
@@ -837,7 +1056,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
 
     async runEval() {
       if (!this.currentAgent) return;
-      if (!this.judgeCriteria.trim()) { showToast('Set judge criteria first', 'error'); return; }
+      if (!this.criteriaRows.length) { showToast('Set judge criteria first', 'error'); return; }
       const provider = this.extractProvider(this.judgeModel);
       this.requireKey(provider, () => this._doRunEval());
     },
@@ -906,6 +1125,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         this.enterReviewMode();
       } catch (e) {
         this.coachError = e.message || 'Coach analysis failed';
+        this.coachPanelOpen = false;
         showToast('Coach failed: ' + e.message, 'error');
       } finally {
         this.coachLoading = false;
@@ -1180,6 +1400,11 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         this.coachLoading = false;
         setTimeout(() => lucide.createIcons(), 50);
       }
+    },
+
+    dismissBanner() {
+      this._bannerDismissed = true;
+      sessionStorage.setItem('biscotti-banner-dismissed', '1');
     },
 
     // --- Theme ---

@@ -340,18 +340,6 @@ a:hover { color: var(--accent-hover); }
 .doc-section h2:hover .anchor-link { opacity: 1; }
 .doc-section h2 .anchor-link:hover { color: var(--accent); }
 
-.doc-gif {
-  margin: 24px 0;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-}
-.doc-gif img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
 
 .doc-section h3 {
   font-size: 17px;
@@ -971,9 +959,6 @@ app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)<
           <li>Edit the system prompt, save a new <a href="#versioning">version</a>, and re-run the eval to compare scores</li>
         </ol>
         <p>For details on how scoring works, see the <a href="#eval-system">Eval System</a>. After running an eval, use <a href="#coaching">Coaching</a> to get AI-generated improvement suggestions.</p>
-        <div class="doc-gif">
-          <img src="static/first-eval-walkthrough.gif" alt="Walkthrough: adding a test case, configuring judge criteria, and running an eval in biscotti" loading="lazy">
-        </div>
       </section>
 
       <!-- ============================================================

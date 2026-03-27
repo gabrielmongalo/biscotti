@@ -1,49 +1,37 @@
 # biscotti
 
-The prompt eval studio for AI agents.
-
-Iterate on system prompts with real test cases, track every version, and score quality with AI judges. Built for prompt engineers, not just developers.
+Prompt playground for AI agents. Edit system prompts, version them, run test cases, and score outputs with a judge LLM — all from a browser UI that mounts inside your existing FastAPI app.
 
 ---
 
-## What it does
-
-- **Browse & edit system prompts** in a clean browser UI — no terminal needed
-- **Version control** every prompt change with diffs and notes
-- **Test agents** with named test cases right from the browser
-- **Run history** with latency, token counts, and version tracking
-- **Promote to live** — agents pick up the active prompt at runtime without redeployment
-- **Model agnostic** — works with PydanticAI, OpenAI SDK, Anthropic SDK, or any async callable
-- **Zero config** — 3 lines to mount, one decorator to register
-
----
-
-## Try it instantly
+## Install
 
 ```bash
 pip install biscotti
+```
+
+Requires Python 3.10+.
+
+---
+
+## Try it
+
+```bash
 biscotti dev
 ```
 
-Or with uv:
+Starts a local server at `http://localhost:8000/biscotti` with three pre-loaded demo agents, sample test cases, and a seeded eval run. No API key needed to explore the UI.
 
 ```bash
-uvx biscotti dev
+uvx biscotti dev          # without installing
+biscotti dev --port 9000  # custom port
 ```
-
-Opens a demo playground at `http://localhost:8000/biscotti` with a sample agent.
 
 ---
 
 ## Quick start
 
-```bash
-pip install biscotti
-# or
-uv add biscotti
-```
-
-### 1. Decorate your agents
+### 1. Decorate your agent
 
 ```python
 from biscotti import Biscotti, biscotti
@@ -56,19 +44,17 @@ Ingredients: {{ingredients}}
 Occasion: {{occasion}}""",
 )
 async def recipe_agent(user_message: str, system_prompt: str) -> str:
-    # your PydanticAI / OpenAI / Anthropic code here
+    # your model call here — see SDK examples below
     ...
 ```
 
-The decorator:
-- Registers the agent and its callable in biscotti
-- Auto-detects `{{variable}}` placeholders
-- Seeds the first version into the store on startup
+The decorator registers the agent, detects `{{variable}}` placeholders, and seeds the first prompt version into the store on startup.
 
 ### 2. Mount in FastAPI
 
 ```python
 from fastapi import FastAPI
+from biscotti import Biscotti
 
 app = FastAPI()
 bi = Biscotti()
@@ -81,27 +67,14 @@ app.mount("/biscotti", bi.app)
 http://localhost:8000/biscotti
 ```
 
-Share that URL with your prompt team. No login required for local/internal use.
-
----
-
-## Claude Code integration
-
-```bash
-biscotti init-claude
-```
-
-Installs a Claude Code skill in your project. Claude can then help you add biscotti to existing agents, write test cases, and debug integration issues.
-
 ---
 
 ## SDK examples
 
-The `@biscotti` decorator accepts any async function with this signature:
+The `@biscotti` decorator wraps any async function with this signature:
 
 ```python
-async def my_agent(user_message: str, system_prompt: str) -> str:
-    ...
+async def my_agent(user_message: str, system_prompt: str) -> str: ...
 ```
 
 ### PydanticAI
@@ -110,14 +83,11 @@ async def my_agent(user_message: str, system_prompt: str) -> str:
 from pydantic_ai import Agent
 from biscotti import biscotti
 
-pydantic_agent = Agent(model="openai:gpt-4o")
+agent = Agent(model="anthropic:claude-sonnet-4-6")
 
-@biscotti(name="recipe agent")
+@biscotti(name="recipe agent", default_system_prompt="You are a creative chef.")
 async def recipe_agent(user_message: str, system_prompt: str) -> str:
-    result = await pydantic_agent.run(
-        user_message,
-        system_prompt=system_prompt,
-    )
+    result = await agent.run(user_message, system_prompt=system_prompt)
     return result.output
 ```
 
@@ -148,7 +118,7 @@ from biscotti import biscotti
 
 client = AsyncOpenAI()
 
-@biscotti(name="gpt agent")
+@biscotti(name="gpt agent", default_system_prompt="You are helpful.")
 async def gpt_agent(user_message: str, system_prompt: str) -> str:
     response = await client.chat.completions.create(
         model="gpt-4o",
@@ -160,99 +130,110 @@ async def gpt_agent(user_message: str, system_prompt: str) -> str:
     return response.choices[0].message.content
 ```
 
-### Extended callable (model/temperature override)
+### Return richer telemetry
 
-Callables can accept an optional third `params` dict to receive UI-configured overrides:
+Return a dict instead of a string to surface token counts and model name in the run history:
 
 ```python
 @biscotti(name="my agent", default_system_prompt="...")
-async def my_agent(user_message: str, system_prompt: str, params: dict) -> str:
-    model = params.get("model", "claude-sonnet-4-6")
-    temperature = params.get("temperature", 1.0)
-    # Use model and temperature in your SDK call...
-```
-
-Available params: `model`, `temperature`, `reasoning_effort`, `variable_values`.
-
-### Return a dict for richer telemetry
-
-```python
-@biscotti(name="my agent")
 async def my_agent(user_message: str, system_prompt: str) -> dict:
     # ... call your model ...
     return {
         "output": "the response text",
         "input_tokens": 150,
         "output_tokens": 80,
-        "model": "gpt-4o",
+        "model": "claude-sonnet-4-6",
     }
 ```
 
----
+### Accept model/temperature overrides from the UI
 
-## Storage options
+Add an optional `params` argument to receive values set in the playground:
 
 ```python
-# SQLite (default, great for local dev and small teams)
-Biscotti(storage="sqlite:///biscotti.db")
-
-# In-memory (useful for tests)
-Biscotti(storage=":memory:")
-
-# Absolute path
-Biscotti(storage="sqlite:////var/data/biscotti.db")
+@biscotti(name="my agent", default_system_prompt="...")
+async def my_agent(user_message: str, system_prompt: str, params: dict) -> str:
+    model = params.get("model", "claude-sonnet-4-6")
+    temperature = params.get("temperature", 1.0)
+    ...
 ```
+
+Available params: `model`, `temperature`, `reasoning_effort`, `variable_values`.
 
 ---
 
-## REST API
+## Features
 
-biscotti exposes a full REST API under `/biscotti/api/`:
+**Playground** — Run any test case against any prompt version. Latency, token counts, and model are logged per run.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/agents` | List registered agents |
-| GET | `/api/agents/{name}/versions` | List prompt versions |
-| POST | `/api/agents/{name}/versions` | Create new version |
-| POST | `/api/agents/{name}/versions/{id}/promote` | Promote to live |
-| GET | `/api/agents/{name}/test-cases` | List test cases |
-| POST | `/api/agents/{name}/test-cases` | Create test case |
-| POST | `/api/run` | Execute a test run |
-| GET | `/api/agents/{name}/runs` | Run history |
-| GET | `/api/health` | Health check |
+**Versions** — Every save creates a new draft version. Promote a version to live; agents pick it up immediately without a restart.
 
-Full OpenAPI docs: `/biscotti/openapi`
+**Evals** — Score outputs with an LLM judge. Define weighted criteria, run them across all test cases in one click, and track scores across prompt versions.
+
+**Coach** — After an eval run, get improvement suggestions from a coach LLM based on which criteria failed and why.
+
+**Variables** — System prompts support `{{variable}}` placeholders. Test cases carry variable values that are interpolated at run time.
 
 ---
 
 ## Eval system
 
-biscotti includes an LLM-as-judge evaluation system:
+1. Write test cases with realistic inputs in the UI.
+2. Write judge criteria, or click "Generate from Prompt" to auto-generate a rubric from your system prompt.
+3. Select a judge model and run. Each test case is scored per criterion with a pass/fail and a reasoning note.
+4. Compare aggregate scores across prompt versions to decide what to promote.
 
-1. **Generate criteria** — click "Generate from Prompt" to auto-create scoring rubrics from your system prompt
-2. **Configure judge model** — pick any connected model (Anthropic, OpenAI)
-3. **Run batch evals** — score all test cases against your criteria in one click
-4. **Track history** — compare scores across prompt versions
+The judge model needs an API key. You can set it via environment variable or in the UI settings panel (session-only, never persisted to disk):
 
-### API keys
+```bash
+export ANTHROPIC_API_KEY=sk-...
+export OPENAI_API_KEY=sk-...
+```
 
-The eval system needs an API key for the judge model:
-
-| Method | Scope | Example |
-|--------|-------|---------|
-| Environment variable | Process-wide | `export ANTHROPIC_API_KEY=sk-...` |
-| UI settings panel | Session only | Evals tab → Provider Keys |
-
-Resolution order: environment variable > in-memory UI key > None.
+Resolution order: environment variable > in-memory UI key.
 
 ---
 
-## How prompt versioning works
+## Storage
 
-1. On first startup, biscotti seeds `v1` from `default_system_prompt` and promotes it to live
-2. Prompt experts edit in the UI and save as `v2`, `v3`, etc. (always drafts)
-3. Engineers or leads **promote** a draft to live — this archives the previous live version
-4. Agents automatically use the live prompt version at runtime — no restart, no redeploy
+```python
+# SQLite at a custom path
+Biscotti(storage="sqlite:///biscotti.db")
+
+# In-memory (useful in tests)
+Biscotti(storage=":memory:")
+```
+
+Default when no argument is passed: `sqlite:///biscotti.db` in the working directory.
+
+---
+
+## REST API
+
+All endpoints are available under the mount path (e.g. `/biscotti/api/`):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/agents` | List registered agents |
+| GET | `/api/agents/{name}/versions` | List prompt versions |
+| POST | `/api/agents/{name}/versions` | Create a new version |
+| POST | `/api/agents/{name}/versions/{id}/promote` | Promote to live |
+| GET | `/api/agents/{name}/test-cases` | List test cases |
+| POST | `/api/agents/{name}/test-cases` | Create a test case |
+| POST | `/api/run` | Execute a run |
+| GET | `/api/agents/{name}/runs` | Run history |
+| GET | `/api/health` | Health check |
+
+Interactive docs: `/biscotti/openapi`
+
+---
+
+## How versioning works
+
+1. On first startup, biscotti seeds `v1` from `default_system_prompt` and promotes it to live.
+2. Edits in the UI create new draft versions (`v2`, `v3`, ...).
+3. Promoting a draft sets it as live and archives the previous live version.
+4. Agents call `biscotti.get_live_prompt(name)` at runtime — no restart, no redeploy needed.
 
 ---
 
@@ -262,26 +243,14 @@ Resolution order: environment variable > in-memory UI key > None.
 git clone https://github.com/gabrielmongalo/biscotti
 cd biscotti
 pip install -e ".[dev]"
-# or
-uv pip install -e ".[dev]"
 pytest
-```
-
-Run the example app:
-```bash
-uvicorn examples.demo_app:app --reload
-# Open http://localhost:8000/biscotti
 ```
 
 ---
 
-## Roadmap
+## LLM Context
 
-- [x] Side-by-side version comparison
-- [x] Export/import agent configurations (JSON)
-- [ ] Streaming support for long-running models
-- [ ] Simple auth (API key header)
-- [x] AI prompt coach (improvement suggestions from eval results)
+A [`llms.txt`](llms.txt) file is included at the repo root for LLM-assisted development. It covers the callable signature, variable syntax, integration patterns, and eval system in a compact format suitable for context windows.
 
 ---
 

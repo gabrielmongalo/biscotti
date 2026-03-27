@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS run_logs (
 CREATE TABLE IF NOT EXISTS agent_settings (
     agent_name      TEXT PRIMARY KEY,
     judge_criteria  TEXT NOT NULL DEFAULT '',
-    judge_model     TEXT NOT NULL DEFAULT 'anthropic:claude-sonnet-4-6',
+    judge_model     TEXT NOT NULL DEFAULT '',
     coach_model     TEXT NOT NULL DEFAULT '',
     coach_enabled   INTEGER NOT NULL DEFAULT 1
 );
@@ -282,6 +282,14 @@ class PromptStore:
             variable_values=data.variable_values,
             created_at=datetime.fromisoformat(now),
         )
+
+    async def count_test_cases(self, agent_name: str) -> int:
+        async with self.db.execute(
+            "SELECT COUNT(*) FROM test_cases WHERE agent_name = ?",
+            (agent_name,),
+        ) as cur:
+            row = await cur.fetchone()
+        return row[0] if row else 0
 
     async def list_test_cases(self, agent_name: str) -> list[TestCase]:
         async with self.db.execute(

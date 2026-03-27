@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=12"></script>
 </head>
 <body x-data x-init="$store.app.init()">
 
@@ -21,7 +21,7 @@
     <div class="logo-icon" @click="if($store.app.sidebarCollapsed) $store.app.sidebarCollapsed = false" :style="$store.app.sidebarCollapsed ? 'cursor:pointer' : ''">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16181d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
     </div>
-    <span class="logo">biscotti</span>
+    <span class="logo">biscotti</span><span class="logo-beta">beta</span>
     <button class="sidebar-collapse-btn" @click="$store.app.sidebarCollapsed = !$store.app.sidebarCollapsed" title="Toggle sidebar">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
     </button>
@@ -120,7 +120,7 @@
     <i data-lucide="alert-triangle"></i>
     <span>No API key configured -- add one in Settings to run tests</span>
     <button class="btn btn-sm btn-ghost" @click="$store.app.openKeyManager()">Add Key</button>
-    <button class="banner-dismiss" @click="$store.app._bannerDismissed = true">
+    <button class="banner-dismiss" @click="$store.app.dismissBanner()">
       <i data-lucide="x"></i>
     </button>
   </div>
@@ -157,30 +157,53 @@
       <div class="coach-panel" x-show="$store.app.coachPanelOpen && !$store.app.coachReviewMode" x-transition.duration.150ms>
         <div style="padding:10px 16px;display:flex;align-items:center;gap:8px;">
           <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Coach Model</span>
-          <div class="typeahead-wrap" style="flex:1;max-width:280px;" @click.outside="$store.app.coachModelDropdownOpen = false">
-            <input type="text" class="model-input"
-                   x-model="$store.app.coachModel"
-                   @focus="$store.app.coachModelDropdownOpen = true"
-                   @input="$store.app.coachModelDropdownOpen = true; $store.app.coachModelHighlightIdx = -1"
-                   @keydown.escape="$store.app.coachModelDropdownOpen = false"
-                   @keydown.arrow-down.prevent="$store.app.coachModelHighlightIdx = Math.min($store.app.coachModelHighlightIdx + 1, $store.app.coachModelOptions.length - 1)"
-                   @keydown.arrow-up.prevent="$store.app.coachModelHighlightIdx = Math.max($store.app.coachModelHighlightIdx - 1, 0)"
-                   @keydown.enter.prevent="if ($store.app.coachModelHighlightIdx >= 0) $store.app.selectCoachModel($store.app.coachModelOptions[$store.app.coachModelHighlightIdx])"
-                   placeholder="Select model..."
-                   autocomplete="off"
-                   style="font-size:12px;">
-            <div class="typeahead-dropdown" :class="{ open: $store.app.coachModelDropdownOpen && $store.app.coachModelOptions.length }">
-              <template x-for="provider in Object.keys($store.app.coachModelGrouped)" :key="provider">
-                <div>
-                  <div class="typeahead-group" x-text="provider"></div>
-                  <template x-for="m in $store.app.coachModelGrouped[provider]" :key="m">
-                    <div class="typeahead-item"
-                         :class="{ highlighted: $store.app.coachModelOptions.indexOf(m) === $store.app.coachModelHighlightIdx }"
-                         @mousedown.prevent="$store.app.selectCoachModel(m)"
-                         x-text="m"></div>
-                  </template>
-                </div>
-              </template>
+          <div class="split-model-wrap" style="flex:1;max-width:400px;">
+            <!-- Provider combobox -->
+            <div class="typeahead-wrap split-model-provider" @click.outside="$store.app.coachProviderDropdownOpen = false">
+              <input type="text" class="model-input"
+                     x-model="$store.app.coachModelProvider"
+                     @focus="$store.app.coachProviderDropdownOpen = true"
+                     @input="$store.app.coachProviderDropdownOpen = true; $store.app.coachProviderHighlightIdx = -1; $store.app.syncCoachModel()"
+                     @blur="$store.app.syncCoachModel()"
+                     @keydown.escape="$store.app.coachProviderDropdownOpen = false"
+                     @keydown.arrow-down.prevent="$store.app.coachProviderHighlightIdx = Math.min($store.app.coachProviderHighlightIdx + 1, $store.app.coachFilteredProviders.length - 1)"
+                     @keydown.arrow-up.prevent="$store.app.coachProviderHighlightIdx = Math.max($store.app.coachProviderHighlightIdx - 1, 0)"
+                     @keydown.enter.prevent="if ($store.app.coachProviderHighlightIdx >= 0) $store.app.selectCoachProvider($store.app.coachFilteredProviders[$store.app.coachProviderHighlightIdx].id)"
+                     placeholder="Provider"
+                     autocomplete="off"
+                     style="font-size:12px;">
+              <div class="typeahead-dropdown" :class="{ open: $store.app.coachProviderDropdownOpen && $store.app.coachFilteredProviders.length }">
+                <template x-for="(p, pi) in $store.app.coachFilteredProviders" :key="p.id">
+                  <div class="typeahead-item typeahead-item-provider"
+                       :class="{ highlighted: pi === $store.app.coachProviderHighlightIdx }"
+                       @mousedown.prevent="$store.app.selectCoachProvider(p.id)">
+                    <span x-text="p.label"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+            <!-- Model name combobox -->
+            <div class="typeahead-wrap split-model-name" @click.outside="$store.app.coachModelNameDropdownOpen = false">
+              <input type="text" class="model-input"
+                     x-model="$store.app.coachModelName"
+                     @focus="$store.app.coachModelNameDropdownOpen = true"
+                     @input="$store.app.coachModelNameDropdownOpen = true; $store.app.coachModelNameHighlightIdx = -1; $store.app.syncCoachModel()"
+                     @blur="$store.app.syncCoachModel()"
+                     @keydown.escape="$store.app.coachModelNameDropdownOpen = false"
+                     @keydown.arrow-down.prevent="$store.app.coachModelNameHighlightIdx = Math.min($store.app.coachModelNameHighlightIdx + 1, $store.app.coachFilteredModelNames.length - 1)"
+                     @keydown.arrow-up.prevent="$store.app.coachModelNameHighlightIdx = Math.max($store.app.coachModelNameHighlightIdx - 1, 0)"
+                     @keydown.enter.prevent="if ($store.app.coachModelNameHighlightIdx >= 0) $store.app.selectCoachModelName($store.app.coachFilteredModelNames[$store.app.coachModelNameHighlightIdx])"
+                     placeholder="Model name"
+                     autocomplete="off"
+                     style="font-size:12px;">
+              <div class="typeahead-dropdown" :class="{ open: $store.app.coachModelNameDropdownOpen && $store.app.coachFilteredModelNames.length }">
+                <template x-for="(m, mi) in $store.app.coachFilteredModelNames" :key="m">
+                  <div class="typeahead-item"
+                       :class="{ highlighted: mi === $store.app.coachModelNameHighlightIdx }"
+                       @mousedown.prevent="$store.app.selectCoachModelName(m)"
+                       x-text="m"></div>
+                </template>
+              </div>
             </div>
           </div>
           <button class="btn btn-primary btn-sm"
@@ -336,15 +359,6 @@
 
     <!-- Right: Test Runner -->
     <div id="right-panel">
-        <!-- Compact empty state -->
-        <div class="empty-state-compact" x-show="$store.app.testCases.length === 0 && !$store.app.tcSaving">
-          <i data-lucide="flask-conical" style="width:18px;height:18px;color:var(--muted);flex-shrink:0;"></i>
-          <span>No test cases yet. Create one to start testing your prompt.</span>
-          <button class="btn btn-primary btn-sm" @click="$store.app.startSaveTestCase()">
-            <i data-lucide="plus" style="width:12px;height:12px;"></i> Create Test Case
-          </button>
-        </div>
-
         <div class="run-panel-scroll">
 
           <!-- === INPUT CARD: Test cases + Message + Variables === -->
@@ -722,32 +736,59 @@
         </button>
         <div class="settings-body" :class="{ open: $store.app._evalConfigOpen }">
           <div class="eval-content">
-            <!-- Judge Model (full width) -->
+            <!-- Judge Model (split provider combobox + model name combobox) -->
             <div>
               <div class="field-label">Judge Model</div>
-              <div class="typeahead-wrap" @click.outside="$store.app.judgeModelDropdownOpen = false">
-                <input type="text" class="model-input"
-                       x-model="$store.app.judgeModel"
-                       @focus="$store.app.judgeModelDropdownOpen = true"
-                       @input="$store.app.judgeModelDropdownOpen = true; $store.app.judgeModelHighlightIdx = -1"
-                       @keydown.escape="$store.app.judgeModelDropdownOpen = false"
-                       @keydown.arrow-down.prevent="$store.app.judgeModelHighlightIdx = Math.min($store.app.judgeModelHighlightIdx + 1, $store.app.judgeModelOptions.length - 1)"
-                       @keydown.arrow-up.prevent="$store.app.judgeModelHighlightIdx = Math.max($store.app.judgeModelHighlightIdx - 1, 0)"
-                       @keydown.enter.prevent="if ($store.app.judgeModelHighlightIdx >= 0) $store.app.selectJudgeModel($store.app.judgeModelOptions[$store.app.judgeModelHighlightIdx])"
-                       placeholder="Select judge model..."
-                       autocomplete="off">
-                <div class="typeahead-dropdown" :class="{ open: $store.app.judgeModelDropdownOpen && $store.app.judgeModelOptions.length }">
-                  <template x-for="provider in Object.keys($store.app.judgeModelGrouped)" :key="provider">
-                    <div>
-                      <div class="typeahead-group" x-text="provider"></div>
-                      <template x-for="m in $store.app.judgeModelGrouped[provider]" :key="m">
-                        <div class="typeahead-item"
-                             :class="{ highlighted: $store.app.judgeModelOptions.indexOf(m) === $store.app.judgeModelHighlightIdx }"
-                             @mousedown.prevent="$store.app.selectJudgeModel(m)"
-                             x-text="m"></div>
-                      </template>
-                    </div>
-                  </template>
+              <div class="split-model-wrap">
+                <!-- Provider combobox -->
+                <div class="typeahead-wrap split-model-provider" @click.outside="$store.app.judgeProviderDropdownOpen = false">
+                  <input type="text" class="model-input"
+                         x-model="$store.app.judgeModelProvider"
+                         @click="$store.app.judgeProviderDropdownOpen = true; $store.app._fixedDropdownRect = $event.target.getBoundingClientRect()"
+                         @focus="$store.app.judgeProviderDropdownOpen = true; $store.app._fixedDropdownRect = $event.target.getBoundingClientRect()"
+                         @input="$store.app.judgeProviderDropdownOpen = true; $store.app.judgeProviderHighlightIdx = -1; $store.app.syncJudgeModel(); $store.app._fixedDropdownRect = $event.target.getBoundingClientRect()"
+                         @blur="$store.app.syncJudgeModel()"
+                         @keydown.escape="$store.app.judgeProviderDropdownOpen = false"
+                         @keydown.arrow-down.prevent="$store.app.judgeProviderHighlightIdx = Math.min($store.app.judgeProviderHighlightIdx + 1, $store.app.judgeFilteredProviders.length - 1)"
+                         @keydown.arrow-up.prevent="$store.app.judgeProviderHighlightIdx = Math.max($store.app.judgeProviderHighlightIdx - 1, 0)"
+                         @keydown.enter.prevent="if ($store.app.judgeProviderHighlightIdx >= 0) $store.app.selectJudgeProvider($store.app.judgeFilteredProviders[$store.app.judgeProviderHighlightIdx].id)"
+                         placeholder="Provider"
+                         autocomplete="off"
+                         style="font-size:12px;">
+                  <div class="typeahead-dropdown fixed-dropdown"
+                       :class="{ open: $store.app.judgeProviderDropdownOpen && $store.app.judgeFilteredProviders.length }"
+                       :style="$store.app._fixedDropdownRect ? `top:${$store.app._fixedDropdownRect.bottom + 4}px;left:${$store.app._fixedDropdownRect.left}px;width:${$store.app._fixedDropdownRect.width}px` : ''">
+                    <template x-for="(p, pi) in $store.app.judgeFilteredProviders" :key="p.id">
+                      <div class="typeahead-item"
+                           :class="{ highlighted: pi === $store.app.judgeProviderHighlightIdx }"
+                           @mousedown.prevent="$store.app.selectJudgeProvider(p.id)"
+                           x-text="p.label">
+                      </div>
+                    </template>
+                  </div>
+                </div>
+                <!-- Model name combobox -->
+                <div class="typeahead-wrap split-model-name" @click.outside="$store.app.judgeModelNameDropdownOpen = false">
+                  <input type="text" class="model-input"
+                         x-model="$store.app.judgeModelName"
+                         @focus="$store.app.judgeModelNameDropdownOpen = true"
+                         @input="$store.app.judgeModelNameDropdownOpen = true; $store.app.judgeModelNameHighlightIdx = -1; $store.app.syncJudgeModel()"
+                         @blur="$store.app.syncJudgeModel()"
+                         @keydown.escape="$store.app.judgeModelNameDropdownOpen = false"
+                         @keydown.arrow-down.prevent="$store.app.judgeModelNameHighlightIdx = Math.min($store.app.judgeModelNameHighlightIdx + 1, $store.app.judgeFilteredModelNames.length - 1)"
+                         @keydown.arrow-up.prevent="$store.app.judgeModelNameHighlightIdx = Math.max($store.app.judgeModelNameHighlightIdx - 1, 0)"
+                         @keydown.enter.prevent="if ($store.app.judgeModelNameHighlightIdx >= 0) $store.app.selectJudgeModelName($store.app.judgeFilteredModelNames[$store.app.judgeModelNameHighlightIdx])"
+                         placeholder="Model name"
+                         autocomplete="off"
+                         style="font-size:12px;">
+                  <div class="typeahead-dropdown" :class="{ open: $store.app.judgeModelNameDropdownOpen && $store.app.judgeFilteredModelNames.length }">
+                    <template x-for="(m, mi) in $store.app.judgeFilteredModelNames" :key="m">
+                      <div class="typeahead-item"
+                           :class="{ highlighted: mi === $store.app.judgeModelNameHighlightIdx }"
+                           @mousedown.prevent="$store.app.selectJudgeModelName(m)"
+                           x-text="m"></div>
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>
@@ -757,35 +798,33 @@
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
                 <div class="field-label" style="margin-bottom:0;">Criteria</div>
               </div>
-              <div class="criteria-structured" x-show="$store.app.parsedCriteria.length">
-                <template x-for="(c, i) in $store.app.parsedCriteria" :key="i">
+              <div class="criteria-structured" x-show="$store.app.criteriaRows.length">
+                <template x-for="(c, i) in $store.app.criteriaRows" :key="i">
                   <div class="criterion-row">
                     <div class="criterion-header" @click="$store.app.toggleCriterion(i)">
                       <i data-lucide="chevron-right" style="width:14px;height:14px;transition:transform .15s;"
                          :style="$store.app.criteriaOpenIdx === i ? 'transform:rotate(90deg)' : ''"></i>
-                      <span class="criterion-name" x-text="c.name"></span>
-                      <span class="criterion-weight" x-text="parseFloat(c.weight).toFixed(1) + 'x'"></span>
+                      <span class="criterion-name" x-text="c.name || 'Untitled criterion'"></span>
+                      <span class="criterion-weight" x-show="c.weight !== ''" x-text="parseFloat(c.weight).toFixed(1) + 'x'"></span>
                     </div>
                     <div class="criterion-edit" x-show="$store.app.criteriaOpenIdx === i" x-transition.duration.150ms>
                       <div class="criterion-edit-row">
                         <label class="criterion-edit-label">Name</label>
-                        <input type="text" class="criterion-edit-input" :value="c.name"
-                               @input="$store.app.updateCriterion(i, 'name', $event.target.value)">
+                        <input type="text" class="criterion-edit-input" x-model="c.name" placeholder="Criterion name">
                       </div>
-                      <div class="criterion-edit-row">
-                        <label class="criterion-edit-label">Description</label>
-                        <input type="text" class="criterion-edit-input" :value="c.description"
-                               @input="$store.app.updateCriterion(i, 'description', $event.target.value)">
+                      <div class="criterion-edit-row" style="align-items:flex-start;">
+                        <label class="criterion-edit-label" style="padding-top:6px;">Description</label>
+                        <textarea class="criterion-edit-input criterion-edit-textarea" x-model="c.description"
+                                  placeholder="What should the judge evaluate?" rows="3"></textarea>
                       </div>
                       <div class="criterion-edit-row">
                         <label class="criterion-edit-label">Weight</label>
                         <div style="display:flex;align-items:center;gap:8px;">
                           <input type="number" class="criterion-edit-input" style="width:80px;"
-                                 min="0" max="1" step="0.1" :value="c.weight"
-                                 @input="$store.app.updateCriterion(i, 'weight', $event.target.value)">
-                          <span style="color:var(--muted);font-size:11px;">0 - 1</span>
+                                 min="0" max="1" step="0.1" x-model="c.weight" placeholder="1.0">
+                          <span style="color:var(--muted);font-size:11px;">0 – 1, optional</span>
                           <button class="btn-icon-danger" style="margin-left:auto;"
-                                  @click="$store.app.removeCriterion(i)" title="Delete criterion">
+                                  @click.stop="$store.app.removeCriterion(i)" title="Delete criterion">
                             <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
                           </button>
                         </div>
@@ -794,7 +833,7 @@
                   </div>
                 </template>
               </div>
-              <div x-show="!$store.app.parsedCriteria.length"
+              <div x-show="!$store.app.criteriaRows.length"
                    style="color:var(--muted);font-size:12px;padding:10px 0;">
                 No criteria defined. Add one below or generate from your prompt.
               </div>
@@ -813,7 +852,7 @@
                 <button class="btn btn-primary btn-sm criteria-save-btn"
                         :class="{ dirty: $store.app.evalSettingsDirty }"
                         :disabled="!$store.app.evalSettingsDirty"
-                        @click="$store.app.saveEvalSettings()">Save Settings</button>
+                        @click="$store.app.saveCriteria()">Save Settings</button>
               </div>
             </div>
 
@@ -942,7 +981,7 @@
     <h3 x-show="!$store.app.keyModalCallback">API Keys</h3>
 
     <p x-show="$store.app.keyModalCallback" class="key-modal-desc">
-      Connect your <span x-text="$store.app.keyModalProvider.charAt(0).toUpperCase() + $store.app.keyModalProvider.slice(1)" style="font-weight:600;color:var(--text);"></span> API key to use this feature.
+      Connect your <span x-text="$store.app.providerLabel($store.app.keyModalProvider)" style="font-weight:600;color:var(--text);"></span> API key to use this feature.
     </p>
 
     <!-- Connected providers -->
@@ -967,7 +1006,7 @@
       <div class="key-modal-form-row">
         <div class="provider-select-wrap" @click.outside="$store.app.keyModalProviderDropdownOpen = false">
           <button class="provider-select-trigger" @click="$store.app.keyModalProviderDropdownOpen = !$store.app.keyModalProviderDropdownOpen">
-            <span x-text="$store.app.keyModalProvider.charAt(0).toUpperCase() + $store.app.keyModalProvider.slice(1)"></span>
+            <span x-text="$store.app.providerLabel($store.app.keyModalProvider)"></span>
             <svg class="tc-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="provider-select-dropdown" :class="{ open: $store.app.keyModalProviderDropdownOpen }">
@@ -975,7 +1014,7 @@
               <div class="provider-select-item"
                    :class="{ selected: $store.app.keyModalProvider === prov }"
                    @click="$store.app.keyModalProvider = prov; $store.app.keyModalProviderDropdownOpen = false"
-                   x-text="prov.charAt(0).toUpperCase() + prov.slice(1)"></div>
+                   x-text="$store.app.providerLabel(prov)"></div>
             </template>
           </div>
         </div>
@@ -983,7 +1022,7 @@
       <div class="key-modal-form-row" style="margin-top:8px;">
         <input type="password" class="key-input" style="flex:1;"
                x-model="$store.app.keyModalValue"
-               :placeholder="$store.app.keyModalProvider === 'anthropic' ? 'sk-ant-...' : 'sk-...'"
+               placeholder="Paste API key..."
                @keydown.enter="$store.app.submitModalKey()"
                @keydown.escape="$store.app.closeKeyModal()">
         <button class="btn btn-primary btn-sm" @click="$store.app.submitModalKey()">Connect</button>

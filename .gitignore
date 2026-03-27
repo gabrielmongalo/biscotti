@@ -10,3 +10,4 @@ biscotti/_demo.py
 .ruff_cache/
 .claude/
 docs/
+*.gif
