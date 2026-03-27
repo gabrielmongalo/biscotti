@@ -1022,11 +1022,11 @@ Always respond in {{language}}."""</span>,
         <p>biscotti includes an LLM-as-judge evaluation system. You need an <a href="#api-keys">API key</a> configured for at least one provider before running evals.</p>
         <ol>
           <li><strong>Generate criteria</strong> -- click "Generate from Prompt" to auto-create scoring rubrics from your system prompt</li>
-          <li><strong>Configure judge model</strong> -- pick any connected model (Anthropic, OpenAI)</li>
+          <li><strong>Configure judge model</strong> -- pick any connected model (Anthropic, OpenAI, Gemini, Mistral, Groq, DeepSeek, xAI, Cohere, Azure OpenAI, Together AI). Format: <code>provider:model-name</code>, e.g. <code>anthropic:claude-sonnet-4-6</code></li>
           <li><strong>Run batch evals</strong> -- score all <a href="#test-cases">test cases</a> against your criteria in one click</li>
           <li><strong>Track history</strong> -- compare scores across <a href="#versioning">prompt versions</a></li>
         </ol>
-        <p>Each criterion has a name, description, and 1-5 scoring scale. The judge model evaluates each test case output against each criterion and returns a score with reasoning. After an eval completes, use <a href="#coaching">Coaching</a> to get targeted improvement suggestions.</p>
+        <p>Each criterion has a name, description, and 1.0–5.0 scoring scale. The judge model evaluates each test case output against each criterion and returns a score with reasoning. Both judge criteria and a judge model must be configured before running an eval. After an eval completes, use <a href="#coaching">Coaching</a> to get targeted improvement suggestions.</p>
       </section>
 
       <section class="doc-section" id="coaching">
@@ -1037,7 +1037,7 @@ Always respond in {{language}}."""</span>,
           <li>Patterns across test cases</li>
           <li>Specific prompt edits to improve scores</li>
         </ul>
-        <p>Configure the coach model separately from the judge model in Settings. Both require an <a href="#api-keys">API key</a>.</p>
+        <p>Configure the coach model separately from the judge model in Settings. A coach model must be set before coaching will work. Both use the same <code>provider:model-name</code> format and require an <a href="#api-keys">API key</a> for the selected provider.</p>
       </section>
 
       <!-- ============================================================
@@ -1294,13 +1294,13 @@ async def my_agent(user_message: str, system_prompt: str, params: dict) -> str:
         <h3>AgentMeta</h3>
         <p>Agent registration info (name, description, variables, tags, models).</p>
         <h3>PromptVersion</h3>
-        <p>A versioned prompt with fields: <code>id</code>, <code>agent_name</code>, <code>version_number</code>, <code>body</code>, <code>status</code> (draft/current/archived), <code>notes</code>, <code>created_at</code>.</p>
+        <p>A versioned prompt with fields: <code>id</code>, <code>agent_name</code>, <code>version</code>, <code>system_prompt</code>, <code>variables</code>, <code>status</code> (draft/current/archived), <code>notes</code>, <code>created_at</code>, <code>created_by</code>.</p>
         <h3>TestCase</h3>
-        <p>Test input with fields: <code>name</code>, <code>user_message</code>, <code>variable_values</code>.</p>
+        <p>Test input with fields: <code>id</code>, <code>agent_name</code>, <code>name</code>, <code>user_message</code>, <code>variable_values</code>, <code>created_at</code>.</p>
         <h3>RunLog</h3>
-        <p>Execution record with fields: <code>id</code>, <code>agent_name</code>, <code>version_id</code>, <code>user_message</code>, <code>output</code>, <code>input_tokens</code>, <code>output_tokens</code>, <code>latency_ms</code>, <code>model</code>, <code>cost</code>, <code>created_at</code>.</p>
+        <p>Execution record with fields: <code>id</code>, <code>agent_name</code>, <code>prompt_version</code>, <code>user_message</code>, <code>output</code>, <code>outcome</code>, <code>input_tokens</code>, <code>output_tokens</code>, <code>latency_ms</code>, <code>model_used</code>, <code>estimated_cost</code>, <code>score</code>, <code>score_reasoning</code>, <code>created_at</code>.</p>
         <h3>EvalRun</h3>
-        <p>Batch eval with fields: <code>id</code>, <code>agent_name</code>, <code>version_id</code>, <code>judge_model</code>, <code>criteria</code>, <code>results</code> (per test case per criterion), <code>aggregate_scores</code>, <code>created_at</code>.</p>
+        <p>Batch eval with fields: <code>id</code>, <code>agent_name</code>, <code>prompt_version</code>, <code>judge_model</code>, <code>test_case_count</code>, <code>avg_score</code>, <code>min_score</code>, <code>max_score</code>, <code>pass_count</code>, <code>fail_count</code>, <code>case_details</code>, <code>created_at</code>.</p>
       </section>
 
       <section class="doc-section" id="api-keys">

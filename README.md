@@ -204,7 +204,7 @@ Biscotti(storage="sqlite:///biscotti.db")
 Biscotti(storage=":memory:")
 ```
 
-Default when no argument is passed: `sqlite:///biscotti.db` in the working directory.
+Default when no argument is passed: `biscotti.db` in the working directory. Accepts bare paths (`"./data/biscotti.db"`) or `sqlite:///` prefixed strings interchangeably.
 
 ---
 
@@ -215,13 +215,29 @@ All endpoints are available under the mount path (e.g. `/biscotti/api/`):
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/agents` | List registered agents |
+| GET | `/api/agents/{name}` | Get agent details |
 | GET | `/api/agents/{name}/versions` | List prompt versions |
-| POST | `/api/agents/{name}/versions` | Create a new version |
-| POST | `/api/agents/{name}/versions/{id}/promote` | Promote to live |
+| POST | `/api/agents/{name}/versions` | Create a draft version |
+| PATCH | `/api/agents/{name}/versions/{id}` | Update version notes |
+| DELETE | `/api/agents/{name}/versions/{id}` | Delete a version |
+| POST | `/api/agents/{name}/versions/{id}/promote` | Promote to current |
 | GET | `/api/agents/{name}/test-cases` | List test cases |
-| POST | `/api/agents/{name}/test-cases` | Create a test case |
+| POST | `/api/agents/{name}/test-cases` | Create / update a test case |
+| DELETE | `/api/agents/{name}/test-cases/{name}` | Delete a test case |
 | POST | `/api/run` | Execute a run |
 | GET | `/api/agents/{name}/runs` | Run history |
+| GET | `/api/agents/{name}/settings` | Get eval settings |
+| PUT | `/api/agents/{name}/settings` | Update eval settings |
+| POST | `/api/agents/{name}/generate-judge` | Auto-generate judge criteria |
+| POST | `/api/agents/{name}/eval` | Run batch eval |
+| GET | `/api/agents/{name}/evals` | List eval runs |
+| GET | `/api/agents/{name}/evals/{id}` | Get eval run details |
+| POST | `/api/agents/{name}/coach` | Get coaching suggestions |
+| GET | `/api/agents/{name}/export` | Export agent config as JSON |
+| POST | `/api/agents/{name}/import` | Import agent config |
+| GET | `/api/settings/status` | Provider auth status |
+| POST | `/api/settings/api-key` | Set API key (session-only) |
+| DELETE | `/api/settings/api-key/{provider}` | Remove API key |
 | GET | `/api/health` | Health check |
 
 Interactive docs: `/biscotti/openapi`
@@ -230,10 +246,10 @@ Interactive docs: `/biscotti/openapi`
 
 ## How versioning works
 
-1. On first startup, biscotti seeds `v1` from `default_system_prompt` and promotes it to live.
+1. On first startup, biscotti seeds `v1` from `default_system_prompt` and promotes it to current.
 2. Edits in the UI create new draft versions (`v2`, `v3`, ...).
-3. Promoting a draft sets it as live and archives the previous live version.
-4. Agents call `biscotti.get_live_prompt(name)` at runtime — no restart, no redeploy needed.
+3. Promoting a draft sets it as current and archives the previous version.
+4. Your agent callable always receives the current version's prompt at runtime — no restart or redeploy needed.
 
 ---
 
