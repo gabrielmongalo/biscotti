@@ -39,11 +39,15 @@ def build_judge_generation_prompt(system_prompt: str, variables: list[str]) -> s
     return f"System prompt to evaluate:\n\n{system_prompt}{var_section}"
 
 
-def make_judge_generator(model: str = "anthropic:claude-sonnet-4-20250514") -> Agent:
+def make_judge_generator(model: str | None = None) -> Agent:
     """Create a PydanticAI agent that generates judge criteria."""
+    if not model:
+        raise ValueError(
+            "No judge model configured. Set a model in the Evals configuration."
+        )
     return Agent(
         model,
-        result_type=JudgeCriteria,
+        output_type=JudgeCriteria,
         system_prompt=_JUDGE_GEN_SYSTEM,
     )
 
@@ -96,7 +100,7 @@ def make_judge(model: str, criteria_text: str) -> Agent:
     """Create a PydanticAI agent that judges output against criteria."""
     return Agent(
         model,
-        result_type=EvalScore,
+        output_type=EvalScore,
         system_prompt=build_judge_system_prompt(criteria_text),
     )
 
@@ -105,11 +109,22 @@ def make_judge(model: str, criteria_text: str) -> Agent:
 # API key bridging
 # ---------------------------------------------------------------------------
 
+_PROVIDER_ENV_MAP: dict[str, str] = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "google": "GOOGLE_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "cohere": "COHERE_API_KEY",
+}
+
+
 @contextmanager
 def _ensure_api_keys():
-    """Temporarily set API keys from key_store if not in env."""
+    """Temporarily set API keys from key_store if not already in env."""
     restored = {}
-    for provider, env_var in [("anthropic", "ANTHROPIC_API_KEY"), ("openai", "OPENAI_API_KEY")]:
+    for provider, env_var in _PROVIDER_ENV_MAP.items():
         if not os.environ.get(env_var):
             key = get_key(provider)
             if key:
@@ -129,14 +144,18 @@ def _ensure_api_keys():
 async def generate_judge_criteria(
     system_prompt: str,
     variables: list[str],
-    model: str = "anthropic:claude-sonnet-4-20250514",
+    model: str | None = None,
 ) -> JudgeCriteria:
     """Generate judge criteria for a given system prompt."""
+    if not model:
+        raise ValueError(
+            "No judge model configured. Set a model in the Evals configuration."
+        )
     with _ensure_api_keys():
         agent = make_judge_generator(model)
         user_msg = build_judge_generation_prompt(system_prompt, variables)
         result = await agent.run(user_msg)
-        return result.data
+        return result.output
 
 
 async def judge_output(
@@ -144,14 +163,18 @@ async def judge_output(
     user_message: str,
     system_prompt: str,
     agent_output: str,
-    model: str = "anthropic:claude-sonnet-4-20250514",
+    model: str | None = None,
 ) -> EvalScore:
     """Score an agent output against criteria."""
+    if not model:
+        raise ValueError(
+            "No judge model configured. Set a model in the Evals configuration."
+        )
     with _ensure_api_keys():
         agent = make_judge(model, criteria_text)
         user_msg = build_judge_user_prompt(user_message, system_prompt, agent_output)
         result = await agent.run(user_msg)
-        return result.data
+        return result.output
 
 
 # ---------------------------------------------------------------------------
@@ -217,12 +240,12 @@ def build_coach_user_prompt(
     return "\n".join(parts)
 
 
-def make_coach(model: str) -> Agent:
+def make_coach(model: str, custom_system_prompt: str | None = None) -> Agent:
     """Create a PydanticAI agent that coaches on prompt improvements."""
     return Agent(
         model,
         output_type=CoachResponse,
-        system_prompt=_COACH_SYSTEM,
+        system_prompt=custom_system_prompt or _COACH_SYSTEM,
     )
 
 
@@ -231,11 +254,12 @@ async def generate_coaching(
     criteria_text: str,
     case_details: list[dict],
     test_cases: list[TestCase],
-    model: str = "anthropic:claude-sonnet-4-6",
+    model: str | None = None,
+    custom_system_prompt: str | None = None,
 ) -> CoachResponse:
     """Analyze eval results and suggest prompt improvements."""
     with _ensure_api_keys():
-        agent = make_coach(model)
+        agent = make_coach(model, custom_system_prompt)
         user_msg = build_coach_user_prompt(system_prompt, criteria_text, case_details, test_cases)
         result = await agent.run(user_msg)
         return result.output
@@ -243,11 +267,12 @@ async def generate_coaching(
 
 async def coach_prompt(
     system_prompt: str,
-    model: str = "anthropic:claude-sonnet-4-6",
+    model: str | None = None,
+    custom_system_prompt: str | None = None,
 ) -> CoachResponse:
     """Review a prompt directly and suggest improvements (no eval needed)."""
     with _ensure_api_keys():
-        agent = make_coach(model)
+        agent = make_coach(model, custom_system_prompt)
         user_msg = f"## Current System Prompt\n{system_prompt}\n\nReview this prompt and suggest specific improvements."
         result = await agent.run(user_msg)
         return result.output

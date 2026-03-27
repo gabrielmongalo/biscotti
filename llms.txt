@@ -260,7 +260,7 @@ Eval API endpoints:
 - `GET /api/agents/{name}/evals` -- list eval runs
 - `POST /api/agents/{name}/coach` -- get prompt improvement suggestions
 
-The judge and coach use `anthropic:claude-sonnet-4-6` by default. API keys are resolved from environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) or can be set in the UI settings panel.
+The judge and coach have no default model — you must explicitly select one in the Evals settings panel before running evals or coaching. API keys are resolved from environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.) or can be set in the UI settings panel.
 
 ## API Reference
 

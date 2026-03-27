@@ -49,9 +49,17 @@ def build_router(store: PromptStore) -> APIRouter:
     async def ui_root() -> FileResponse:
         return FileResponse(_UI_DIR / "index.html")
 
-    @router.get("/landing", response_class=HTMLResponse, include_in_schema=False)
-    async def ui_landing() -> FileResponse:
+    @router.get("/home", response_class=HTMLResponse, include_in_schema=False)
+    async def ui_home() -> FileResponse:
         return FileResponse(_UI_DIR / "landing.html")
+
+    @router.get("/docs", response_class=HTMLResponse, include_in_schema=False)
+    async def ui_docs() -> FileResponse:
+        return FileResponse(_UI_DIR / "docs.html")
+
+    @router.get("/static/{filename:path}", include_in_schema=False)
+    async def ui_static(filename: str) -> FileResponse:
+        return FileResponse(_UI_DIR / filename)
 
     @router.get("/app.js", include_in_schema=False)
     async def ui_js() -> FileResponse:
@@ -73,6 +81,7 @@ def build_router(store: PromptStore) -> APIRouter:
             live = await store.get_current_version(agent.name)
             versions = await store.list_versions(agent.name)
             runs = await store.list_runs(agent.name, limit=5)
+            test_case_count = await store.count_test_cases(agent.name)
             result.append({
                 "name": agent.name,
                 "description": agent.description,
@@ -80,6 +89,7 @@ def build_router(store: PromptStore) -> APIRouter:
                 "tags": agent.tags,
                 "current_version": live.version if live else None,
                 "version_count": len(versions),
+                "test_case_count": test_case_count,
                 "recent_run_count": len(runs),
             })
         return result
@@ -389,6 +399,7 @@ def build_router(store: PromptStore) -> APIRouter:
 
         eval_id = (body or {}).get("eval_id")
         prompt_text = (body or {}).get("prompt")
+        custom_system_prompt = (body or {}).get("coach_system_prompt")
 
         # Get the prompt to coach on (explicit or current version)
         if prompt_text:
@@ -412,6 +423,7 @@ def build_router(store: PromptStore) -> APIRouter:
                 case_details=case_details,
                 test_cases=test_cases,
                 model=coach_model,
+                custom_system_prompt=custom_system_prompt,
             )
         else:
             # Prompt-only coaching (no eval needed)
@@ -419,6 +431,7 @@ def build_router(store: PromptStore) -> APIRouter:
             coach_result = await coach_prompt(
                 system_prompt=system_prompt,
                 model=coach_model,
+                custom_system_prompt=custom_system_prompt,
             )
 
         return coach_result.model_dump()
@@ -492,7 +505,7 @@ def build_router(store: PromptStore) -> APIRouter:
             await store.update_agent_settings(
                 agent_name,
                 judge_criteria=s.get("judge_criteria", ""),
-                judge_model=s.get("judge_model", "anthropic:claude-sonnet-4-6"),
+                judge_model=s.get("judge_model", ""),
                 coach_enabled=s.get("coach_enabled", True),
             )
 
@@ -513,11 +526,11 @@ def build_router(store: PromptStore) -> APIRouter:
 
     @router.post("/api/settings/api-key", tags=["settings"])
     async def set_api_key(body: dict) -> dict:
-        from .key_store import set_key, available_providers
+        from .key_store import set_key, available_providers, KNOWN_PROVIDERS
         provider = body.get("provider", "")
         key = body.get("key", "")
-        if provider not in ("anthropic", "openai"):
-            raise HTTPException(400, "Provider must be 'anthropic' or 'openai'")
+        if provider not in KNOWN_PROVIDERS:
+            raise HTTPException(400, f"Unknown provider '{provider}'. Known providers: {', '.join(KNOWN_PROVIDERS)}")
         if not key:
             raise HTTPException(400, "Key cannot be empty")
         set_key(provider, key)
@@ -525,9 +538,9 @@ def build_router(store: PromptStore) -> APIRouter:
 
     @router.delete("/api/settings/api-key/{provider}", tags=["settings"])
     async def remove_api_key(provider: str) -> dict:
-        from .key_store import remove_key, available_providers
-        if provider not in ("anthropic", "openai"):
-            raise HTTPException(400, "Provider must be 'anthropic' or 'openai'")
+        from .key_store import remove_key, available_providers, KNOWN_PROVIDERS
+        if provider not in KNOWN_PROVIDERS:
+            raise HTTPException(400, f"Unknown provider '{provider}'. Known providers: {', '.join(KNOWN_PROVIDERS)}")
         remove_key(provider)
         return {"status": "ok", "providers": available_providers()}
 

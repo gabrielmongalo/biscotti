@@ -84,11 +84,16 @@ document.addEventListener('alpine:init', () => {
 
     // --- UI state ---
     sidebarCollapsed: false,
-    activeTab: 'run',
+    activeView: 'playground',
+    _agentDropdownOpen: false,
+    _agentSearch: '',
     isDirty: false,
     diffActive: false,
     theme: localStorage.getItem('biscotti-theme') || 'dark',
     compareTarget: null,
+    _expandedVersion: null,
+    _expandedEvalCase: null,
+    _evalConfigOpen: true,
 
     // --- Test cases ---
     testCases: [],
@@ -119,9 +124,10 @@ document.addEventListener('alpine:init', () => {
     temperature: 1.0,
     reasoningEffort: null,
 
-    // --- Notes modal ---
-    notesModalOpen: false,
+    // --- Inline save ---
+    _savingInline: false,
     saveNotes: '',
+    _bannerDismissed: sessionStorage.getItem('biscotti-banner-dismissed') === '1',
 
     // --- Confirm modal ---
     confirmOpen: false,
@@ -132,13 +138,21 @@ document.addEventListener('alpine:init', () => {
     // --- Evals ---
     judgeConfigOpen: false,
     providerStatus: {},
-    judgeModel: 'anthropic:claude-sonnet-4-6',
+    judgeModel: '',
+    judgeModelProvider: '',
+    judgeModelName: '',
     judgeModelDropdownOpen: false,
     judgeModelHighlightIdx: -1,
+    judgeProviderDropdownOpen: false,
+    judgeProviderHighlightIdx: -1,
+    _fixedDropdownRect: null,
+    judgeModelNameDropdownOpen: false,
+    judgeModelNameHighlightIdx: -1,
     judgeCriteria: '',
+    criteriaRows: [],
     _savedJudgeModel: '',
     _savedJudgeCriteria: '',
-    criteriaEditing: false,
+    criteriaOpenIdx: -1,
     evalRunning: false,
     evalGenerating: false,
     evalTestCasesOpen: true,
@@ -149,16 +163,46 @@ document.addEventListener('alpine:init', () => {
     evalAddTcOpen: false,
     evalAddTcName: '',
     evalAddTcMsg: '',
+    evalAddTcVars: {},
 
-    // --- Coach ---
+    // --- Coach (review mode) ---
     coachResult: null,
     coachLoading: false,
     coachError: null,
-    coachOpen: false,
     coachPanelOpen: false,
     coachModel: '',
+    coachModelProvider: '',
+    coachModelName: '',
     coachModelDropdownOpen: false,
     coachModelHighlightIdx: -1,
+    coachProviderDropdownOpen: false,
+    coachProviderHighlightIdx: -1,
+    coachModelNameDropdownOpen: false,
+    coachModelNameHighlightIdx: -1,
+    coachReviewMode: false,
+    coachSuggestions: [],
+    coachExpandedIdx: -1,
+    coachPromptSnapshot: '',
+    coachPromptEditorOpen: false,
+    coachCustomPrompt: '',
+    coachDefaultPrompt: `You are an expert prompt engineer. Your job is to review an AI agent's system prompt and suggest specific, actionable improvements.
+
+Your suggestions must be:
+- Specific: include the exact text to add, replace, or remove
+- Actionable: each suggestion should be independently implementable
+- Prioritized: list the highest-impact change first
+- Practical: focus on clarity, structure, constraint specificity, and output formatting
+
+When eval results are provided, ground suggestions in the specific failures.
+When reviewing without eval results, focus on best practices:
+  - Clear role definition
+  - Explicit output format instructions
+  - Well-defined constraints and edge cases
+  - Effective use of examples (few-shot)
+  - Variable placeholder usage
+
+Do not rewrite the prompt's core purpose or domain.
+Always provide a complete revised_prompt with all suggestions applied.`,
 
     // --- API Key Modal ---
     keyModalOpen: false,
@@ -169,7 +213,7 @@ document.addEventListener('alpine:init', () => {
 
     // --- Computed ---
     get evalSettingsDirty() {
-      return this.judgeModel !== this._savedJudgeModel || this.judgeCriteria !== this._savedJudgeCriteria;
+      return this.judgeModel !== this._savedJudgeModel || this.serializeCriteria(this.criteriaRows) !== this._savedJudgeCriteria;
     },
     get variables() {
       return [...new Set([...this.prompt.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]))];
@@ -177,24 +221,89 @@ document.addEventListener('alpine:init', () => {
     get promptTokens() { return estimateTokens(this.prompt); },
     get msgTokens() { return estimateTokens(this.userMessage); },
     get connectedProviders() {
-      return Object.entries(this.providerStatus).filter(([, ok]) => ok).map(([id]) => id);
+      return Object.entries(this.providerStatus).filter(([, ok]) => ok).map(([id]) => id)
+        .sort((a, b) => (this._PROVIDER_LABELS[a] || a).localeCompare(this._PROVIDER_LABELS[b] || b));
     },
     get disconnectedProviders() {
-      return Object.entries(this.providerStatus).filter(([, ok]) => !ok).map(([id]) => id);
+      return Object.entries(this.providerStatus).filter(([, ok]) => !ok).map(([id]) => id)
+        .sort((a, b) => (this._PROVIDER_LABELS[a] || a).localeCompare(this._PROVIDER_LABELS[b] || b));
+    },
+    get _suggestedModels() {
+      return [
+        // Anthropic
+        'anthropic:claude-opus-4-6',
+        'anthropic:claude-opus-4-5',
+        'anthropic:claude-sonnet-4-6',
+        'anthropic:claude-sonnet-4-5',
+        'anthropic:claude-haiku-4-5',
+        'anthropic:claude-3-5-sonnet-20241022',
+        'anthropic:claude-3-5-haiku-20241022',
+        'anthropic:claude-3-opus-20240229',
+        // OpenAI
+        'openai:gpt-4.5',
+        'openai:gpt-4.1',
+        'openai:gpt-4.1-mini',
+        'openai:gpt-4o',
+        'openai:gpt-4o-mini',
+        'openai:o4-mini',
+        'openai:o3',
+        'openai:o3-mini',
+        'openai:o1',
+        // Google Gemini
+        'gemini:gemini-2.5-pro',
+        'gemini:gemini-2.0-flash',
+        'gemini:gemini-1.5-pro',
+        'gemini:gemini-1.5-flash',
+        // Mistral
+        'mistral:mistral-large-latest',
+        'mistral:mistral-small-latest',
+        'mistral:codestral-latest',
+        // Groq
+        'groq:llama-3.3-70b-versatile',
+        'groq:llama-3.1-8b-instant',
+        'groq:gemma2-9b-it',
+        // DeepSeek
+        'deepseek:deepseek-chat',
+        'deepseek:deepseek-reasoner',
+        // xAI
+        'xai:grok-3',
+        'xai:grok-3-mini',
+        'xai:grok-2',
+        // Cohere
+        'cohere:command-r-plus',
+        'cohere:command-r',
+      ];
+    },
+    get judgeProviderOptions() {
+      return Object.entries(this._PROVIDER_LABELS)
+        .map(([id, label]) => ({ id, label }))
+        .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+    },
+    get judgeFilteredProviders() {
+      const q = (this.judgeModelProvider || '').toLowerCase();
+      if (!q) return this.judgeProviderOptions;
+      return this.judgeProviderOptions.filter(p =>
+        p.id.toLowerCase().includes(q) || p.label.toLowerCase().includes(q)
+      );
+    },
+    get judgeFilteredModelNames() {
+      const provider = (this.judgeModelProvider || '').toLowerCase();
+      const q = (this.judgeModelName || '').toLowerCase();
+      return this._suggestedModels
+        .filter(m => {
+          const [p, ...rest] = m.split(':');
+          if (provider && p !== provider) return false;
+          const modelPart = rest.join(':') || m;
+          return !q || modelPart.toLowerCase().includes(q);
+        })
+        .map(m => {
+          const [, ...rest] = m.split(':');
+          return rest.length ? rest.join(':') : m;
+        });
     },
     get judgeModelOptions() {
-      const models = {
-        anthropic: ['anthropic:claude-sonnet-4-6', 'anthropic:claude-opus-4-6', 'anthropic:claude-haiku-4-5'],
-        openai: ['openai:gpt-4o', 'openai:gpt-4o-mini', 'openai:gpt-4.1', 'openai:gpt-4.1-mini', 'openai:o3', 'openai:o3-mini'],
-      };
-      const connected = this.connectedProviders;
-      let all = [];
-      for (const p of connected) {
-        if (models[p]) all = all.concat(models[p]);
-      }
-      if (!all.length) all = models.anthropic.concat(models.openai);
       const q = (this.judgeModel || '').toLowerCase();
-      return all.filter(m => !q || m.toLowerCase().includes(q));
+      return this._suggestedModels.filter(m => !q || m.toLowerCase().includes(q));
     },
     get judgeModelGrouped() {
       const groups = {};
@@ -205,19 +314,31 @@ document.addEventListener('alpine:init', () => {
       }
       return groups;
     },
+    get coachFilteredProviders() {
+      const q = (this.coachModelProvider || '').toLowerCase();
+      if (!q) return this.judgeProviderOptions;
+      return this.judgeProviderOptions.filter(p =>
+        p.id.toLowerCase().includes(q) || p.label.toLowerCase().includes(q)
+      );
+    },
+    get coachFilteredModelNames() {
+      const provider = (this.coachModelProvider || '').toLowerCase();
+      const q = (this.coachModelName || '').toLowerCase();
+      return this._suggestedModels
+        .filter(m => {
+          const [p, ...rest] = m.split(':');
+          if (provider && p !== provider) return false;
+          const modelPart = rest.join(':') || m;
+          return !q || modelPart.toLowerCase().includes(q);
+        })
+        .map(m => {
+          const [, ...rest] = m.split(':');
+          return rest.length ? rest.join(':') : m;
+        });
+    },
     get coachModelOptions() {
-      const models = {
-        anthropic: ['anthropic:claude-sonnet-4-6', 'anthropic:claude-opus-4-6', 'anthropic:claude-haiku-4-5'],
-        openai: ['openai:gpt-4o', 'openai:gpt-4o-mini', 'openai:gpt-4.1', 'openai:gpt-4.1-mini', 'openai:o3', 'openai:o3-mini'],
-      };
-      const connected = this.connectedProviders;
-      let all = [];
-      for (const p of connected) {
-        if (models[p]) all = all.concat(models[p]);
-      }
-      if (!all.length) all = models.anthropic.concat(models.openai);
       const q = (this.coachModel || '').toLowerCase();
-      return all.filter(m => !q || m.toLowerCase().includes(q));
+      return this._suggestedModels.filter(m => !q || m.toLowerCase().includes(q));
     },
     get coachModelGrouped() {
       const groups = {};
@@ -247,6 +368,113 @@ document.addEventListener('alpine:init', () => {
         return '';
       }).filter(Boolean).join('');
     },
+    loadCriteriaRows() {
+      if (!this.judgeCriteria) {
+        this.criteriaRows = [];
+        return;
+      }
+      this.criteriaRows = this.judgeCriteria.split('\n').map(line => {
+        const m1 = line.match(/^-\s+(.*?)\s*\(weight\s+([\d.]+)\)\s*:\s*(.*)$/);
+        if (m1) return { name: m1[1] || '', weight: m1[2], description: m1[3] || '' };
+        const m2 = line.match(/^-\s+(.*?):\s*(.*)$/);
+        if (m2) return { name: m2[1] || '', weight: '', description: m2[2] || '' };
+        return null;
+      }).filter(Boolean);
+    },
+
+    serializeCriteria(criteria) {
+      return criteria.map(c => {
+        const name = (c.name || '').trim();
+        const desc = (c.description || '').trim();
+        const wRaw = String(c.weight || '').trim();
+        if (wRaw !== '') {
+          let w = parseFloat(wRaw);
+          if (isNaN(w)) w = 1.0;
+          w = Math.min(1, Math.max(0, w));
+          return `- ${name} (weight ${w.toFixed(1)}): ${desc}`;
+        }
+        return `- ${name}: ${desc}`;
+      }).join('\n');
+    },
+
+    syncJudgeModel() {
+      this.judgeModel = (this.judgeModelProvider && this.judgeModelName)
+        ? this.judgeModelProvider + ':' + this.judgeModelName
+        : '';
+    },
+
+    syncCoachModel() {
+      this.coachModel = (this.coachModelProvider && this.coachModelName)
+        ? this.coachModelProvider + ':' + this.coachModelName
+        : '';
+    },
+
+    selectJudgeProvider(providerId) {
+      this.judgeModelProvider = providerId;
+      this.judgeProviderDropdownOpen = false;
+      this.judgeProviderHighlightIdx = -1;
+      // Clear model name if it doesn't belong to this provider
+      const names = this._suggestedModels
+        .filter(m => m.split(':')[0] === providerId)
+        .map(m => { const [, ...r] = m.split(':'); return r.join(':'); });
+      if (this.judgeModelName && !names.includes(this.judgeModelName)) {
+        this.judgeModelName = '';
+      }
+      this.syncJudgeModel();
+    },
+
+    selectJudgeModelName(modelName) {
+      this.judgeModelName = modelName;
+      this.judgeModelNameDropdownOpen = false;
+      this.judgeModelNameHighlightIdx = -1;
+      this.syncJudgeModel();
+    },
+
+    selectCoachProvider(providerId) {
+      this.coachModelProvider = providerId;
+      this.coachProviderDropdownOpen = false;
+      this.coachProviderHighlightIdx = -1;
+      // Clear model name if it doesn't belong to this provider
+      const names = this._suggestedModels
+        .filter(m => m.split(':')[0] === providerId)
+        .map(m => { const [, ...r] = m.split(':'); return r.join(':'); });
+      if (this.coachModelName && !names.includes(this.coachModelName)) {
+        this.coachModelName = '';
+      }
+      this.syncCoachModel();
+    },
+
+    selectCoachModelName(modelName) {
+      this.coachModelName = modelName;
+      this.coachModelNameDropdownOpen = false;
+      this.coachModelNameHighlightIdx = -1;
+      this.syncCoachModel();
+    },
+
+    toggleCriterion(idx) {
+      this.criteriaOpenIdx = this.criteriaOpenIdx === idx ? -1 : idx;
+      setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
+    },
+
+    addCriterion() {
+      this.criteriaRows.push({ name: '', description: '', weight: '' });
+      this.criteriaOpenIdx = this.criteriaRows.length - 1;
+      setTimeout(() => {
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        const rows = document.querySelectorAll('.criterion-row');
+        if (rows.length) rows[rows.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    },
+
+    removeCriterion(idx) {
+      this.criteriaRows.splice(idx, 1);
+      this.criteriaOpenIdx = -1;
+    },
+
+    async saveCriteria() {
+      this.judgeCriteria = this.serializeCriteria(this.criteriaRows);
+      await this.saveEvalSettings();
+    },
 
     // --- Init ---
     async init() {
@@ -262,6 +490,32 @@ document.addEventListener('alpine:init', () => {
       if (this.agents.length) {
         await this.selectAgent(this.agents[0].name);
       }
+      // Initialize Lucide icons after DOM update
+      setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
+    },
+
+    // --- View switching ---
+    switchView(view) {
+      this.activeView = view;
+      if (view === 'evals') {
+        this.loadEvalSettings();
+        this.loadEvalHistory().then(() => {
+          const s = Alpine.store('app');
+          if (!s.evalHistory.length || !s.currentAgent) return;
+          const latestId = s.evalHistory[0].id;
+          if (s.evalResult && s.evalResult.id === latestId) return;
+          api(`/api/agents/${encodeURIComponent(s.currentAgent)}/evals/${latestId}`)
+            .then(data => {
+              Alpine.store('app').evalResult = data;
+              Alpine.store('app').evalResultsOpen = true;
+              setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
+            })
+            .catch(() => {});
+        });
+      } else if (view === 'versions') {
+        this.loadVersions();
+      }
+      setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
     },
 
     // --- Agent selection ---
@@ -300,9 +554,22 @@ document.addEventListener('alpine:init', () => {
       this.selectedTestCase = '';
       // Always load settings (provider status + coach model needed globally)
       this.loadEvalSettings();
-      if (this.activeTab === 'evals') {
-        this.loadEvalHistory();
+      if (this.activeView === 'evals') {
+        this.loadEvalHistory().then(() => {
+          const s = Alpine.store('app');
+          if (!s.evalHistory.length || !s.currentAgent) return;
+          const latestId = s.evalHistory[0].id;
+          if (s.evalResult && s.evalResult.id === latestId) return;
+          api(`/api/agents/${encodeURIComponent(s.currentAgent)}/evals/${latestId}`)
+            .then(data => {
+              Alpine.store('app').evalResult = data;
+              Alpine.store('app').evalResultsOpen = true;
+              setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
+            })
+            .catch(() => {});
+        });
       }
+      setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
     },
 
     // --- Versions ---
@@ -318,15 +585,13 @@ document.addEventListener('alpine:init', () => {
       this.isDirty = false;
     },
 
-    async saveVersion() {
+    saveVersion() {
       if (!this.prompt.trim()) { showToast('Prompt cannot be empty', 'error'); return; }
-      this.saveNotes = '';
-      this.notesModalOpen = true;
+      this._savingInline = true;
     },
 
     async confirmSaveVersion() {
       const notes = this.saveNotes.trim();
-      this.notesModalOpen = false;
       try {
         const pv = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/versions`, 'POST', {
           agent_name: this.currentAgent,
@@ -337,6 +602,10 @@ document.addEventListener('alpine:init', () => {
         await this.loadVersions();
         const saved = this.versions.find(v => v.id === pv.id);
         if (saved) this.loadVersion(saved);
+        this._savingInline = false;
+        this.saveNotes = '';
+        // Auto-dismiss remaining coach suggestions on save
+        if (this.coachReviewMode) this.exitReviewMode();
         showToast(`Saved as v${pv.version}`, 'success');
       } catch (e) {
         showToast('Failed to save: ' + e.message, 'error');
@@ -378,6 +647,10 @@ document.addEventListener('alpine:init', () => {
     },
 
     compareVersion(v) {
+      this.compareTarget = v;
+    },
+
+    startCompare(v) {
       this.compareTarget = v;
     },
 
@@ -463,10 +736,11 @@ document.addEventListener('alpine:init', () => {
       if (!name || !msg) return;
       try {
         await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/test-cases`, 'POST', {
-          agent_name: this.currentAgent, name, user_message: msg, variable_values: {},
+          agent_name: this.currentAgent, name, user_message: msg, variable_values: { ...this.evalAddTcVars },
         });
         this.evalAddTcName = '';
         this.evalAddTcMsg = '';
+        this.evalAddTcVars = {};
         this.evalAddTcOpen = false;
         await this.loadTestCases();
         showToast('Test case added', 'success');
@@ -524,7 +798,7 @@ document.addEventListener('alpine:init', () => {
       if (!this.userMessage.trim()) { showToast('Enter a user message first', 'error'); return; }
       this.running = true;
       this.runElapsed = 0;
-      this._runTimer = setInterval(() => { this.runElapsed++; }, 1000);
+      this._runTimer = setInterval(() => { this.runElapsed += 0.1; }, 100);
       this.output = '';
       this.outputState = 'empty';
       this.metrics = null;
@@ -563,6 +837,7 @@ document.addEventListener('alpine:init', () => {
       } catch (e) {
         this.outputState = 'error';
         this.output = 'Request failed: ' + e.message;
+        showToast('Run failed: ' + e.message, 'error');
       } finally {
         clearInterval(this._runTimer);
         this._runTimer = null;
@@ -597,10 +872,20 @@ document.addEventListener('alpine:init', () => {
       if (!this.currentAgent) return;
       try {
         const s = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/settings`);
-        this.judgeModel = s.judge_model || 'anthropic:claude-sonnet-4-6';
+        // Parse judge_model into provider + name split
+        const [jProvider, ...jRest] = (s.judge_model || '').split(':');
+        this.judgeModelProvider = jRest.length ? jProvider : '';
+        this.judgeModelName = jRest.length ? jRest.join(':') : (s.judge_model || '');
+        this.judgeModel = s.judge_model || '';
         this.judgeCriteria = s.judge_criteria || '';
         this._savedJudgeModel = this.judgeModel;
         this._savedJudgeCriteria = this.judgeCriteria;
+        this.loadCriteriaRows();
+        this.criteriaOpenIdx = -1;
+        // Parse coach_model into provider + name split
+        const [cProvider, ...cRest] = (s.coach_model || '').split(':');
+        this.coachModelProvider = cRest.length ? cProvider : '';
+        this.coachModelName = cRest.length ? cRest.join(':') : (s.coach_model || '');
         this.coachModel = s.coach_model || '';
         this.providerStatus = await api('/api/settings/status');
       } catch { /* ignore on first load */ }
@@ -608,12 +893,18 @@ document.addEventListener('alpine:init', () => {
 
     selectJudgeModel(name) {
       this.judgeModel = name;
+      const [p, ...r] = (name || '').split(':');
+      this.judgeModelProvider = r.length ? p : '';
+      this.judgeModelName = r.length ? r.join(':') : (name || '');
       this.judgeModelDropdownOpen = false;
       this.judgeModelHighlightIdx = -1;
     },
 
     selectCoachModel(name) {
       this.coachModel = name;
+      const [p, ...r] = (name || '').split(':');
+      this.coachModelProvider = r.length ? p : '';
+      this.coachModelName = r.length ? r.join(':') : (name || '');
       this.coachModelDropdownOpen = false;
       this.coachModelHighlightIdx = -1;
       // Persist to backend
@@ -622,6 +913,42 @@ document.addEventListener('alpine:init', () => {
           coach_model: name,
         }).catch(() => {});
       }
+    },
+
+    // --- Provider detection ---
+    _PROVIDER_LABELS: {
+      'anthropic': 'Anthropic',
+      'azure': 'Azure OpenAI',
+      'cohere': 'Cohere',
+      'deepseek': 'DeepSeek',
+      'gemini': 'Google (Gemini)',
+      'groq': 'Groq',
+      'meta': 'Meta (Llama)',
+      'mistral': 'Mistral',
+      'ollama': 'Ollama',
+      'openai': 'OpenAI',
+      'openai-compatible': 'OpenAI-compatible',
+      'together': 'Together AI',
+      'xai': 'xAI (Grok)',
+    },
+    providerLabel(id) {
+      return this._PROVIDER_LABELS[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+    },
+    detectProvider(modelStr) {
+      if (!modelStr) return null;
+      const s = modelStr.trim().toLowerCase();
+      // Explicit prefix (PydanticAI format: "provider:model")
+      if (s.includes(':')) {
+        const prefix = s.split(':')[0];
+        return this._PROVIDER_LABELS[prefix] || prefix;
+      }
+      // Heuristics for bare model names
+      if (s.startsWith('gpt-') || s.startsWith('o1') || s.startsWith('o3') || s.startsWith('o4') || s === 'chatgpt-4o-latest') return 'OpenAI';
+      if (s.startsWith('claude-')) return 'Anthropic';
+      if (s.startsWith('gemini-')) return 'Google';
+      if (s.startsWith('mistral-') || s.startsWith('mixtral-')) return 'Mistral';
+      if (s.startsWith('llama') || s.startsWith('qwen') || s.startsWith('phi-') || s.startsWith('deepseek')) return 'Ollama / Local';
+      return null;
     },
 
     // --- API Key Modal ---
@@ -662,7 +989,7 @@ document.addEventListener('alpine:init', () => {
       try {
         await api('/api/settings/api-key', 'POST', { provider: this.keyModalProvider, key });
         this.keyModalValue = '';
-        const label = this.keyModalProvider.charAt(0).toUpperCase() + this.keyModalProvider.slice(1);
+        const label = this.providerLabel(this.keyModalProvider);
         showToast(`${label} key saved`, 'success');
         await this.loadEvalSettings();
         this.keyModalOpen = false;
@@ -695,6 +1022,8 @@ document.addEventListener('alpine:init', () => {
 
     async saveEvalSettings(silent = false) {
       if (!this.currentAgent) return;
+      // Sync criteriaRows → judgeCriteria before sending
+      this.judgeCriteria = this.serializeCriteria(this.criteriaRows);
       try {
         await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/settings`, 'PUT', {
           judge_model: this.judgeModel,
@@ -715,6 +1044,8 @@ document.addEventListener('alpine:init', () => {
         await this.saveEvalSettings(true);
         const result = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/generate-judge`, 'POST');
         this.judgeCriteria = result.criteria;
+        this.loadCriteriaRows();
+        this.criteriaOpenIdx = -1;
         showToast('Judge criteria generated', 'success');
       } catch (e) {
         showToast('Failed: ' + e.message, 'error');
@@ -725,7 +1056,7 @@ document.addEventListener('alpine:init', () => {
 
     async runEval() {
       if (!this.currentAgent) return;
-      if (!this.judgeCriteria.trim()) { showToast('Set judge criteria first', 'error'); return; }
+      if (!this.criteriaRows.length) { showToast('Set judge criteria first', 'error'); return; }
       const provider = this.extractProvider(this.judgeModel);
       this.requireKey(provider, () => this._doRunEval());
     },
@@ -738,6 +1069,7 @@ document.addEventListener('alpine:init', () => {
           prompt_version_id: this.currentVersionId || null,
         });
         this.evalResult = result;
+        this._evalConfigOpen = false;
         this.coachResult = null;
         await this.loadEvalHistory();
         showToast('Eval complete', 'success');
@@ -786,24 +1118,293 @@ document.addEventListener('alpine:init', () => {
       try {
         const body = { prompt: this.prompt };
         if (this.coachModel) body.coach_model = this.coachModel;
+        if (this.coachCustomPrompt.trim()) body.coach_system_prompt = this.coachCustomPrompt.trim();
         if (this.evalResult?.id) body.eval_id = this.evalResult.id;
         this.coachResult = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/coach`, 'POST', body);
+        this.coachPanelOpen = false;
+        this.enterReviewMode();
       } catch (e) {
         this.coachError = e.message || 'Coach analysis failed';
+        this.coachPanelOpen = false;
         showToast('Coach failed: ' + e.message, 'error');
       } finally {
         this.coachLoading = false;
       }
     },
 
-    applyCoachPrompt() {
-      if (!this.coachResult?.revised_prompt) return;
-      this.prompt = this.coachResult.revised_prompt;
-      this.isDirty = true;
-      this.diffActive = true;
+    // Find line position for a suggestion's search_text/location_hint in the prompt
+    _findSuggestionLines(s) {
+      const promptLines = this.prompt.split('\n');
+      let lineStart = -1, lineEnd = -1;
+
+      if (s.search_text) {
+        // 1. Exact match
+        const searchIdx = this.prompt.indexOf(s.search_text);
+        if (searchIdx >= 0) {
+          lineStart = this.prompt.slice(0, searchIdx).split('\n').length - 1;
+          lineEnd = lineStart + s.search_text.split('\n').length - 1;
+          return { lineStart, lineEnd };
+        }
+        // 2. Normalized match (collapse whitespace)
+        const normSearch = s.search_text.replace(/\s+/g, ' ').trim();
+        const normPrompt = this.prompt.replace(/\s+/g, ' ').trim();
+        const normIdx = normPrompt.indexOf(normSearch);
+        if (normIdx >= 0) {
+          // Map back: count newlines in original prompt up to the approximate char position
+          const approxOrigIdx = Math.min(normIdx, this.prompt.length - 1);
+          // Find the first line that contains the start of the normalized match
+          let charCount = 0;
+          for (let i = 0; i < promptLines.length; i++) {
+            charCount += promptLines[i].length + 1; // +1 for newline
+            if (charCount > normIdx) {
+              lineStart = i;
+              break;
+            }
+          }
+          if (lineStart >= 0) {
+            lineEnd = Math.min(lineStart + s.search_text.split('\n').length - 1, promptLines.length - 1);
+            return { lineStart, lineEnd };
+          }
+        }
+        // 3. Line-by-line fuzzy: find the first line of search_text in the prompt
+        const searchLines = s.search_text.split('\n').map(l => l.trim()).filter(Boolean);
+        if (searchLines.length > 0) {
+          const firstLine = searchLines[0];
+          for (let i = 0; i < promptLines.length; i++) {
+            const trimmed = promptLines[i].trim();
+            if (trimmed && (trimmed.includes(firstLine) || firstLine.includes(trimmed))) {
+              lineStart = i;
+              lineEnd = Math.min(i + searchLines.length - 1, promptLines.length - 1);
+              return { lineStart, lineEnd };
+            }
+          }
+        }
+      }
+
+      // 4. location_hint fallback
+      if (s.location_hint) {
+        const hintIdx = this.prompt.indexOf(s.location_hint);
+        if (hintIdx >= 0) {
+          lineStart = this.prompt.slice(0, hintIdx).split('\n').length - 1;
+          return { lineStart, lineEnd: lineStart };
+        }
+        // Try partial match on location_hint
+        for (let i = 0; i < promptLines.length; i++) {
+          if (promptLines[i].trim().includes(s.location_hint.trim())) {
+            return { lineStart: i, lineEnd: i };
+          }
+        }
+      }
+
+      // 5. Last resort: place at end
+      return { lineStart: promptLines.length - 1, lineEnd: promptLines.length - 1 };
+    },
+
+    enterReviewMode() {
+      if (!this.coachResult?.suggestions?.length) return;
+      this.coachPromptSnapshot = this.prompt;
+      const totalLines = this.prompt.split('\n').length;
+      this.coachSuggestions = this.coachResult.suggestions.map((s, idx) => {
+        const { lineStart, lineEnd } = this._findSuggestionLines(s);
+        const matched = !(lineStart === totalLines - 1 && lineEnd === totalLines - 1 && !s.search_text?.includes(this.prompt.split('\n')[totalLines - 1]?.trim()));
+        return { ...s, idx, lineStart, lineEnd, matched, status: 'pending' };
+      });
+      // Spread unmatched suggestions evenly across the prompt instead of dumping at end
+      const unmatched = this.coachSuggestions.filter(s => !s.matched);
+      if (unmatched.length > 0) {
+        const step = Math.max(1, Math.floor(totalLines / (unmatched.length + 1)));
+        unmatched.forEach((s, i) => {
+          s.lineStart = Math.min((i + 1) * step, totalLines - 1);
+          s.lineEnd = s.lineStart;
+        });
+      }
+      // De-duplicate: ensure each suggestion has a unique lineStart so badges don't stack
+      const usedStarts = new Set();
+      for (const s of this.coachSuggestions) {
+        while (usedStarts.has(s.lineStart) && s.lineStart < totalLines - 1) {
+          s.lineStart++;
+          s.lineEnd = Math.max(s.lineEnd, s.lineStart);
+        }
+        // Also try going upward if stuck at the bottom
+        while (usedStarts.has(s.lineStart) && s.lineStart > 0) {
+          s.lineStart--;
+        }
+        usedStarts.add(s.lineStart);
+      }
+      this.coachReviewMode = true;
+      this.coachExpandedIdx = -1;
+      setTimeout(() => lucide.createIcons(), 50);
+    },
+
+    get reviewLines() {
+      if (!this.coachReviewMode) return [];
+      const lines = this.prompt.split('\n');
+      return lines.map((text, i) => {
+        const suggestions = this.coachSuggestions.filter(
+          s => s.status === 'pending' && i >= s.lineStart && i <= s.lineEnd
+        );
+        // Suggestions that START on this line (for showing badges)
+        const startsHere = this.coachSuggestions.filter(
+          s => s.status === 'pending' && s.lineStart === i
+        );
+        const action = suggestions.length > 0 ? suggestions[0].action : null;
+        return {
+          text, num: i + 1, lineIdx: i, action,
+          suggestionIdx: suggestions.length > 0 ? suggestions[0].idx : -1,
+          badgeCount: startsHere.length,
+        };
+      });
+    },
+
+    get pendingSuggestions() {
+      return this.coachSuggestions.filter(s => s.status === 'pending');
+    },
+
+    toggleReviewComment(idx) {
+      if (this.coachExpandedIdx === idx) {
+        // If collapsing, try to show next suggestion on same line
+        const s = this.coachSuggestions[idx];
+        if (s) {
+          const siblings = this.coachSuggestions.filter(
+            sib => sib.status === 'pending' && sib.lineEnd === s.lineEnd && sib.idx !== idx
+          );
+          if (siblings.length > 0) {
+            this.coachExpandedIdx = siblings[0].idx;
+            setTimeout(() => lucide.createIcons(), 50);
+            return;
+          }
+        }
+        this.coachExpandedIdx = -1;
+      } else {
+        this.coachExpandedIdx = idx;
+      }
+      setTimeout(() => lucide.createIcons(), 50);
+    },
+
+    acceptSuggestion(idx) {
+      const s = this.coachSuggestions[idx];
+      if (!s || s.status !== 'pending') return;
+      if (s.action === 'delete' && s.search_text) {
+        this.prompt = this.prompt.replace(s.search_text, '');
+      } else if (s.action === 'replace' && s.search_text && s.suggested_text) {
+        this.prompt = this.prompt.replace(s.search_text, s.suggested_text);
+      } else if (s.action === 'insert' && s.suggested_text) {
+        if (s.search_text) {
+          const pos = this.prompt.indexOf(s.search_text);
+          if (pos >= 0) {
+            const end = pos + s.search_text.length;
+            this.prompt = this.prompt.slice(0, end) + '\n' + s.suggested_text + this.prompt.slice(end);
+          } else {
+            this.prompt += '\n' + s.suggested_text;
+          }
+        } else {
+          this.prompt += '\n' + s.suggested_text;
+        }
+      }
+      s.status = 'accepted';
+      this.isDirty = this.prompt !== this.originalPrompt;
+      this.recalcLinePositions();
+      this.checkReviewComplete();
+      setTimeout(() => lucide.createIcons(), 50);
+    },
+
+    dismissSuggestion(idx) {
+      const s = this.coachSuggestions[idx];
+      if (s) s.status = 'dismissed';
+      this.checkReviewComplete();
+    },
+
+    acceptAllSuggestions() {
+      const pending = this.coachSuggestions.filter(s => s.status === 'pending');
+      for (const s of pending) this.acceptSuggestion(s.idx);
+    },
+
+    dismissAllSuggestions() {
+      this.coachSuggestions.forEach(s => { if (s.status === 'pending') s.status = 'dismissed'; });
+      this.exitReviewMode();
+    },
+
+    recalcLinePositions() {
+      const totalLines = this.prompt.split('\n').length;
+      const pending = this.coachSuggestions.filter(s => s.status === 'pending');
+      // Re-find positions
+      for (const s of pending) {
+        const { lineStart, lineEnd } = this._findSuggestionLines(s);
+        s.lineStart = lineStart;
+        s.lineEnd = lineEnd;
+      }
+      // De-duplicate: ensure unique lineStarts
+      const usedStarts = new Set();
+      for (const s of pending) {
+        while (usedStarts.has(s.lineStart) && s.lineStart < totalLines - 1) {
+          s.lineStart++;
+          s.lineEnd = Math.max(s.lineEnd, s.lineStart);
+        }
+        while (usedStarts.has(s.lineStart) && s.lineStart > 0) {
+          s.lineStart--;
+        }
+        usedStarts.add(s.lineStart);
+      }
+    },
+
+    checkReviewComplete() {
+      if (this.pendingSuggestions.length === 0) {
+        this.exitReviewMode();
+      }
+    },
+
+    exitReviewMode() {
+      this.coachReviewMode = false;
+      this.coachSuggestions = [];
+      this.coachExpandedIdx = -1;
       this.coachResult = null;
-      this.coachPanelOpen = false;
-      showToast('Coach suggestions applied -- review the diff and save when ready', 'success');
+    },
+
+    async rerunCoach() {
+      // Exit review, re-analyze with current (possibly modified) prompt
+      this.exitReviewMode();
+      this.coachPanelOpen = true;
+      await this.runCoach();
+    },
+
+    async rerunSuggestion(idx) {
+      const s = this.coachSuggestions[idx];
+      if (!s || s.status !== 'pending') return;
+      const model = this.coachModel || this.judgeModel;
+      if (!model) return;
+      this.coachLoading = true;
+      try {
+        const section = s.search_text || s.location_hint || '';
+        const body = {
+          prompt: this.prompt,
+          coach_model: model,
+          focus_section: section,
+        };
+        if (this.evalResult?.id) body.eval_id = this.evalResult.id;
+        const result = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/coach`, 'POST', body);
+        // Replace this suggestion with the first one from the new result
+        if (result.suggestions?.length > 0) {
+          const newS = result.suggestions[0];
+          s.action = newS.action;
+          s.title = newS.title;
+          s.description = newS.description;
+          s.search_text = newS.search_text || s.search_text;
+          s.suggested_text = newS.suggested_text || '';
+          s.location_hint = newS.location_hint || '';
+          this.recalcLinePositions();
+          showToast('Suggestion refreshed', 'success');
+        }
+      } catch (e) {
+        showToast('Re-run failed: ' + e.message, 'error');
+      } finally {
+        this.coachLoading = false;
+        setTimeout(() => lucide.createIcons(), 50);
+      }
+    },
+
+    dismissBanner() {
+      this._bannerDismissed = true;
+      sessionStorage.setItem('biscotti-banner-dismissed', '1');
     },
 
     // --- Theme ---
@@ -811,12 +1412,6 @@ document.addEventListener('alpine:init', () => {
       this.theme = this.theme === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', this.theme);
       localStorage.setItem('biscotti-theme', this.theme);
-    },
-
-    // --- Tab switching ---
-    switchTab(name) {
-      this.activeTab = name;
-      if (name === 'evals') { this.loadEvalSettings(); this.loadEvalHistory(); }
     },
 
     // --- Diff ---
@@ -858,13 +1453,14 @@ document.addEventListener('keydown', (e) => {
 
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
     e.preventDefault();
-    if (store.activeTab === 'run') store.runTest();
-    else if (store.activeTab === 'evals') store.runEval();
+    if (store.activeView === 'playground') store.runTest();
+    else if (store.activeView === 'evals') store.runEval();
   }
   if (e.key === 'Escape') {
     store.tcSaving = false;
-    store.notesModalOpen = false;
+    store._savingInline = false;
     store.resolveConfirm(false);
+    if (store.compareTarget) { store.compareTarget = null; return; }
     if (store.keyModalOpen) store.closeKeyModal();
     if (store.coachResult) { store.coachResult = null; store.coachPanelOpen = false; }
   }

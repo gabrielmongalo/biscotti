@@ -8,13 +8,12 @@ version = "0.1.0"
 authors = [{name = "Gabriel"}]
 description = "biscotti — prompt playground for AI agents. edit, version, test, ship."
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.10"
 keywords = ["pydantic-ai", "agents", "llm", "prompt-management", "fastapi"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

@@ -7,8 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=12"></script>
 </head>
 <body x-data x-init="$store.app.init()">
 
@@ -17,33 +18,72 @@
      ============================================================ -->
 <div id="sidebar" :class="{ collapsed: $store.app.sidebarCollapsed }">
   <div id="sidebar-header">
-    <div class="logo-icon">
+    <div class="logo-icon" @click="if($store.app.sidebarCollapsed) $store.app.sidebarCollapsed = false" :style="$store.app.sidebarCollapsed ? 'cursor:pointer' : ''">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16181d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
     </div>
-    <span class="logo">biscotti</span>
+    <span class="logo">biscotti</span><span class="logo-beta">beta</span>
     <button class="sidebar-collapse-btn" @click="$store.app.sidebarCollapsed = !$store.app.sidebarCollapsed" title="Toggle sidebar">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
     </button>
   </div>
-  <div class="sidebar-label">Agents</div>
-  <div id="agent-list">
-    <template x-if="!$store.app.agents.length">
-      <div class="empty-state" style="padding:20px;font-size:12px;gap:6px;">
-        <div class="spinner"></div>
-        Loading...
-      </div>
-    </template>
-    <template x-for="agent in $store.app.agents" :key="agent.name">
-      <button class="agent-item"
-              :class="{ active: agent.name === $store.app.currentAgent }"
-              @click="$store.app.selectAgent(agent.name)">
-        <span class="agent-avatar" x-text="agent.name.split(/[\s_-]+/).map(w=>w[0]).join('').slice(0,2)"></span>
-        <span class="agent-name" x-text="agent.name"></span>
-        <span class="agent-desc" x-show="agent.description" x-text="agent.description"></span>
-      </button>
-    </template>
+  <div class="agent-selector">
+    <button class="agent-selector-trigger" @click="$store.app._agentDropdownOpen = !$store.app._agentDropdownOpen">
+      <span class="agent-selector-name" x-text="$store.app.currentAgent || 'Select agent'"></span>
+      <i data-lucide="chevron-down" :style="$store.app._agentDropdownOpen ? 'transform:rotate(180deg)' : ''"></i>
+    </button>
+    <div class="agent-selector-dropdown" x-show="$store.app._agentDropdownOpen" x-transition @click.outside="$store.app._agentDropdownOpen = false">
+      <template x-for="agent in $store.app.agents" :key="agent.name">
+        <button class="agent-selector-item"
+                :class="{ active: $store.app.currentAgent === agent.name }"
+                @click="$store.app.selectAgent(agent.name); $store.app._agentDropdownOpen = false; if($store.app.activeView === 'agents') $store.app.switchView('playground')">
+          <span class="agent-selector-item-name" x-text="agent.name"></span>
+          <span class="agent-selector-item-desc" x-text="agent.description"></span>
+        </button>
+      </template>
+    </div>
   </div>
-  <div id="sidebar-footer"><span>v0.1.0-beta</span></div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Views</div>
+    <div class="sidebar-nav">
+      <button class="nav-item"
+              :class="{ active: $store.app.activeView === 'agents' }"
+              @click="$store.app.switchView('agents')">
+        <i data-lucide="layout-grid"></i>
+        <span class="nav-label">All Agents</span>
+      </button>
+      <button class="nav-item"
+              :class="{ active: $store.app.activeView === 'playground' }"
+              @click="$store.app.switchView('playground')">
+        <i data-lucide="play-circle"></i>
+        <span class="nav-label">Playground</span>
+      </button>
+      <button class="nav-item"
+              :class="{ active: $store.app.activeView === 'versions' }"
+              @click="$store.app.switchView('versions')">
+        <i data-lucide="git-branch"></i>
+        <span class="nav-label">Versions</span>
+      </button>
+      <button class="nav-item"
+              :class="{ active: $store.app.activeView === 'evals' }"
+              @click="$store.app.switchView('evals')">
+        <i data-lucide="bar-chart-2"></i>
+        <span class="nav-label">Evals</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="sidebar-footer">
+    <button class="nav-item" @click="$store.app.openKeyManager()" title="Settings">
+      <i data-lucide="settings"></i>
+      <span class="nav-label">Settings</span>
+    </button>
+    <a class="nav-item" href="/biscotti/docs" title="Docs">
+      <i data-lucide="book-open"></i>
+      <span class="nav-label">Docs</span>
+    </a>
+    <span class="sidebar-version">v0.10-beta</span>
+  </div>
 </div>
 
 <!-- ============================================================
@@ -56,29 +96,50 @@
     <span id="unsaved-indicator" x-show="$store.app.isDirty" style="display:none">
       <span class="unsaved-dot"></span>Unsaved
     </span>
-    <button class="toolbar-version" x-show="$store.app.currentVersion"
-            @click="$store.app.switchTab('versions')"
+    <button class="toolbar-version" x-show="$store.app.currentVersion && $store.app.activeView === 'playground'"
+            @click="$store.app.switchView('versions')"
             :title="'View all versions'">
       <span x-text="'v' + ($store.app.currentVersion?.version || '')"></span>
       <span class="toolbar-version-status"
             :class="'badge-' + ($store.app.currentVersion?.status || 'draft')"
             x-text="$store.app.currentVersion?.status"></span>
     </button>
-    <button class="toolbar-key-btn" @click="$store.app.openKeyManager()" title="API Keys">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-    </button>
+    <span class="toolbar-view-label" x-show="$store.app.activeView !== 'playground'"
+          x-text="$store.app.activeView === 'versions' ? 'Versions' : $store.app.activeView === 'agents' ? 'All Agents' : 'Evals'"></span>
     <button class="theme-toggle" @click="$store.app.toggleTheme()" :title="$store.app.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
       <span x-show="$store.app.theme === 'dark'">&#9788;</span>
       <span x-show="$store.app.theme === 'light'">&#9790;</span>
     </button>
   </div>
 
-  <!-- Split panels -->
+  <!-- ========== PLAYGROUND VIEW ========== -->
+  <div class="view" x-show="$store.app.activeView === 'playground'">
+
+  <!-- API key banner -->
+  <div class="api-key-banner" x-show="$store.app.connectedProviders.length === 0 && !$store.app._bannerDismissed" x-transition>
+    <i data-lucide="alert-triangle"></i>
+    <span>No API key configured -- add one in Settings to run tests</span>
+    <button class="btn btn-sm btn-ghost" @click="$store.app.openKeyManager()">Add Key</button>
+    <button class="banner-dismiss" @click="$store.app.dismissBanner()">
+      <i data-lucide="x"></i>
+    </button>
+  </div>
+
   <div id="panels">
     <!-- Left: Prompt editor -->
     <div id="editor-panel">
       <div class="panel-header">
-        <span class="panel-label">System Prompt</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="panel-label">System Prompt</span>
+          <button class="coach-btn"
+                  @click="$store.app.coachPanelOpen = !$store.app.coachPanelOpen"
+                  :class="{ active: $store.app.coachPanelOpen }"
+                  :disabled="$store.app.coachLoading"
+                  title="Get AI coaching suggestions">
+            <i data-lucide="sparkles" style="width:12px;height:12px;"></i>
+            Coach
+          </button>
+        </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <button class="diff-toggle"
                   x-show="$store.app.isDirty"
@@ -89,44 +150,60 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
           <span class="token-hint">~<span class="token-count" x-text="$store.app.promptTokens"></span> tokens</span>
-          <button class="coach-btn" @click="$store.app.coachPanelOpen = !$store.app.coachPanelOpen"
-                  :class="{ active: $store.app.coachPanelOpen }"
-                  :disabled="$store.app.coachLoading"
-                  title="Get AI coaching suggestions">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4c0 2 2 3 2 6h4c0-3 2-4 2-6a4 4 0 0 0-4-4z"/><line x1="10" y1="16" x2="14" y2="16"/><line x1="10" y1="19" x2="14" y2="19"/></svg>
-            Coach
-          </button>
         </div>
       </div>
 
-      <!-- Coach Panel (inline: model selector + analyze button only) -->
-      <div class="coach-panel" x-show="$store.app.coachPanelOpen" x-transition.duration.150ms>
-        <div style="padding:12px 16px;display:flex;align-items:center;gap:8px;">
+      <!-- Coach Panel (model selector + analyze button) -->
+      <div class="coach-panel" x-show="$store.app.coachPanelOpen && !$store.app.coachReviewMode" x-transition.duration.150ms>
+        <div style="padding:10px 16px;display:flex;align-items:center;gap:8px;">
           <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Coach Model</span>
-          <div class="typeahead-wrap" style="flex:1;max-width:280px;" @click.outside="$store.app.coachModelDropdownOpen = false">
-            <input type="text" class="model-input"
-                   x-model="$store.app.coachModel"
-                   @focus="$store.app.coachModelDropdownOpen = true"
-                   @input="$store.app.coachModelDropdownOpen = true; $store.app.coachModelHighlightIdx = -1"
-                   @keydown.escape="$store.app.coachModelDropdownOpen = false"
-                   @keydown.arrow-down.prevent="$store.app.coachModelHighlightIdx = Math.min($store.app.coachModelHighlightIdx + 1, $store.app.coachModelOptions.length - 1)"
-                   @keydown.arrow-up.prevent="$store.app.coachModelHighlightIdx = Math.max($store.app.coachModelHighlightIdx - 1, 0)"
-                   @keydown.enter.prevent="if ($store.app.coachModelHighlightIdx >= 0) $store.app.selectCoachModel($store.app.coachModelOptions[$store.app.coachModelHighlightIdx])"
-                   placeholder="Select model..."
-                   autocomplete="off"
-                   style="font-size:12px;">
-            <div class="typeahead-dropdown" :class="{ open: $store.app.coachModelDropdownOpen && $store.app.coachModelOptions.length }">
-              <template x-for="provider in Object.keys($store.app.coachModelGrouped)" :key="provider">
-                <div>
-                  <div class="typeahead-group" x-text="provider"></div>
-                  <template x-for="m in $store.app.coachModelGrouped[provider]" :key="m">
-                    <div class="typeahead-item"
-                         :class="{ highlighted: $store.app.coachModelOptions.indexOf(m) === $store.app.coachModelHighlightIdx }"
-                         @mousedown.prevent="$store.app.selectCoachModel(m)"
-                         x-text="m"></div>
-                  </template>
-                </div>
-              </template>
+          <div class="split-model-wrap" style="flex:1;max-width:400px;">
+            <!-- Provider combobox -->
+            <div class="typeahead-wrap split-model-provider" @click.outside="$store.app.coachProviderDropdownOpen = false">
+              <input type="text" class="model-input"
+                     x-model="$store.app.coachModelProvider"
+                     @focus="$store.app.coachProviderDropdownOpen = true"
+                     @input="$store.app.coachProviderDropdownOpen = true; $store.app.coachProviderHighlightIdx = -1; $store.app.syncCoachModel()"
+                     @blur="$store.app.syncCoachModel()"
+                     @keydown.escape="$store.app.coachProviderDropdownOpen = false"
+                     @keydown.arrow-down.prevent="$store.app.coachProviderHighlightIdx = Math.min($store.app.coachProviderHighlightIdx + 1, $store.app.coachFilteredProviders.length - 1)"
+                     @keydown.arrow-up.prevent="$store.app.coachProviderHighlightIdx = Math.max($store.app.coachProviderHighlightIdx - 1, 0)"
+                     @keydown.enter.prevent="if ($store.app.coachProviderHighlightIdx >= 0) $store.app.selectCoachProvider($store.app.coachFilteredProviders[$store.app.coachProviderHighlightIdx].id)"
+                     placeholder="Provider"
+                     autocomplete="off"
+                     style="font-size:12px;">
+              <div class="typeahead-dropdown" :class="{ open: $store.app.coachProviderDropdownOpen && $store.app.coachFilteredProviders.length }">
+                <template x-for="(p, pi) in $store.app.coachFilteredProviders" :key="p.id">
+                  <div class="typeahead-item typeahead-item-provider"
+                       :class="{ highlighted: pi === $store.app.coachProviderHighlightIdx }"
+                       @mousedown.prevent="$store.app.selectCoachProvider(p.id)">
+                    <span x-text="p.label"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+            <!-- Model name combobox -->
+            <div class="typeahead-wrap split-model-name" @click.outside="$store.app.coachModelNameDropdownOpen = false">
+              <input type="text" class="model-input"
+                     x-model="$store.app.coachModelName"
+                     @focus="$store.app.coachModelNameDropdownOpen = true"
+                     @input="$store.app.coachModelNameDropdownOpen = true; $store.app.coachModelNameHighlightIdx = -1; $store.app.syncCoachModel()"
+                     @blur="$store.app.syncCoachModel()"
+                     @keydown.escape="$store.app.coachModelNameDropdownOpen = false"
+                     @keydown.arrow-down.prevent="$store.app.coachModelNameHighlightIdx = Math.min($store.app.coachModelNameHighlightIdx + 1, $store.app.coachFilteredModelNames.length - 1)"
+                     @keydown.arrow-up.prevent="$store.app.coachModelNameHighlightIdx = Math.max($store.app.coachModelNameHighlightIdx - 1, 0)"
+                     @keydown.enter.prevent="if ($store.app.coachModelNameHighlightIdx >= 0) $store.app.selectCoachModelName($store.app.coachFilteredModelNames[$store.app.coachModelNameHighlightIdx])"
+                     placeholder="Model name"
+                     autocomplete="off"
+                     style="font-size:12px;">
+              <div class="typeahead-dropdown" :class="{ open: $store.app.coachModelNameDropdownOpen && $store.app.coachFilteredModelNames.length }">
+                <template x-for="(m, mi) in $store.app.coachFilteredModelNames" :key="m">
+                  <div class="typeahead-item"
+                       :class="{ highlighted: mi === $store.app.coachModelNameHighlightIdx }"
+                       @mousedown.prevent="$store.app.selectCoachModelName(m)"
+                       x-text="m"></div>
+                </template>
+              </div>
             </div>
           </div>
           <button class="btn btn-primary btn-sm"
@@ -140,9 +217,54 @@
           </button>
           <span x-show="$store.app.coachError && !$store.app.coachLoading" style="font-size:11px;color:var(--red);" x-text="$store.app.coachError"></span>
         </div>
+        <!-- Coach system prompt (collapsible) -->
+        <div class="coach-prompt-section">
+          <button class="coach-prompt-toggle" @click="$store.app.coachPromptEditorOpen = !$store.app.coachPromptEditorOpen">
+            <i data-lucide="chevron-right" style="width:11px;height:11px;" class="coach-prompt-chevron"
+               :style="$store.app.coachPromptEditorOpen ? 'transform:rotate(90deg)' : ''"></i>
+            <span>Coach Instructions</span>
+            <span class="coach-prompt-badge" x-show="$store.app.coachCustomPrompt"
+                  x-text="'Custom'" style="font-size:9px;padding:1px 5px;border-radius:3px;background:var(--accent-dim);color:var(--accent);font-weight:600;"></span>
+          </button>
+          <div x-show="$store.app.coachPromptEditorOpen" x-transition.duration.150ms>
+            <div style="padding:0 16px 12px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:10px;color:var(--muted);" x-text="$store.app.coachCustomPrompt ? 'Custom prompt active' : 'Using default prompt'"></span>
+                <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;"
+                        x-show="$store.app.coachCustomPrompt"
+                        @click="$store.app.coachCustomPrompt = ''; showToast('Reset to default', 'success')">
+                  Reset to Default
+                </button>
+              </div>
+              <textarea class="coach-prompt-textarea"
+                        :placeholder="$store.app.coachDefaultPrompt"
+                        x-model="$store.app.coachCustomPrompt"
+                        @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,200)+'px'"></textarea>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="editor-wrap">
+      <!-- Coach Review Bar (shown in review mode) -->
+      <div class="coach-review-bar" x-show="$store.app.coachReviewMode" x-transition.duration.150ms>
+        <div class="review-bar-left">
+          <i data-lucide="message-square-text" style="width:14px;height:14px;"></i>
+          <span><strong x-text="$store.app.pendingSuggestions.length"></strong> suggestions remaining</span>
+        </div>
+        <div class="review-bar-actions">
+          <button class="btn btn-sm btn-ghost" @click="$store.app.acceptAllSuggestions()">Accept All</button>
+          <button class="btn btn-sm btn-ghost" @click="$store.app.dismissAllSuggestions()">Dismiss All</button>
+          <button class="btn btn-sm btn-ghost" @click="$store.app.rerunCoach()"
+                  :disabled="$store.app.coachLoading"
+                  title="Re-analyze with current prompt">
+            <i data-lucide="refresh-cw" style="width:12px;height:12px;"></i> Re-run
+          </button>
+          <button class="btn btn-sm btn-ghost" @click="$store.app.exitReviewMode()">Exit Review</button>
+        </div>
+      </div>
+
+      <!-- Normal editor (hidden in review mode) -->
+      <div class="editor-wrap" x-show="!$store.app.coachReviewMode">
         <textarea id="prompt-editor"
                   x-model="$store.app.prompt"
                   @input="$store.app.onPromptInput()"
@@ -157,104 +279,165 @@
           </template>
         </div>
       </div>
+
+      <!-- Review mode editor (rendered lines with inline comments) -->
+      <div class="editor-wrap review-mode-wrap" x-show="$store.app.coachReviewMode">
+        <div class="review-prompt" x-ref="reviewPrompt">
+          <template x-for="line in $store.app.reviewLines" :key="line.lineIdx">
+            <div>
+              <div class="review-line"
+                   :class="{
+                     'rl-delete': line.action === 'delete',
+                     'rl-replace': line.action === 'replace',
+                     'rl-insert': line.action === 'insert'
+                   }"
+                   @click="line.suggestionIdx >= 0 && $store.app.toggleReviewComment(line.suggestionIdx)">
+                <span class="review-line-num" x-text="line.num"></span>
+                <span class="review-line-text" x-text="line.text || '\u00a0'"></span>
+                <span class="review-line-marker" x-show="line.badgeCount > 0">
+                  <i data-lucide="message-square" style="width:12px;height:12px;"></i>
+                  <span class="review-badge-count" x-show="line.badgeCount > 1" x-text="line.badgeCount"></span>
+                </span>
+              </div>
+              <!-- Inline comment card (appears after last line of match) -->
+              <template x-for="s in $store.app.coachSuggestions.filter(s => s.status === 'pending' && s.lineEnd === line.lineIdx)" :key="s.idx">
+                <div class="review-comment" :class="{ expanded: $store.app.coachExpandedIdx === s.idx }">
+                  <div class="review-comment-header" @click="$store.app.toggleReviewComment(s.idx)">
+                    <span class="coach-action-badge" :class="'badge-' + s.action" x-text="s.action.toUpperCase()"></span>
+                    <span class="review-comment-title" x-text="s.title"></span>
+                    <i data-lucide="chevron-down" class="review-comment-chevron" style="width:14px;height:14px;"></i>
+                  </div>
+                  <div class="review-comment-body" x-show="$store.app.coachExpandedIdx === s.idx" x-transition.duration.150ms>
+                    <p class="review-comment-desc" x-text="s.description"></p>
+                    <div class="review-diff" x-show="s.search_text || s.suggested_text">
+                      <div class="review-diff-del" x-show="s.search_text && s.action !== 'insert'" x-text="s.search_text"></div>
+                      <div class="review-diff-add" x-show="s.suggested_text" x-text="s.suggested_text"></div>
+                    </div>
+                    <div class="review-comment-actions">
+                      <button class="btn btn-sm review-accept" @click.stop="$store.app.acceptSuggestion(s.idx)">
+                        <i data-lucide="check" style="width:12px;height:12px;"></i> Accept
+                      </button>
+                      <button class="btn btn-sm review-dismiss" @click.stop="$store.app.dismissSuggestion(s.idx)">
+                        <i data-lucide="x" style="width:12px;height:12px;"></i> Dismiss
+                      </button>
+                      <button class="btn btn-sm review-rerun" @click.stop="$store.app.rerunSuggestion(s.idx)"
+                              :disabled="$store.app.coachLoading"
+                              title="Get a new suggestion for this section">
+                        <i data-lucide="refresh-cw" style="width:11px;height:11px;"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Inline save action bar -->
+      <div class="editor-action-bar" x-show="$store.app.isDirty" x-transition>
+        <div class="editor-dirty-indicator">
+          <span class="dirty-dot"></span> Unsaved changes
+        </div>
+        <div class="editor-actions">
+          <button class="btn btn-sm btn-ghost" @click="$store.app.discardChanges()">Discard</button>
+          <template x-if="$store.app._savingInline">
+            <input type="text" class="save-notes-input" placeholder="Version notes (optional)..."
+                   x-model="$store.app.saveNotes"
+                   @keydown.enter="$store.app.confirmSaveVersion()"
+                   @keydown.escape="$store.app._savingInline = false">
+          </template>
+          <button class="btn btn-sm btn-primary"
+                  @click="$store.app._savingInline ? $store.app.confirmSaveVersion() : ($store.app._savingInline = true)"
+                  x-text="$store.app._savingInline ? 'Confirm Save' : 'Save Version'">
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="panel-resize-handle" id="panel-resize-handle"></div>
 
-    <!-- Right: Tabs -->
+    <!-- Right: Test Runner -->
     <div id="right-panel">
-      <div id="tab-bar">
-        <button class="tab-btn" :class="{ active: $store.app.activeTab === 'run' }" @click="$store.app.switchTab('run')">Test Run</button>
-        <button class="tab-btn" :class="{ active: $store.app.activeTab === 'versions' }" @click="$store.app.switchTab('versions')">Versions</button>
-        <button class="tab-btn" :class="{ active: $store.app.activeTab === 'evals' }" @click="$store.app.switchTab('evals')">Evals</button>
-      </div>
+        <div class="run-panel-scroll">
 
-      <!-- ========== TEST RUN TAB ========== -->
-      <div class="tab-panel" :class="{ active: $store.app.activeTab === 'run' }">
-        <div style="padding:20px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;flex:1;">
+          <!-- === INPUT CARD: Test cases + Message + Variables === -->
+          <div class="panel-card">
+            <!-- Test cases (pill bar) -->
+            <div class="field-group">
+              <div class="field-label">Test Cases</div>
+              <div class="tc-pills">
+                <button class="tc-pill" :class="{ active: !$store.app.selectedTestCase }"
+                        @click="$store.app.selectTestCase('')">Ad hoc</button>
+                <template x-for="tc in $store.app.testCases" :key="tc.name">
+                  <div class="tc-pill-wrap">
+                    <button class="tc-pill" :class="{ active: $store.app.selectedTestCase === tc.name }"
+                            @click="$store.app.selectTestCase(tc.name)" x-text="tc.name"></button>
+                    <button class="tc-pill-delete" x-show="$store.app.selectedTestCase === tc.name"
+                            @click.stop="$store.app.deleteTestCase()" title="Delete test case">
+                      <i data-lucide="x" style="width:10px;height:10px;"></i>
+                    </button>
+                  </div>
+                </template>
+                <button class="tc-pill tc-pill-add" @click="$store.app.startSaveTestCase()" title="Save as test case">
+                  <i data-lucide="plus" style="width:12px;height:12px;"></i>
+                </button>
+              </div>
+              <div class="tc-inline-save" x-show="$store.app.tcSaving" x-transition.duration.150ms>
+                <input type="text" class="tc-name-input" placeholder="Test case name"
+                       x-model="$store.app.tcName"
+                       @keydown.enter="$store.app.confirmSaveTestCase()"
+                       @keydown.escape="$store.app.tcSaving = false">
+                <button class="tc-save-btn" @click="$store.app.confirmSaveTestCase()">
+                  <i data-lucide="check" style="width:14px;height:14px;"></i>
+                </button>
+                <button class="tc-cancel-btn" @click="$store.app.tcSaving = false">
+                  <i data-lucide="x" style="width:14px;height:14px;"></i>
+                </button>
+              </div>
+            </div>
 
-          <!-- Test cases -->
-          <div class="field-group">
-            <div class="field-label">Test Cases</div>
-            <div class="tc-row">
-              <div class="tc-dropdown-wrap" @click.outside="$store.app.tcDropdownOpen = false">
-                <div class="tc-trigger" :class="{ open: $store.app.tcDropdownOpen }" @click="$store.app.tcDropdownOpen = !$store.app.tcDropdownOpen">
-                  <span class="tc-trigger-label" :class="{ placeholder: !$store.app.selectedTestCase }"
-                        x-text="$store.app.selectedTestCase || 'None'"></span>
-                  <svg class="tc-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-                <div class="tc-dropdown" :class="{ open: $store.app.tcDropdownOpen }">
-                  <div class="tc-dropdown-item none-opt" :class="{ selected: !$store.app.selectedTestCase }" @click="$store.app.selectTestCase('')">None</div>
-                  <template x-for="tc in $store.app.testCases" :key="tc.name">
-                    <div class="tc-dropdown-item"
-                         :class="{ selected: tc.name === $store.app.selectedTestCase }"
-                         @click="$store.app.selectTestCase(tc.name)"
-                         x-text="tc.name"></div>
+            <!-- User message + Variables (merged) -->
+            <div class="field-group">
+              <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
+                User Message
+                <span class="token-hint">~<span class="token-count" x-text="$store.app.msgTokens"></span> tokens</span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea class="msg-input" x-model="$store.app.userMessage"
+                          placeholder="What would a user say to this agent?"
+                          @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,200)+'px'"></textarea>
+                <button class="copy-btn copy-btn-inside" @click="$store.app.copyToClipboard($store.app.userMessage, $event)" title="Copy message">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+              </div>
+              <!-- Variables inline below message -->
+              <div class="var-section" x-show="$store.app.variables.length">
+                <div class="var-grid">
+                  <template x-for="v in $store.app.variables" :key="v">
+                    <div class="var-row">
+                      <label class="var-label" x-text="v"></label>
+                      <input type="text" class="var-input"
+                             :value="$store.app.varValues[v] || ''"
+                             @input="$store.app.varValues[v] = $event.target.value">
+                    </div>
                   </template>
                 </div>
               </div>
-              <button class="tc-icon-btn" @click="$store.app.startSaveTestCase()" title="Save current inputs as test case">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              </button>
-              <button class="tc-icon-btn delete" x-show="$store.app.selectedTestCase" @click="$store.app.deleteTestCase()" title="Delete test case">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              </button>
-            </div>
-            <div class="tc-inline-save" x-show="$store.app.tcSaving">
-              <input type="text" class="tc-name-input" placeholder="Test case name"
-                     x-model="$store.app.tcName"
-                     @keydown.enter="$store.app.confirmSaveTestCase()"
-                     @keydown.escape="$store.app.tcSaving = false">
-              <button class="tc-save-btn" @click="$store.app.confirmSaveTestCase()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </button>
-              <button class="tc-cancel-btn" @click="$store.app.tcSaving = false">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
             </div>
           </div>
 
-          <!-- User message -->
-          <div class="field-group">
-            <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
-              User Message
-              <span class="token-hint">~<span class="token-count" x-text="$store.app.msgTokens"></span> tokens</span>
-            </div>
-            <div class="textarea-wrap">
-              <textarea class="msg-input" x-model="$store.app.userMessage"
-                        placeholder="What would a user say to this agent?"
-                        @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,200)+'px'"></textarea>
-              <button class="copy-btn copy-btn-inside" @click="$store.app.copyToClipboard($store.app.userMessage, $event)" title="Copy message">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Variables -->
-          <div x-show="$store.app.variables.length">
-            <div class="field-label" style="margin-bottom:6px;">Variable Values</div>
-            <div style="display:flex;flex-direction:column;gap:6px;">
-              <template x-for="v in $store.app.variables" :key="v">
-                <div class="var-row">
-                  <span class="var-key" x-text="'{{' + v + '}}'"></span>
-                  <input type="text" :placeholder="'Value for ' + v"
-                         :value="$store.app.varValues[v] || ''"
-                         @input="$store.app.varValues[v] = $event.target.value">
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Model settings -->
-          <div class="field-group">
+          <!-- === SETTINGS CARD === -->
+          <div class="panel-card panel-card-settings">
             <button class="settings-toggle" :class="{ open: $store.app.settingsOpen }" @click="$store.app.settingsOpen = !$store.app.settingsOpen">
-              <span class="chevron">&#9654;</span> Model Settings
+              <i data-lucide="chevron-right" class="settings-chevron"></i>
+              <span>Model Settings</span>
             </button>
             <div class="settings-body" :class="{ open: $store.app.settingsOpen }">
-              <div class="settings-row">
+              <div class="settings-field">
                 <span class="settings-label">Model</span>
                 <div class="typeahead-wrap" @click.outside="$store.app.modelDropdownOpen = false">
-                  <input type="text" class="model-input"
+                  <input type="text" class="model-input" style="width:100%;"
                          x-model="$store.app.modelInput"
                          :placeholder="$store.app.modelPlaceholder"
                          @focus="$store.app.modelDropdownOpen = true"
@@ -283,81 +466,56 @@
                     </template>
                   </div>
                 </div>
-                <span class="settings-label" style="margin-left:8px;">Temp</span>
-                <div class="temp-wrap">
-                  <input type="number" class="model-input" x-model.number="$store.app.temperature"
-                         min="0" max="2" step="0.1" placeholder="0–2" style="width:70px;padding-right:22px;">
-                  <div class="temp-arrows">
-                    <button @click="$store.app.stepTemp(0.1)" tabindex="-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l-6 6h12z"/></svg></button>
-                    <button @click="$store.app.stepTemp(-0.1)" tabindex="-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l6-6H6z"/></svg></button>
+              </div>
+              <div class="settings-row-split">
+                <div class="settings-field" style="flex:1;">
+                  <span class="settings-label">Temperature</span>
+                  <div class="temp-wrap" style="width:100%;">
+                    <input type="number" class="model-input" x-model.number="$store.app.temperature"
+                           min="0" max="2" step="0.1" placeholder="0-2" style="width:100%;padding-right:22px;">
+                    <div class="temp-arrows">
+                      <button @click="$store.app.stepTemp(0.1)" tabindex="-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l-6 6h12z"/></svg></button>
+                      <button @click="$store.app.stepTemp(-0.1)" tabindex="-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l6-6H6z"/></svg></button>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-field" style="flex:2;">
+                  <span class="settings-label">Reasoning Effort</span>
+                  <div class="effort-toggle">
+                    <template x-for="opt in [null, 'low', 'medium', 'high']" :key="String(opt)">
+                      <button class="effort-btn"
+                              :class="{ active: $store.app.reasoningEffort === opt, 'none-btn': opt === null }"
+                              @click="$store.app.setEffort(opt)"
+                              x-text="opt ? opt.charAt(0).toUpperCase() + opt.slice(1) : 'None'"></button>
+                    </template>
                   </div>
                 </div>
               </div>
-              <div class="settings-row">
-                <span class="settings-label">Reasoning Effort</span>
-                <div class="effort-toggle">
-                  <template x-for="opt in [null, 'low', 'medium', 'high']" :key="String(opt)">
-                    <button class="effort-btn"
-                            :class="{ active: $store.app.reasoningEffort === opt, 'none-btn': opt === null }"
-                            @click="$store.app.setEffort(opt)"
-                            x-text="opt ? opt.charAt(0).toUpperCase() + opt.slice(1) : 'None'"></button>
-                  </template>
-                </div>
-              </div>
             </div>
           </div>
 
-          <!-- Run button -->
-          <button id="run-btn" :class="{ running: $store.app.running }" @click="$store.app.runTest()" :disabled="$store.app.running">
-            <span x-show="!$store.app.running">Run Test</span>
-            <span x-show="$store.app.running" style="display:inline-flex;align-items:center;gap:6px;">
-              <span class="spinner"></span>
-              Running&hellip;
-              <span style="font-family:var(--mono);font-size:12px;opacity:0.7;" x-text="$store.app.runElapsed + 's'"></span>
-            </span>
-            <span class="kbd-hint" x-show="!$store.app.running" style="margin-left:4px;">&#8984;&#9166;</span>
-          </button>
-
-          <!-- Output -->
-          <div class="field-group">
-            <div class="field-label">Output</div>
-            <div id="output-box"
-                 :class="$store.app.outputState"
-                 x-text="$store.app.output || 'Run a test to see the agent\'s response here.'"></div>
-          </div>
-
-          <!-- Metrics -->
-          <div id="metrics" x-show="$store.app.metrics">
-            <div class="metric" x-show="$store.app.metrics">
-              <div class="metric-label">Latency</div>
-              <div class="metric-value" :class="$store.app.metrics?.latency < 2000 ? 'good' : 'warn'"
-                   x-text="($store.app.metrics?.latency || 0) + 'ms'"></div>
+          <!-- === RESULTS CARD: Output + Metrics === -->
+          <div class="panel-card panel-card-results">
+            <div class="field-group">
+              <div class="field-label">Output</div>
+              <div id="output-box"
+                   :class="$store.app.outputState"
+                   x-text="$store.app.output || 'Run a test to see the agent\'s response here.'"></div>
             </div>
-            <div class="metric" x-show="$store.app.metrics">
-              <div class="metric-label">Tokens</div>
-              <div class="metric-value" :class="$store.app.metrics?.totalTokens ? 'good' : 'na'"
-                   x-text="$store.app.metrics?.totalTokens ? $store.app.metrics.totalTokens.toLocaleString() : '\u2014'"></div>
-              <div class="metric-sub" x-show="$store.app.metrics?.totalTokens"
-                   x-text="($store.app.metrics?.inTokens||0).toLocaleString() + ' in \u00b7 ' + ($store.app.metrics?.outTokens||0).toLocaleString() + ' out'"></div>
-            </div>
-            <div class="metric" x-show="$store.app.metrics">
-              <div class="metric-label">Model</div>
-              <div class="metric-value" :class="$store.app.metrics?.model ? '' : 'na'"
-                   :style="$store.app.metrics?.model?.length > 12 ? 'font-size:11px' : ''"
-                   x-text="$store.app.metrics?.model || '\u2014'"></div>
-            </div>
-            <div class="metric" x-show="$store.app.metrics?.cost != null">
-              <div class="metric-label">Cost</div>
-              <div class="metric-value" x-text="formatCost($store.app.metrics?.cost)"></div>
+            <div class="metrics-bar" x-show="$store.app.metrics" x-transition>
+              <span class="metric-item"><span class="metric-label">Latency</span> <span class="metric-value" x-text="($store.app.metrics?.latency || 0) + 'ms'"></span></span>
+              <span class="metric-sep">|</span>
+              <span class="metric-item"><span class="metric-label">Tokens</span> <span class="metric-value" x-text="$store.app.metrics?.totalTokens || 0"></span></span>
+              <span class="metric-sep">|</span>
+              <span class="metric-item"><span class="metric-label">Model</span> <span class="metric-value" x-text="$store.app.metrics?.model || '\u2014'"></span></span>
+              <span class="metric-sep">|</span>
+              <span class="metric-item"><span class="metric-label">Cost</span> <span class="metric-value" x-text="'$' + ($store.app.metrics?.cost || 0).toFixed(4)"></span></span>
             </div>
           </div>
 
-          <!-- Version actions -->
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-ghost btn-sm" x-show="$store.app.isDirty" @click="$store.app.discardChanges()">Discard</button>
-            <button class="btn btn-primary" style="flex:1;" :disabled="!$store.app.isDirty" @click="$store.app.saveVersion()">Save Version</button>
+          <!-- Promote version (only when not dirty) -->
+          <div style="display:flex;gap:8px;" x-show="!$store.app.isDirty && $store.app.currentVersionId && $store.app.currentVersion?.status !== 'current'">
             <button class="btn btn-promote" style="flex:1;"
-                    x-show="!$store.app.isDirty && $store.app.currentVersionId && $store.app.currentVersion?.status !== 'current'"
                     @click="$store.app.promoteVersion()">Set as Current</button>
           </div>
 
@@ -383,289 +541,425 @@
             </div>
           </div>
         </div>
+
+        <!-- Sticky Run button (outside scroll area) -->
+        <div class="run-btn-dock">
+          <button id="run-btn" :class="{ running: $store.app.running }" @click="$store.app.runTest()" :disabled="$store.app.running">
+            <template x-if="!$store.app.running">
+              <span><i data-lucide="play" style="width:14px;height:14px;"></i> Run Test <kbd class="kbd-hint">Cmd+Enter</kbd></span>
+            </template>
+            <template x-if="$store.app.running">
+              <span style="display:inline-flex;align-items:center;gap:6px;"><span class="spinner"></span> Running... <span style="font-family:var(--mono);font-size:12px;opacity:0.7;" x-text="$store.app.runElapsed.toFixed(1) + 's'"></span></span>
+            </template>
+          </button>
+        </div>
+    </div>
+  </div>
+  </div><!-- /playground view -->
+
+  <!-- ========== VERSIONS VIEW ========== -->
+  <div class="view" x-show="$store.app.activeView === 'versions'">
+    <div class="versions-view">
+      <div class="versions-header">
+        <h2 class="versions-title">Version History</h2>
+        <span class="versions-count" x-text="$store.app.versions.length + ' versions'"></span>
       </div>
 
-      <!-- ========== VERSIONS TAB ========== -->
-      <div class="tab-panel" :class="{ active: $store.app.activeTab === 'versions' }">
-        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1;">
-          <template x-if="!$store.app.versions.length">
-            <div class="empty-state">
-              <div class="empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-              <div class="empty-title">No versions saved yet</div>
-            </div>
-          </template>
-          <template x-for="(v, i) in $store.app.versions" :key="v.id">
-            <div class="version-card" :class="{ selected: v.id === $store.app.currentVersionId }"
-                 :style="'animation: slideUp 0.2s ease ' + (i * 0.03) + 's both'"
-                 @click="$store.app.loadVersion(v); $store.app.switchTab('run')">
-              <div class="version-card-top">
-                <span class="version-num" x-text="'v' + v.version"></span>
-                <span class="version-status" :class="'status-' + v.status" x-text="v.status"></span>
-                <span style="margin-left:auto;display:flex;gap:4px;">
-                  <button class="btn btn-sm btn-ghost" x-show="v.id !== $store.app.currentVersionId"
-                          @click.stop="$store.app.compareVersion(v)" style="font-size:10px;padding:2px 8px;border:1px solid var(--border2);">Compare</button>
-                  <button class="btn btn-sm btn-promote" x-show="v.status !== 'current'"
-                          @click.stop="$store.app.promoteVersion(v.id)">Set as Current</button>
-                  <button class="tc-icon-btn delete" x-show="v.status !== 'current'"
-                          @click.stop="$store.app.deleteVersion(v.id)" title="Delete version">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  </button>
-                </span>
-              </div>
-              <div class="version-notes" x-show="v.notes" x-text="v.notes"></div>
-              <div class="version-meta" x-text="formatDate(v.created_at) + ' \u00b7 ' + v.created_by"></div>
-              <div class="version-prompt-preview" x-text="(v.system_prompt || '').substring(0, 100) + (v.system_prompt?.length > 100 ? '\u2026' : '')"></div>
-            </div>
-          </template>
+      <!-- Empty state -->
+      <template x-if="!$store.app.versions.length">
+        <div class="empty-state">
+          <div class="empty-icon"><i data-lucide="git-branch" style="width:48px;height:48px;"></i></div>
+          <div class="empty-title">No versions yet</div>
+          <div>Save your first prompt version from the Playground.</div>
+        </div>
+      </template>
 
-          <!-- Version Compare -->
-          <div x-show="$store.app.compareTarget" class="version-compare" x-transition.duration.150ms>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-              <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);">Compare</span>
-              <span style="font-size:12px;color:var(--text2);"
-                    x-text="'v' + ($store.app.currentVersion?.version || '?') + ' (current) vs v' + ($store.app.compareTarget?.version || '?')"></span>
-              <button class="btn btn-ghost btn-sm" @click="$store.app.compareTarget = null" style="margin-left:auto;font-size:10px;padding:2px 8px;">Close</button>
-            </div>
-            <div class="compare-diff">
-              <template x-for="(line, li) in $store.app.versionDiffLines" :key="li">
-                <div class="diff-line" :class="line.type">
-                  <span class="diff-prefix" x-text="line.type === 'add' ? '+' : (line.type === 'remove' ? '-' : ' ')"></span>
-                  <span x-text="line.text"></span>
+      <!-- Version timeline -->
+      <div class="vt-timeline">
+        <template x-for="v in $store.app.versions" :key="v.id">
+          <div class="vt-card" @click="$store.app._expandedVersion = ($store.app._expandedVersion === v.id ? null : v.id)">
+            <div class="vt-dot" :class="{ current: v.status === 'current' }"></div>
+            <div class="vt-body">
+              <div class="vt-row-top">
+                <span class="vt-version" x-text="'v' + v.version"></span>
+                <span class="vt-status" :class="'status-' + v.status" x-text="v.status"></span>
+                <span class="vt-time" x-text="formatDate(v.created_at)"></span>
+                <div class="vt-actions">
+                  <button class="btn btn-ghost btn-sm" x-show="v.status !== 'current'"
+                          @click.stop="$store.app.promoteVersion(v.id)" title="Set as current">Promote</button>
+                  <button class="btn btn-ghost btn-sm" @click.stop="$store.app.startCompare(v)" title="Compare with current">Compare</button>
+                  <button class="vt-delete-btn" @click.stop="$store.app.deleteVersion(v.id)" title="Delete version">
+                    <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                  </button>
                 </div>
-              </template>
+              </div>
+              <div class="vt-notes" x-show="v.notes" x-text="v.notes"></div>
+              <div class="vt-prompt-preview"
+                   :class="{ expanded: $store.app._expandedVersion === v.id }"
+                   x-text="v.system_prompt"></div>
             </div>
           </div>
-        </div>
+        </template>
       </div>
 
-      <!-- ========== EVALS TAB ========== -->
-      <div class="tab-panel" id="panel-evals" :class="{ active: $store.app.activeTab === 'evals' }">
-        <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
-
-          <!-- Accordion -->
-          <div class="accordion">
-
-            <!-- Judge Configuration -->
-            <div class="accordion-item">
-              <button class="accordion-header" :class="{ open: $store.app.judgeConfigOpen }" @click="$store.app.judgeConfigOpen = !$store.app.judgeConfigOpen">
-                <span class="accordion-chevron">&#9654;</span>
-                <span class="accordion-title">Judge Configuration</span>
-                <span class="accordion-meta" x-text="$store.app.judgeModel"></span>
-              </button>
-              <div class="accordion-body" x-show="$store.app.judgeConfigOpen" x-transition.duration.150ms>
-                <div class="field-group" style="margin-bottom:12px;">
-                  <div class="field-label">Judge Model</div>
-                  <div class="typeahead-wrap" @click.outside="$store.app.judgeModelDropdownOpen = false">
-                    <input type="text" class="model-input"
-                           x-model="$store.app.judgeModel"
-                           @focus="$store.app.judgeModelDropdownOpen = true"
-                           @input="$store.app.judgeModelDropdownOpen = true; $store.app.judgeModelHighlightIdx = -1"
-                           @keydown.arrow-down.prevent="$store.app.judgeModelHighlightIdx = Math.min($store.app.judgeModelHighlightIdx + 1, $store.app.judgeModelOptions.length - 1)"
-                           @keydown.arrow-up.prevent="$store.app.judgeModelHighlightIdx = Math.max($store.app.judgeModelHighlightIdx - 1, 0)"
-                           @keydown.enter.prevent="if ($store.app.judgeModelHighlightIdx >= 0) $store.app.selectJudgeModel($store.app.judgeModelOptions[$store.app.judgeModelHighlightIdx])"
-                           @keydown.escape="$store.app.judgeModelDropdownOpen = false"
-                           placeholder="anthropic:claude-sonnet-4-6"
-                           autocomplete="off">
-                    <div class="typeahead-dropdown" :class="{ open: $store.app.judgeModelDropdownOpen && $store.app.judgeModelOptions.length }">
-                      <template x-for="provider in Object.keys($store.app.judgeModelGrouped)" :key="provider">
-                        <div>
-                          <div class="typeahead-group" x-text="provider"></div>
-                          <template x-for="m in $store.app.judgeModelGrouped[provider]" :key="m">
-                            <div class="typeahead-item"
-                                 :class="{ highlighted: $store.app.judgeModelOptions.indexOf(m) === $store.app.judgeModelHighlightIdx }"
-                                 @mousedown.prevent="$store.app.selectJudgeModel(m)"
-                                 x-text="m"></div>
-                          </template>
-                        </div>
-                      </template>
-                    </div>
-                  </div>
-                </div>
-                <div class="field-group">
-                  <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                    Eval Criteria
-                    <button class="btn btn-primary btn-sm" @click="$store.app.generateJudge()" :disabled="$store.app.evalGenerating">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M12 2v4m0 12v4m10-10h-4M6 12H2m15.07-7.07l-2.83 2.83M9.76 14.24l-2.83 2.83m0-10.14l2.83 2.83m4.48 4.48l2.83 2.83"/></svg>
-                      <span x-text="$store.app.evalGenerating ? 'Generating...' : 'Generate from Prompt'"></span>
-                    </button>
-                  </div>
-                  <div class="criteria-display" x-show="$store.app.judgeCriteria && !$store.app.criteriaEditing"
-                       @click="$store.app.criteriaEditing = true; $nextTick(() => $refs.criteriaEditor?.focus())"
-                       x-html="$store.app.formattedCriteria"
-                       title="Click to edit"></div>
-                  <textarea class="msg-input" x-show="$store.app.criteriaEditing || !$store.app.judgeCriteria"
-                            x-model="$store.app.judgeCriteria" rows="6"
-                            @blur="$store.app.criteriaEditing = false"
-                            x-ref="criteriaEditor"
-                            placeholder="Click 'Generate from Prompt' to auto-create eval criteria, or write your own..."
-                            style="font-family:var(--mono);font-size:12px;line-height:1.6;min-height:100px;max-height:250px;resize:vertical;"></textarea>
-                </div>
-                <div class="eval-save-row" x-show="$store.app.evalSettingsDirty" x-transition.duration.150ms>
-                  <button class="btn btn-primary btn-sm" @click="$store.app.saveEvalSettings()">Save Settings</button>
-                </div>
-              </div>
+      <!-- Compare overlay -->
+      <div class="vt-compare" x-show="$store.app.compareTarget" x-transition.opacity.duration.150ms style="display:none;">
+        <div class="vt-compare-header">
+          <h3>Compare Versions</h3>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-primary btn-sm"
+                    x-show="$store.app.compareTarget && $store.app.compareTarget.status !== 'current'"
+                    @click="$store.app.promoteVersion($store.app.compareTarget.id)">Promote This Version</button>
+            <button class="btn btn-ghost btn-sm" @click="$store.app.compareTarget = null">Close Compare</button>
+          </div>
+        </div>
+        <div class="vt-compare-columns">
+          <div class="vt-compare-col">
+            <div class="vt-compare-label">
+              <span x-text="'v' + ($store.app.compareTarget?.version || '')"></span>
+              <span class="vt-status" :class="'status-' + ($store.app.compareTarget?.status || 'draft')" x-text="$store.app.compareTarget?.status"></span>
             </div>
-
-            <!-- Test Cases -->
-            <div class="accordion-item">
-              <button class="accordion-header" :class="{ open: $store.app.evalTestCasesOpen }" @click="$store.app.evalTestCasesOpen = !$store.app.evalTestCasesOpen">
-                <span class="accordion-chevron">&#9654;</span>
-                <span class="accordion-title">Test Cases</span>
-                <span class="accordion-meta" x-text="$store.app.testCases.length + ' case' + ($store.app.testCases.length !== 1 ? 's' : '')"></span>
-              </button>
-              <div class="accordion-body" x-show="$store.app.evalTestCasesOpen" x-transition.duration.150ms>
-                <template x-if="!$store.app.testCases.length && !$store.app.evalAddTcOpen">
-                  <div style="font-size:12px;color:var(--muted);padding:8px 0;">
-                    No test cases yet.
-                  </div>
-                </template>
-                <div class="eval-tc-list" x-show="$store.app.testCases.length">
-                  <template x-for="tc in $store.app.testCases" :key="tc.name">
-                    <div class="eval-tc-row">
-                      <span class="eval-tc-name" x-text="tc.name"></span>
-                      <span class="eval-tc-msg" x-text="tc.user_message"></span>
-                      <button class="provider-disconnect" @click="$store.app.deleteTestCaseByName(tc.name)" title="Delete">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    </div>
-                  </template>
-                </div>
-                <div x-show="!$store.app.testCases.length" style="font-size:12px;color:var(--muted);padding:4px 0;">
-                  Add test cases in the <button class="inline-link" @click="$store.app.switchTab('run')">Test Run</button> tab.
-                </div>
-              </div>
+            <pre class="vt-compare-prompt" x-text="$store.app.compareTarget?.system_prompt || ''"></pre>
+          </div>
+          <div class="vt-compare-col">
+            <div class="vt-compare-label">
+              <span x-text="'v' + ($store.app.currentVersion?.version || '')"></span>
+              <span class="vt-status status-current">current</span>
             </div>
-
-            <!-- History (above results so you pick a run first) -->
-            <div class="accordion-item" x-show="$store.app.evalHistory.length">
-              <button class="accordion-header" :class="{ open: $store.app.evalHistoryOpen }" @click="$store.app.evalHistoryOpen = !$store.app.evalHistoryOpen">
-                <span class="accordion-chevron">&#9654;</span>
-                <span class="accordion-title">History</span>
-                <span class="accordion-meta" x-text="$store.app.evalHistory.length + ' run' + ($store.app.evalHistory.length !== 1 ? 's' : '')"></span>
-              </button>
-              <div class="accordion-body" x-show="$store.app.evalHistoryOpen" x-transition.duration.150ms>
-                <template x-for="r in $store.app.evalHistory" :key="r.id">
-                  <div class="eval-history-row" @click="$store.app.loadEvalRun(r.id)"
-                       :class="{ active: $store.app.evalResult?.id === r.id }">
-                    <span class="eval-history-date" x-text="new Date(r.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'})"></span>
-                    <span style="color:var(--text2);" x-text="'v' + r.prompt_version"></span>
-                    <span style="font-weight:600;font-family:var(--mono);" :style="'color:' + scoreColor(r.avg_score || 0)" x-text="(r.avg_score || 0).toFixed(1)"></span>
-                    <span style="color:var(--muted);" x-text="r.pass_count + '/' + r.test_case_count + ' passed'"></span>
-                    <span class="eval-history-model" x-text="r.judge_model"></span>
-                  </div>
-                </template>
-              </div>
-            </div>
-
-            <!-- Results (below history — click a run to see details) -->
-            <div class="accordion-item" x-show="$store.app.evalResult">
-              <button class="accordion-header open" @click="$store.app.evalResultsOpen = !$store.app.evalResultsOpen" :class="{ open: $store.app.evalResultsOpen }">
-                <span class="accordion-chevron">&#9654;</span>
-                <span class="accordion-title">Results</span>
-                <span class="accordion-meta">
-                  <span :style="'color:' + scoreColor($store.app.evalResult?.avg_score || 0)"
-                        x-text="($store.app.evalResult?.avg_score || 0).toFixed(1)"></span>
-                  avg &middot;
-                  <span x-text="($store.app.evalResult?.pass_count||0) + '/' + (($store.app.evalResult?.pass_count||0)+($store.app.evalResult?.fail_count||0)) + ' passed'"></span>
-                </span>
-              </button>
-              <div class="accordion-body" x-show="$store.app.evalResultsOpen" x-transition.duration.150ms>
-                <!-- Summary bar -->
-                <div class="eval-results-grid">
-                  <div class="eval-metric">
-                    <div class="eval-metric-label">Avg Score</div>
-                    <div class="eval-metric-value" :style="'color:' + scoreColor($store.app.evalResult?.avg_score || 0)"
-                         x-text="($store.app.evalResult?.avg_score || 0).toFixed(1)"></div>
-                  </div>
-                  <div class="eval-metric">
-                    <div class="eval-metric-label">Pass / Fail</div>
-                    <div class="eval-metric-value" x-text="($store.app.evalResult?.pass_count||0) + ' / ' + ($store.app.evalResult?.fail_count||0)"></div>
-                  </div>
-                  <div class="eval-metric">
-                    <div class="eval-metric-label">Min</div>
-                    <div class="eval-metric-value" x-text="($store.app.evalResult?.min_score || 0).toFixed(1)"></div>
-                  </div>
-                  <div class="eval-metric">
-                    <div class="eval-metric-label">Max</div>
-                    <div class="eval-metric-value" x-text="($store.app.evalResult?.max_score || 0).toFixed(1)"></div>
-                  </div>
-                </div>
-
-                <!-- Per-case breakdown -->
-                <template x-for="(cd, ci) in ($store.app.evalResult?.case_details || [])" :key="ci">
-                  <div class="eval-case-card">
-                    <div class="eval-case-header">
-                      <span class="eval-case-name" x-text="cd.test_case"></span>
-                      <span style="margin-left:auto;display:flex;align-items:center;gap:6px;">
-                        <span class="eval-case-score" :style="'color:' + scoreColor(cd.score || 0)"
-                              x-text="cd.score != null ? cd.score.toFixed(1) : 'ERR'"></span>
-                        <span class="eval-case-badge" :class="cd.score >= 3.5 ? 'badge-pass' : 'badge-fail'"
-                              x-text="cd.error ? 'Error' : (cd.score >= 3.5 ? 'Pass' : 'Fail')"></span>
-                      </span>
-                    </div>
-
-                    <!-- Error -->
-                    <div x-show="cd.error" class="eval-case-error" x-text="cd.error"></div>
-
-                    <!-- Criteria results: each criterion on its own row -->
-                    <template x-if="cd.criteria_results?.length">
-                      <div class="eval-cr-list">
-                        <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
-                          <div class="eval-cr-item" :class="cr.passed ? 'cr-passed' : 'cr-failed'">
-                            <div class="eval-cr-header">
-                              <span class="eval-cr-icon" x-text="cr.passed ? '\u2713' : '\u2717'"></span>
-                              <span class="eval-cr-name" x-text="cr.criterion"></span>
-                            </div>
-                            <div class="eval-cr-note" x-text="cr.note"></div>
-                          </div>
-                        </template>
-                      </div>
-                    </template>
-
-                    <!-- Overall judge reasoning -->
-                    <template x-if="cd.reasoning">
-                      <div class="eval-case-reasoning">
-                        <div class="eval-reasoning-label">Judge Reasoning</div>
-                        <div class="eval-reasoning-text" x-text="cd.reasoning"></div>
-                      </div>
-                    </template>
-                  </div>
-                </template>
-              </div>
-            </div>
-
-          </div><!-- /accordion -->
-
-          <!-- Run button -->
-          <button class="btn btn-promote" style="justify-content:center;"
-                  @click="$store.app.runEval()" :disabled="$store.app.evalRunning || !$store.app.testCases.length">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            <span x-text="$store.app.evalRunning ? 'Running Eval...' : 'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
-          </button>
-
+            <pre class="vt-compare-prompt" x-text="$store.app.currentVersion?.system_prompt || ''"></pre>
+          </div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- ========== EVALS VIEW ========== -->
+  <div class="view" x-show="$store.app.activeView === 'evals'">
+    <div class="evals-view">
+
+      <!-- Page header -->
+      <div class="evals-page-header">
+        <span class="evals-page-title">Evals</span>
+        <div x-show="$store.app.evalHistory.length">
+          <select class="eval-history-select-inline"
+                  @change="if ($event.target.value) $store.app.loadEvalRun($event.target.value)">
+            <template x-for="h in $store.app.evalHistory" :key="h.id">
+              <option :value="h.id"
+                      :selected="$store.app.evalResult?.id === h.id"
+                      x-text="formatDate(h.created_at) + ' -- v' + (h.prompt_version || '?')"></option>
+            </template>
+          </select>
+        </div>
+      </div>
+
+      <!-- Results zone (hero) -->
+      <div class="eval-results-zone">
+        <!-- Stats row — bonded to results -->
+        <div class="eval-stats-row" x-show="$store.app.evalResult">
+          <div class="eval-summary-stat">
+            <span class="eval-summary-label">Avg</span>
+            <span class="eval-summary-value"
+                  :class="{ good: $store.app.evalResult?.avg_score >= 3.5, warn: $store.app.evalResult?.avg_score < 3 }"
+                  x-text="($store.app.evalResult?.avg_score || 0).toFixed(1)"></span>
+          </div>
+          <span class="eval-summary-sep"></span>
+          <div class="eval-summary-stat">
+            <span class="eval-summary-label">Pass</span>
+            <span class="eval-summary-value"
+                  x-text="($store.app.evalResult?.case_details?.filter(c => c.score >= 3).length || 0) + '/' + ($store.app.evalResult?.case_details?.length || 0)"></span>
+          </div>
+          <span class="eval-summary-sep"></span>
+          <div class="eval-summary-stat">
+            <span class="eval-summary-label">Best</span>
+            <span class="eval-summary-value good"
+                  x-text="$store.app.evalResult?.case_details?.length ? Math.max(...$store.app.evalResult.case_details.map(c => c.score)).toFixed(1) : '--'"></span>
+          </div>
+          <span class="eval-summary-sep"></span>
+          <div class="eval-summary-stat">
+            <span class="eval-summary-label">Worst</span>
+            <span class="eval-summary-value"
+                  :class="{ warn: $store.app.evalResult?.case_details?.length && Math.min(...$store.app.evalResult.case_details.map(c => c.score)) < 3 }"
+                  x-text="$store.app.evalResult?.case_details?.length ? Math.min(...$store.app.evalResult.case_details.map(c => c.score)).toFixed(1) : '--'"></span>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state" x-show="!$store.app.evalResult && !$store.app.evalHistory.length && !$store.app.evalRunning">
+          <div class="empty-icon"><i data-lucide="bar-chart-2" style="width:48px;height:48px;"></i></div>
+          <div class="empty-title">No results yet</div>
+          <div>Configure criteria and test cases below, then run an eval.</div>
+        </div>
+
+        <!-- Result rows -->
+        <div class="eval-results-table" x-show="$store.app.evalResult?.case_details?.length">
+          <template x-for="(cd, ci) in ($store.app.evalResult?.case_details || [])" :key="ci">
+            <div class="eval-result-row"
+                 :class="{ passed: cd.score >= 3.5, borderline: cd.score >= 2.5 && cd.score < 3.5, failed: cd.score < 2.5 }">
+              <div class="eval-result-header" @click="$store.app._expandedEvalCase = ($store.app._expandedEvalCase === ci ? null : ci)">
+                <span class="eval-result-indicator"></span>
+                <span class="eval-result-name" x-text="cd.test_case || cd.test_case_name || 'Case ' + (ci + 1)"></span>
+                <span class="eval-result-criteria-summary">
+                  <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
+                    <span class="eval-cr-dot" :class="cr.passed ? 'dot-pass' : 'dot-fail'" :title="cr.criterion"></span>
+                  </template>
+                </span>
+                <span class="eval-result-score" :style="'color:' + scoreColor(cd.score)" x-text="cd.score != null ? cd.score.toFixed(1) : 'ERR'"></span>
+                <i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--muted);flex-shrink:0;"
+                   :style="$store.app._expandedEvalCase === ci ? 'transform:rotate(180deg)' : ''"></i>
+              </div>
+              <div class="eval-result-detail" x-show="$store.app._expandedEvalCase === ci" x-transition.duration.150ms>
+                <div class="eval-result-error" x-show="cd.error" x-text="cd.error"></div>
+                <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
+                  <div class="eval-cr-row" :class="cr.passed ? 'cr-passed' : 'cr-failed'">
+                    <span class="eval-cr-icon" x-text="cr.passed ? '✓' : '✗'"></span>
+                    <span class="eval-cr-name" x-text="cr.criterion"></span>
+                    <div class="eval-cr-note" x-show="cr.note" x-text="cr.note"></div>
+                  </div>
+                </template>
+                <div class="eval-reasoning" x-show="cd.reasoning">
+                  <div class="eval-reasoning-label">Judge Reasoning</div>
+                  <div class="eval-reasoning-text" x-text="cd.reasoning"></div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Configuration (collapsible) -->
+      <div class="eval-config-section">
+        <button class="settings-toggle" @click="$store.app._evalConfigOpen = !$store.app._evalConfigOpen"
+                :class="{ open: $store.app._evalConfigOpen }">
+          <i data-lucide="chevron-right" style="width:12px;height:12px;"
+             :style="$store.app._evalConfigOpen ? 'transform:rotate(90deg)' : ''"></i>
+          Configuration
+        </button>
+        <div class="settings-body" :class="{ open: $store.app._evalConfigOpen }">
+          <div class="eval-content">
+            <!-- Judge Model (split provider combobox + model name combobox) -->
+            <div>
+              <div class="field-label">Judge Model</div>
+              <div class="split-model-wrap">
+                <!-- Provider combobox -->
+                <div class="typeahead-wrap split-model-provider" @click.outside="$store.app.judgeProviderDropdownOpen = false">
+                  <input type="text" class="model-input"
+                         x-model="$store.app.judgeModelProvider"
+                         @click="$store.app.judgeProviderDropdownOpen = true; $store.app._fixedDropdownRect = $event.target.getBoundingClientRect()"
+                         @focus="$store.app.judgeProviderDropdownOpen = true; $store.app._fixedDropdownRect = $event.target.getBoundingClientRect()"
+                         @input="$store.app.judgeProviderDropdownOpen = true; $store.app.judgeProviderHighlightIdx = -1; $store.app.syncJudgeModel(); $store.app._fixedDropdownRect = $event.target.getBoundingClientRect()"
+                         @blur="$store.app.syncJudgeModel()"
+                         @keydown.escape="$store.app.judgeProviderDropdownOpen = false"
+                         @keydown.arrow-down.prevent="$store.app.judgeProviderHighlightIdx = Math.min($store.app.judgeProviderHighlightIdx + 1, $store.app.judgeFilteredProviders.length - 1)"
+                         @keydown.arrow-up.prevent="$store.app.judgeProviderHighlightIdx = Math.max($store.app.judgeProviderHighlightIdx - 1, 0)"
+                         @keydown.enter.prevent="if ($store.app.judgeProviderHighlightIdx >= 0) $store.app.selectJudgeProvider($store.app.judgeFilteredProviders[$store.app.judgeProviderHighlightIdx].id)"
+                         placeholder="Provider"
+                         autocomplete="off"
+                         style="font-size:12px;">
+                  <div class="typeahead-dropdown fixed-dropdown"
+                       :class="{ open: $store.app.judgeProviderDropdownOpen && $store.app.judgeFilteredProviders.length }"
+                       :style="$store.app._fixedDropdownRect ? `top:${$store.app._fixedDropdownRect.bottom + 4}px;left:${$store.app._fixedDropdownRect.left}px;width:${$store.app._fixedDropdownRect.width}px` : ''">
+                    <template x-for="(p, pi) in $store.app.judgeFilteredProviders" :key="p.id">
+                      <div class="typeahead-item"
+                           :class="{ highlighted: pi === $store.app.judgeProviderHighlightIdx }"
+                           @mousedown.prevent="$store.app.selectJudgeProvider(p.id)"
+                           x-text="p.label">
+                      </div>
+                    </template>
+                  </div>
+                </div>
+                <!-- Model name combobox -->
+                <div class="typeahead-wrap split-model-name" @click.outside="$store.app.judgeModelNameDropdownOpen = false">
+                  <input type="text" class="model-input"
+                         x-model="$store.app.judgeModelName"
+                         @focus="$store.app.judgeModelNameDropdownOpen = true"
+                         @input="$store.app.judgeModelNameDropdownOpen = true; $store.app.judgeModelNameHighlightIdx = -1; $store.app.syncJudgeModel()"
+                         @blur="$store.app.syncJudgeModel()"
+                         @keydown.escape="$store.app.judgeModelNameDropdownOpen = false"
+                         @keydown.arrow-down.prevent="$store.app.judgeModelNameHighlightIdx = Math.min($store.app.judgeModelNameHighlightIdx + 1, $store.app.judgeFilteredModelNames.length - 1)"
+                         @keydown.arrow-up.prevent="$store.app.judgeModelNameHighlightIdx = Math.max($store.app.judgeModelNameHighlightIdx - 1, 0)"
+                         @keydown.enter.prevent="if ($store.app.judgeModelNameHighlightIdx >= 0) $store.app.selectJudgeModelName($store.app.judgeFilteredModelNames[$store.app.judgeModelNameHighlightIdx])"
+                         placeholder="Model name"
+                         autocomplete="off"
+                         style="font-size:12px;">
+                  <div class="typeahead-dropdown" :class="{ open: $store.app.judgeModelNameDropdownOpen && $store.app.judgeFilteredModelNames.length }">
+                    <template x-for="(m, mi) in $store.app.judgeFilteredModelNames" :key="m">
+                      <div class="typeahead-item"
+                           :class="{ highlighted: mi === $store.app.judgeModelNameHighlightIdx }"
+                           @mousedown.prevent="$store.app.selectJudgeModelName(m)"
+                           x-text="m"></div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Criteria (structured editor) -->
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <div class="field-label" style="margin-bottom:0;">Criteria</div>
+              </div>
+              <div class="criteria-structured" x-show="$store.app.criteriaRows.length">
+                <template x-for="(c, i) in $store.app.criteriaRows" :key="i">
+                  <div class="criterion-row">
+                    <div class="criterion-header" @click="$store.app.toggleCriterion(i)">
+                      <i data-lucide="chevron-right" style="width:14px;height:14px;transition:transform .15s;"
+                         :style="$store.app.criteriaOpenIdx === i ? 'transform:rotate(90deg)' : ''"></i>
+                      <span class="criterion-name" x-text="c.name || 'Untitled criterion'"></span>
+                      <span class="criterion-weight" x-show="c.weight !== ''" x-text="parseFloat(c.weight).toFixed(1) + 'x'"></span>
+                    </div>
+                    <div class="criterion-edit" x-show="$store.app.criteriaOpenIdx === i" x-transition.duration.150ms>
+                      <div class="criterion-edit-row">
+                        <label class="criterion-edit-label">Name</label>
+                        <input type="text" class="criterion-edit-input" x-model="c.name" placeholder="Criterion name">
+                      </div>
+                      <div class="criterion-edit-row" style="align-items:flex-start;">
+                        <label class="criterion-edit-label" style="padding-top:6px;">Description</label>
+                        <textarea class="criterion-edit-input criterion-edit-textarea" x-model="c.description"
+                                  placeholder="What should the judge evaluate?" rows="3"></textarea>
+                      </div>
+                      <div class="criterion-edit-row">
+                        <label class="criterion-edit-label">Weight</label>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                          <input type="number" class="criterion-edit-input" style="width:80px;"
+                                 min="0" max="1" step="0.1" x-model="c.weight" placeholder="1.0">
+                          <span style="color:var(--muted);font-size:11px;">0 – 1, optional</span>
+                          <button class="btn-icon-danger" style="margin-left:auto;"
+                                  @click.stop="$store.app.removeCriterion(i)" title="Delete criterion">
+                            <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <div x-show="!$store.app.criteriaRows.length"
+                   style="color:var(--muted);font-size:12px;padding:10px 0;">
+                No criteria defined. Add one below or generate from your prompt.
+              </div>
+              <div class="criteria-actions">
+                <button class="btn btn-ghost btn-sm"
+                        @click="$store.app.addCriterion()">
+                  <i data-lucide="plus" style="width:12px;height:12px;"></i> Add Criterion
+                </button>
+                <button class="btn btn-ghost btn-sm" @click="$store.app.generateJudge()"
+                        :disabled="$store.app.evalGenerating">
+                  <span x-show="$store.app.evalGenerating" style="display:inline-flex;align-items:center;gap:4px;">
+                    <span class="spinner" style="width:11px;height:11px;"></span> Generating...
+                  </span>
+                  <span x-show="!$store.app.evalGenerating">Generate from Prompt</span>
+                </button>
+                <button class="btn btn-primary btn-sm criteria-save-btn"
+                        :class="{ dirty: $store.app.evalSettingsDirty }"
+                        :disabled="!$store.app.evalSettingsDirty"
+                        @click="$store.app.saveCriteria()">Save Settings</button>
+              </div>
+            </div>
+
+            <!-- Test cases as pills -->
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <div class="field-label" style="margin-bottom:0;">Test Cases</div>
+                <span class="eval-tc-count" x-text="$store.app.testCases.length + ' cases'"></span>
+              </div>
+              <div class="tc-pills" x-show="$store.app.testCases.length" style="margin-top:4px;">
+                <template x-for="tc in $store.app.testCases" :key="tc.name">
+                  <span class="tc-pill" style="cursor:default" x-text="tc.name"></span>
+                </template>
+              </div>
+              <div x-show="!$store.app.testCases.length"
+                   style="color:var(--muted);font-size:12px;padding:4px 0;">
+                No test cases yet. Add some from the Playground.
+              </div>
+              <!-- Inline add test case -->
+              <button class="btn btn-ghost btn-sm" style="margin-top:8px;"
+                      x-show="!$store.app.evalAddTcOpen"
+                      @click="$store.app.evalAddTcOpen = true">
+                <i data-lucide="plus" style="width:12px;height:12px;"></i> Add Test Case
+              </button>
+              <div class="eval-add-tc" x-show="$store.app.evalAddTcOpen" x-transition.duration.150ms>
+                <input type="text" class="model-input" placeholder="Name" x-model="$store.app.evalAddTcName"
+                       style="font-size:12px;">
+                <textarea class="msg-input" placeholder="User message" x-model="$store.app.evalAddTcMsg"
+                          style="min-height:50px;font-size:12px;"></textarea>
+                <template x-if="$store.app.variables.length > 0">
+                  <div class="eval-add-tc-vars">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Variables</div>
+                    <div class="var-grid">
+                      <template x-for="v in $store.app.variables" :key="v">
+                        <div class="var-row">
+                          <label class="var-label" x-text="v"></label>
+                          <input type="text" class="var-input"
+                                 :value="$store.app.evalAddTcVars[v] || ''"
+                                 @input="$store.app.evalAddTcVars[v] = $event.target.value">
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+                <div style="display:flex;gap:6px;">
+                  <button class="btn btn-primary btn-sm" @click="$store.app.saveEvalTestCase()">Add</button>
+                  <button class="btn btn-ghost btn-sm" @click="$store.app.evalAddTcOpen = false">Cancel</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Sticky run button -->
+      <div class="eval-run-sticky">
+        <button class="btn btn-primary eval-run-btn"
+                @click="$store.app.runEval()"
+                :disabled="$store.app.evalRunning || !$store.app.testCases.length">
+          <span x-show="$store.app.evalRunning" style="display:inline-flex;align-items:center;gap:6px;">
+            <span class="spinner"></span> Running Eval...
+          </span>
+          <span x-show="!$store.app.evalRunning" x-text="'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== ALL AGENTS VIEW ========== -->
+  <div class="view" x-show="$store.app.activeView === 'agents'">
+    <div class="agents-view">
+      <div class="agents-header">
+        <h2>Agents</h2>
+        <span class="agents-count" x-text="$store.app.agents.length + ' agents'"></span>
+        <div class="agents-search">
+          <i data-lucide="search"></i>
+          <input type="text" placeholder="Search agents..."
+            x-model="$store.app._agentSearch"
+            @input="setTimeout(() => lucide.createIcons(), 0)">
+        </div>
+      </div>
+      <div class="agents-grid">
+        <template x-for="agent in $store.app.agents.filter(a => !$store.app._agentSearch || a.name.toLowerCase().includes($store.app._agentSearch.toLowerCase()) || (a.tags || []).some(t => t.toLowerCase().includes($store.app._agentSearch.toLowerCase())))" :key="agent.name">
+          <button class="agent-card"
+                  :class="{ active: $store.app.currentAgent === agent.name }"
+                  @click="$store.app.selectAgent(agent.name); $store.app.switchView('playground')">
+            <span class="agent-card-name" x-text="agent.name"></span>
+            <span class="agent-card-stats" x-text="(agent.test_case_count || 0) + ' tests · ' + (agent.version_count || 0) + ' versions'"></span>
+            <template x-if="agent.tags && agent.tags.length > 0">
+              <div class="agent-card-tags">
+                <template x-for="tag in agent.tags" :key="tag">
+                  <span class="agent-card-tag" x-text="tag"></span>
+                </template>
+              </div>
+            </template>
+          </button>
+        </template>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ============================================================
      MODALS
      ============================================================ -->
-<div id="notes-modal-overlay" :class="{ open: $store.app.notesModalOpen }" @click.self="$store.app.notesModalOpen = false">
-  <div id="notes-modal">
-    <h3>Save New Version</h3>
-    <div class="field-group">
-      <div class="field-label">Notes <span style="text-transform:none;font-weight:400;letter-spacing:0;">(optional)</span></div>
-      <input type="text" x-model="$store.app.saveNotes" placeholder="What changed in this version?"
-             @keydown.enter="$store.app.confirmSaveVersion()">
-    </div>
-    <div style="display:flex;gap:8px;margin-top:4px;">
-      <button class="btn btn-ghost" style="flex:1;" @click="$store.app.notesModalOpen = false">Cancel</button>
-      <button class="btn btn-primary" style="flex:2;" @click="$store.app.confirmSaveVersion()">Save Version</button>
-    </div>
-  </div>
-</div>
 
 <div id="confirm-overlay" :class="{ open: $store.app.confirmOpen }" @click.self="$store.app.resolveConfirm(false)">
   <div id="confirm-modal">
@@ -687,7 +981,7 @@
     <h3 x-show="!$store.app.keyModalCallback">API Keys</h3>
 
     <p x-show="$store.app.keyModalCallback" class="key-modal-desc">
-      Connect your <span x-text="$store.app.keyModalProvider.charAt(0).toUpperCase() + $store.app.keyModalProvider.slice(1)" style="font-weight:600;color:var(--text);"></span> API key to use this feature.
+      Connect your <span x-text="$store.app.providerLabel($store.app.keyModalProvider)" style="font-weight:600;color:var(--text);"></span> API key to use this feature.
     </p>
 
     <!-- Connected providers -->
@@ -712,7 +1006,7 @@
       <div class="key-modal-form-row">
         <div class="provider-select-wrap" @click.outside="$store.app.keyModalProviderDropdownOpen = false">
           <button class="provider-select-trigger" @click="$store.app.keyModalProviderDropdownOpen = !$store.app.keyModalProviderDropdownOpen">
-            <span x-text="$store.app.keyModalProvider.charAt(0).toUpperCase() + $store.app.keyModalProvider.slice(1)"></span>
+            <span x-text="$store.app.providerLabel($store.app.keyModalProvider)"></span>
             <svg class="tc-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="provider-select-dropdown" :class="{ open: $store.app.keyModalProviderDropdownOpen }">
@@ -720,7 +1014,7 @@
               <div class="provider-select-item"
                    :class="{ selected: $store.app.keyModalProvider === prov }"
                    @click="$store.app.keyModalProvider = prov; $store.app.keyModalProviderDropdownOpen = false"
-                   x-text="prov.charAt(0).toUpperCase() + prov.slice(1)"></div>
+                   x-text="$store.app.providerLabel(prov)"></div>
             </template>
           </div>
         </div>
@@ -728,7 +1022,7 @@
       <div class="key-modal-form-row" style="margin-top:8px;">
         <input type="password" class="key-input" style="flex:1;"
                x-model="$store.app.keyModalValue"
-               :placeholder="$store.app.keyModalProvider === 'anthropic' ? 'sk-ant-...' : 'sk-...'"
+               placeholder="Paste API key..."
                @keydown.enter="$store.app.submitModalKey()"
                @keydown.escape="$store.app.closeKeyModal()">
         <button class="btn btn-primary btn-sm" @click="$store.app.submitModalKey()">Connect</button>
@@ -765,44 +1059,7 @@
 })();
 </script>
 
-<!-- ============================================================
-     COACH DRAWER (slide-over from right)
-     ============================================================ -->
-<div id="coach-drawer-overlay"
-     x-show="$store.app.coachResult && !$store.app.coachLoading"
-     @click.self="$store.app.coachResult = null; $store.app.coachPanelOpen = false">
-  <div id="coach-drawer">
-    <div class="coach-drawer-header">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4c0 2 2 3 2 6h4c0-3 2-4 2-6a4 4 0 0 0-4-4z"/><line x1="10" y1="16" x2="14" y2="16"/><line x1="10" y1="19" x2="14" y2="19"/></svg>
-        <span style="font-weight:600;font-size:14px;color:var(--text);">Coach Analysis</span>
-      </div>
-      <button class="coach-drawer-close" @click="$store.app.coachResult = null; $store.app.coachPanelOpen = false" title="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-
-    <div class="coach-drawer-body">
-      <div class="coach-summary" x-text="$store.app.coachResult?.summary"></div>
-
-      <template x-for="(s, si) in ($store.app.coachResult?.suggestions || [])" :key="si">
-        <div class="coach-suggestion">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span class="coach-action-badge" :class="'badge-' + s.action" x-text="s.action"></span>
-            <span style="font-weight:600;font-size:12px;color:var(--text);" x-text="s.title"></span>
-          </div>
-          <div style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:4px;" x-text="s.description"></div>
-          <pre x-show="s.suggested_text" class="coach-code-block" x-text="s.suggested_text"></pre>
-        </div>
-      </template>
-    </div>
-
-    <div class="coach-drawer-footer">
-      <button class="btn btn-primary" @click="$store.app.applyCoachPrompt()" style="font-size:13px;padding:8px 20px;flex:1;">Apply Revised Prompt</button>
-      <button class="btn btn-ghost" @click="$store.app.coachResult = null; $store.app.coachPanelOpen = false" style="font-size:12px;padding:8px 14px;">Dismiss</button>
-    </div>
-  </div>
-</div>
+<!-- Coach drawer removed — replaced by inline review mode -->
 
 </body>
 </html>

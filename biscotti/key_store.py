@@ -12,6 +12,37 @@ import os
 
 _KEYS: dict[str, str] = {}
 
+# Map provider id → environment variable name
+_PROVIDER_ENV: dict[str, str] = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "azure": "AZURE_OPENAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "xai": "XAI_API_KEY",
+    "together": "TOGETHER_API_KEY",
+    "cohere": "COHERE_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+}
+
+# Display labels for the UI
+PROVIDER_LABELS: dict[str, str] = {
+    "anthropic": "Anthropic",
+    "azure": "Azure OpenAI",
+    "cohere": "Cohere",
+    "deepseek": "DeepSeek",
+    "gemini": "Google (Gemini)",
+    "groq": "Groq",
+    "mistral": "Mistral",
+    "openai": "OpenAI",
+    "together": "Together AI",
+    "xai": "xAI (Grok)",
+}
+
+# Ordered list used for the UI settings panel (alphabetical by label)
+KNOWN_PROVIDERS: list[str] = sorted(PROVIDER_LABELS.keys(), key=lambda p: PROVIDER_LABELS[p].lower())
+
 
 def set_key(provider: str, key: str) -> None:
     _KEYS[provider] = key
@@ -19,8 +50,8 @@ def set_key(provider: str, key: str) -> None:
 
 def get_key(provider: str) -> str | None:
     """Get API key: env var takes priority, then in-memory."""
-    env_map = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
-    env_val = os.environ.get(env_map.get(provider, ""))
+    env_var = _PROVIDER_ENV.get(provider, "")
+    env_val = os.environ.get(env_var) if env_var else None
     if env_val:
         return env_val
     return _KEYS.get(provider)
@@ -32,7 +63,4 @@ def remove_key(provider: str) -> None:
 
 
 def available_providers() -> dict[str, bool]:
-    return {
-        "anthropic": get_key("anthropic") is not None,
-        "openai": get_key("openai") is not None,
-    }
+    return {p: get_key(p) is not None for p in KNOWN_PROVIDERS}
