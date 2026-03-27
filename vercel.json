@@ -3,7 +3,6 @@
   "outputDirectory": "biscotti/ui/static",
   "framework": null,
   "rewrites": [
-    { "source": "/", "destination": "/landing.html" },
     { "source": "/docs", "destination": "/docs.html" }
   ]
 }
