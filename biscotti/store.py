@@ -143,6 +143,10 @@ class PromptStore:
             raise RuntimeError("Store not connected — call await store.connect() first")
         return self._db
 
+    @property
+    def is_connected(self) -> bool:
+        return self._db is not None
+
     async def ensure_connected(self) -> None:
         """Connect if not already connected. Safe to call multiple times."""
         if self._db is None:

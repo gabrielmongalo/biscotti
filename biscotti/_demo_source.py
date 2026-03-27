@@ -414,7 +414,7 @@ app.mount("/biscotti", bi.app)
 async def seed_demo_middleware(request, call_next):
     global _demo_seeded
     response = await call_next(request)
-    if not _demo_seeded and bi._store._db is not None:
+    if not _demo_seeded and bi._store.is_connected:
         _demo_seeded = True
         await _seed_demo_data(bi)
     return response

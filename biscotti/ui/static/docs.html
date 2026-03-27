@@ -1053,7 +1053,7 @@ Always respond in {{language}}."""</span>,
             <button class="copy-btn" data-code='from pydantic_ai import Agent
 from biscotti import biscotti
 
-pydantic_agent = Agent(model="openai:gpt-4o")
+pydantic_agent = Agent(model="anthropic:claude-sonnet-4-6")
 
 @biscotti(name="recipe agent")
 async def recipe_agent(user_message: str, system_prompt: str) -> str:
@@ -1067,7 +1067,7 @@ async def recipe_agent(user_message: str, system_prompt: str) -> str:
 <pre><span class="kw">from</span> <span class="cls">pydantic_ai</span> <span class="kw">import</span> Agent
 <span class="kw">from</span> <span class="cls">biscotti</span> <span class="kw">import</span> biscotti
 
-pydantic_agent <span class="op">=</span> <span class="cls">Agent</span>(<span class="par">model</span><span class="op">=</span><span class="str">"openai:gpt-4o"</span>)
+pydantic_agent <span class="op">=</span> <span class="cls">Agent</span>(<span class="par">model</span><span class="op">=</span><span class="str">"anthropic:claude-sonnet-4-6"</span>)
 
 <span class="dec">@biscotti</span>(<span class="par">name</span><span class="op">=</span><span class="str">"recipe agent"</span>)
 <span class="kw">async def</span> <span class="fn">recipe_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">str</span>:
