@@ -77,6 +77,21 @@ class Biscotti:
             self._app = self._build_app()
         return self._app
 
+    def mount(self, host_app: "FastAPI", path: str = "/biscotti") -> None:
+        """
+        Mount biscotti into a host FastAPI application.
+
+        Usage::
+
+            bi = Biscotti()
+            bi.mount(app)           # mounts at /biscotti
+            bi.mount(app, "/tools") # mounts at /tools
+
+        This avoids the name-shadowing issue where ``app.mount(...)``
+        resolves ``app`` to a package module instead of the FastAPI instance.
+        """
+        host_app.mount(path, self.app)
+
     # ------------------------------------------------------------------
     # Seed default prompts on startup
     # ------------------------------------------------------------------

@@ -233,6 +233,36 @@ async def test_save_eval_run(store: PromptStore):
 
 
 # ---------------------------------------------------------------------------
+# Mount tests
+# ---------------------------------------------------------------------------
+
+class TestBiscottiMount:
+    def test_mount_adds_sub_app(self):
+        """bi.mount(app) should mount biscotti sub-app at /biscotti."""
+        from fastapi import FastAPI
+        from biscotti import Biscotti
+
+        host_app = FastAPI()
+        bi = Biscotti(storage=":memory:")
+        bi.mount(host_app)
+
+        routes = [r.path for r in host_app.routes]
+        assert "/biscotti" in routes or any("/biscotti" in str(r.path) for r in host_app.routes)
+
+    def test_mount_custom_path(self):
+        """bi.mount(app, path='/tools/biscotti') should use custom path."""
+        from fastapi import FastAPI
+        from biscotti import Biscotti
+
+        host_app = FastAPI()
+        bi = Biscotti(storage=":memory:")
+        bi.mount(host_app, path="/tools/biscotti")
+
+        routes = [r.path for r in host_app.routes]
+        assert any("/tools/biscotti" in str(r.path) for r in host_app.routes)
+
+
+# ---------------------------------------------------------------------------
 # Eval module tests
 # ---------------------------------------------------------------------------
 
