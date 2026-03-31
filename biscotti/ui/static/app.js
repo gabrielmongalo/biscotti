@@ -999,8 +999,14 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         const label = this.providerLabel(this.keyModalProvider);
         showToast(`${label} key saved`, 'success');
         await this.loadEvalSettings();
-        this.keyModalOpen = false;
+        // Refresh provider status so connected list updates
+        try { this.providerStatus = await api('/api/settings/status'); } catch {}
+        // Auto-select next disconnected provider if any
+        if (this.disconnectedProviders.length) {
+          this.keyModalProvider = this.disconnectedProviders[0];
+        }
         if (this.keyModalCallback) {
+          this.keyModalOpen = false;
           const cb = this.keyModalCallback;
           this.keyModalCallback = null;
           cb();
