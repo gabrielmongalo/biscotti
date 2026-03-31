@@ -944,6 +944,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       'openai-compatible': 'OpenAI-compatible',
       'together': 'Together AI',
       'xai': 'xAI (Grok)',
+      'azure_foundry': 'Azure Foundry',
     },
     providerLabel(id) {
       return this._PROVIDER_LABELS[id] || (id.charAt(0).toUpperCase() + id.slice(1));

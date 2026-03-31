@@ -1010,7 +1010,8 @@
           </div>
         </div>
       </div>
-      <div class="key-modal-form-row" style="margin-top:8px;">
+      <!-- Standard API key input (non-Azure providers) -->
+      <div x-show="$store.app.keyModalProvider !== 'azure_foundry'" class="key-modal-form-row" style="margin-top:8px;">
         <input type="password" class="key-input" style="flex:1;"
                x-model="$store.app.keyModalValue"
                placeholder="Paste API key..."
@@ -1018,23 +1019,9 @@
                @keydown.escape="$store.app.closeKeyModal()">
         <button class="btn btn-primary btn-sm" @click="$store.app.submitModalKey()">Connect</button>
       </div>
-    </div>
 
-    <!-- All connected message -->
-    <div x-show="!$store.app.disconnectedProviders.length && $store.app.connectedProviders.length"
-         style="font-size:12px;color:var(--muted);padding:4px 0;">
-      All providers connected.
-    </div>
-
-    <!-- Azure Foundry -->
-    <div class="key-modal-form" style="margin-top:12px;">
-      <div class="field-label" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-        Azure Foundry
-        <template x-if="$store.app.azureConfigured">
-          <button class="btn btn-ghost btn-sm" style="font-size:11px;" @click="$store.app.disconnectAzure()">Disconnect</button>
-        </template>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
+      <!-- Azure Foundry form (shown when Azure Foundry selected) -->
+      <div x-show="$store.app.keyModalProvider === 'azure_foundry'" style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
         <input type="text" class="key-input" style="width:100%;"
                x-model="$store.app.azureEndpoint"
                placeholder="https://myresource.openai.azure.com/">
@@ -1059,8 +1046,19 @@
           </template>
           <button class="btn btn-ghost btn-sm" style="font-size:11px;" @click="$store.app.addAzureDeployment()">+ Add Deployment</button>
         </div>
-        <button class="btn btn-primary btn-sm" @click="$store.app.submitAzureConfig()">Connect</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" @click="$store.app.submitAzureConfig()">Connect</button>
+          <template x-if="$store.app.azureConfigured">
+            <button class="btn btn-ghost btn-sm" @click="$store.app.disconnectAzure()">Disconnect</button>
+          </template>
+        </div>
       </div>
+    </div>
+
+    <!-- All connected message -->
+    <div x-show="!$store.app.disconnectedProviders.length && $store.app.connectedProviders.length"
+         style="font-size:12px;color:var(--muted);padding:4px 0;">
+      All providers connected.
     </div>
 
     <div class="key-modal-actions">
