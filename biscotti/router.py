@@ -239,10 +239,15 @@ def build_router(store: PromptStore) -> APIRouter:
         if callable_fn:
             detected = detect_model_from_callable(callable_fn)
 
-        # Merge: detected first, then declared, then historical, then pricing defaults
+        # Include Azure Foundry deployments
+        from .key_store import get_azure_config
+        azure_config = get_azure_config()
+        azure_models = [f"azure:{d}" for d in azure_config["deployments"]] if azure_config else []
+
+        # Merge: detected first, then declared, then historical, then azure, then pricing defaults
         seen: set[str] = set()
         merged: list[str] = []
-        for m in ([detected] if detected else []) + declared + historical + pricing_models:
+        for m in ([detected] if detected else []) + declared + historical + azure_models + pricing_models:
             if m not in seen:
                 seen.add(m)
                 merged.append(m)
@@ -542,6 +547,46 @@ def build_router(store: PromptStore) -> APIRouter:
         if provider not in KNOWN_PROVIDERS:
             raise HTTPException(400, f"Unknown provider '{provider}'. Known providers: {', '.join(KNOWN_PROVIDERS)}")
         remove_key(provider)
+        return {"status": "ok", "providers": available_providers()}
+
+    # ==================================================================
+    # Settings: Azure Foundry
+    # ==================================================================
+
+    @router.post("/api/settings/azure", tags=["settings"])
+    async def set_azure(body: dict) -> dict:
+        from .key_store import set_azure_config, available_providers
+        endpoint = (body.get("endpoint") or "").strip()
+        key = (body.get("key") or "").strip()
+        api_version = (body.get("api_version") or "2024-10-21").strip()
+        deployments = body.get("deployments") or []
+        if not endpoint:
+            raise HTTPException(400, "Endpoint URL is required")
+        if not key:
+            raise HTTPException(400, "API key is required")
+        if not deployments:
+            raise HTTPException(400, "At least one deployment is required")
+        set_azure_config(endpoint=endpoint, key=key, api_version=api_version, deployments=deployments)
+        return {"status": "ok", "providers": available_providers()}
+
+    @router.get("/api/settings/azure", tags=["settings"])
+    async def get_azure() -> dict:
+        from .key_store import get_azure_config
+        config = get_azure_config()
+        if config is None:
+            return {"configured": False}
+        return {
+            "configured": True,
+            "endpoint": config["endpoint"],
+            "api_version": config["api_version"],
+            "deployments": config["deployments"],
+            # Don't expose the key
+        }
+
+    @router.delete("/api/settings/azure", tags=["settings"])
+    async def remove_azure() -> dict:
+        from .key_store import remove_azure_config, available_providers
+        remove_azure_config()
         return {"status": "ok", "providers": available_providers()}
 
     # ==================================================================
