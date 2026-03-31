@@ -266,6 +266,48 @@ class TestBiscottiMount:
 # Eval module tests
 # ---------------------------------------------------------------------------
 
+class TestAzureModelRouting:
+    def test_resolve_azure_model_returns_openai_model(self):
+        from biscotti.eval import resolve_model
+        from biscotti.key_store import set_azure_config
+        set_azure_config(
+            endpoint="https://test.openai.azure.com/",
+            key="test-key",
+            api_version="2024-10-21",
+            deployments=["my-gpt4o"],
+        )
+        model = resolve_model("azure:my-gpt4o")
+        # Should return an OpenAIModel instance, not a string
+        assert model is not None
+        assert not isinstance(model, str)
+
+    def test_resolve_non_azure_model_returns_string(self):
+        from biscotti.eval import resolve_model
+        result = resolve_model("anthropic:claude-sonnet-4-6")
+        assert result == "anthropic:claude-sonnet-4-6"
+
+    def test_resolve_azure_model_not_configured_raises(self):
+        import pytest
+        from biscotti.eval import resolve_model
+        from biscotti.key_store import remove_azure_config
+        remove_azure_config()
+        with pytest.raises(ValueError, match="not configured"):
+            resolve_model("azure:some-deploy")
+
+    def test_resolve_azure_unknown_deployment_raises(self):
+        import pytest
+        from biscotti.eval import resolve_model
+        from biscotti.key_store import set_azure_config
+        set_azure_config(
+            endpoint="https://test.openai.azure.com/",
+            key="test-key",
+            api_version="2024-10-21",
+            deployments=["my-gpt4o"],
+        )
+        with pytest.raises(ValueError, match="not configured"):
+            resolve_model("azure:unknown-deploy")
+
+
 def test_build_judge_criteria_prompt():
     from biscotti.eval import build_judge_generation_prompt
     prompt = build_judge_generation_prompt(

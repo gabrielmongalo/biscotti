@@ -39,6 +39,33 @@ def build_judge_generation_prompt(system_prompt: str, variables: list[str]) -> s
     return f"System prompt to evaluate:\n\n{system_prompt}{var_section}"
 
 
+def resolve_model(model: str):
+    """Resolve a model string. Returns an OpenAIModel for azure:* strings, else the string as-is."""
+    if not model.startswith("azure:"):
+        return model
+
+    from .key_store import get_azure_config
+    config = get_azure_config()
+    if config is None:
+        raise ValueError("Azure Foundry not configured. Add config in API Keys settings.")
+
+    deployment = model.removeprefix("azure:")
+    if deployment not in config["deployments"]:
+        raise ValueError(f"Azure deployment '{deployment}' not configured. Known deployments: {config['deployments']}")
+
+    from openai import AsyncAzureOpenAI
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    client = AsyncAzureOpenAI(
+        azure_endpoint=config["endpoint"],
+        api_key=config["key"],
+        api_version=config["api_version"],
+    )
+    provider = OpenAIProvider(openai_client=client)
+    return OpenAIChatModel(deployment, provider=provider)
+
+
 def make_judge_generator(model: str | None = None) -> Agent:
     """Create a PydanticAI agent that generates judge criteria."""
     if not model:
@@ -46,7 +73,7 @@ def make_judge_generator(model: str | None = None) -> Agent:
             "No judge model configured. Set a model in the Evals configuration."
         )
     return Agent(
-        model,
+        resolve_model(model),
         output_type=JudgeCriteria,
         system_prompt=_JUDGE_GEN_SYSTEM,
     )
@@ -99,7 +126,7 @@ Evaluate the agent output against the criteria."""
 def make_judge(model: str, criteria_text: str) -> Agent:
     """Create a PydanticAI agent that judges output against criteria."""
     return Agent(
-        model,
+        resolve_model(model),
         output_type=EvalScore,
         system_prompt=build_judge_system_prompt(criteria_text),
     )
@@ -243,7 +270,7 @@ def build_coach_user_prompt(
 def make_coach(model: str, custom_system_prompt: str | None = None) -> Agent:
     """Create a PydanticAI agent that coaches on prompt improvements."""
     return Agent(
-        model,
+        resolve_model(model),
         output_type=CoachResponse,
         system_prompt=custom_system_prompt or _COACH_SYSTEM,
     )
