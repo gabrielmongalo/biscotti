@@ -270,9 +270,7 @@
                   @input="$store.app.onPromptInput()"
                   placeholder="Write your system prompt here...&#10;&#10;Use {{variable_name}} for dynamic values."
                   spellcheck="false"></textarea>
-        <div id="prompt-backdrop" x-html="
-          escHtml($store.app.prompt).replace(/\{\{(\w+)\}\}/g, '<span class=\'var-token\'>{{$1}}</span>')
-        "></div>
+        <div id="prompt-backdrop" x-html="highlightVars($store.app.prompt)"></div>
         <div id="diff-overlay" :class="{ visible: $store.app.diffActive }">
           <template x-for="(line, i) in $store.app.diffLines" :key="i">
             <div class="diff-line" :class="line.type" x-text="line.text || '\u00a0'"></div>
@@ -404,10 +402,8 @@
                 <span class="token-hint">~<span class="token-count" x-text="$store.app.msgTokens"></span> tokens</span>
               </div>
               <div class="textarea-wrap msg-editor-wrap">
-                <div id="msg-backdrop" x-html="
-                  escHtml($store.app.userMessage || '').replace(/\{\{(\w+)\}\}/g, '<span class=\'var-token\'>{{$1}}</span>')
-                "></div>
-                <textarea id="msg-editor" class="msg-input" x-model="$store.app.userMessage"
+                <div id="msg-backdrop" x-html="highlightVars($store.app.userMessage)"></div>
+                <textarea id="msg-editor" x-model="$store.app.userMessage"
                           placeholder="What would a user say to this agent?"
                           @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,200)+'px'"
                           @scroll="document.getElementById('msg-backdrop').scrollTop = $el.scrollTop"

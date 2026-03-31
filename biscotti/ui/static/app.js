@@ -28,6 +28,10 @@ function escHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function highlightVars(s) {
+  return escHtml(s || '').replace(/\{\{(\w+)\}\}/g, '<span class=\'var-token\'>{{$1}}</span>');
+}
+
 function formatDate(iso) {
   if (!iso) return '';
   try {
