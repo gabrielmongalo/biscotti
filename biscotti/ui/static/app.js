@@ -119,7 +119,7 @@ document.addEventListener('alpine:init', () => {
     runHistoryOpen: false,
 
     // --- Model settings ---
-    settingsOpen: true,
+    settingsOpen: false,
     modelInput: '',
     modelPlaceholder: 'default (auto)',
     modelDropdownOpen: false,

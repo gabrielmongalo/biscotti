@@ -405,7 +405,6 @@
                 <div id="msg-backdrop" x-html="highlightVars($store.app.userMessage)"></div>
                 <textarea id="msg-editor" x-model="$store.app.userMessage"
                           placeholder="What would a user say to this agent?"
-                          @input="$el.style.height='auto'; $el.style.height=$el.scrollHeight+'px'"
                           @scroll="document.getElementById('msg-backdrop').scrollTop = $el.scrollTop"
                           spellcheck="false"></textarea>
                 <button class="copy-btn copy-btn-inside" @click="$store.app.copyToClipboard($store.app.userMessage, $event)" title="Copy message">

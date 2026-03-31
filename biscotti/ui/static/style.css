@@ -585,33 +585,10 @@
     border: 1px solid var(--border2);
     border-radius: var(--radius-sm);
     transition: border-color var(--transition), box-shadow var(--transition);
-    resize: vertical;
-    overflow: auto;
-    min-height: 100px;
-    max-height: 400px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border2) transparent;
   }
   .msg-editor-wrap:focus-within {
     border-color: var(--accent-border);
     box-shadow: 0 0 0 3px var(--accent-dim);
-  }
-  .msg-editor-wrap::after {
-    content: '';
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    width: 10px;
-    height: 10px;
-    border-right: 2px solid var(--muted);
-    border-bottom: 2px solid var(--muted);
-    pointer-events: none;
-    opacity: 0.5;
-    z-index: 2;
-  }
-  .msg-editor-wrap:hover::after {
-    opacity: 0.8;
-    border-color: var(--text2);
   }
   #msg-backdrop {
     padding: 10px 14px;
@@ -620,15 +597,19 @@
     line-height: 1.6;
   }
   #msg-editor {
-    height: 100%;
+    min-height: 180px;
     font-family: var(--sans);
     font-size: 13px;
     line-height: 1.6;
     padding: 10px 14px;
     border: none;
     border-radius: var(--radius-sm);
-    resize: none;
-    overflow: hidden;
+    resize: vertical;
+    overflow-y: auto;
+    color-scheme: dark;
+  }
+  [data-theme="light"] #msg-editor {
+    color-scheme: light;
   }
 
   /* Diff strip */
