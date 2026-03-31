@@ -1021,32 +1021,44 @@
       </div>
 
       <!-- Azure Foundry form (shown when Azure Foundry selected) -->
-      <div x-show="$store.app.keyModalProvider === 'azure_foundry'" style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
-        <input type="text" class="key-input" style="width:100%;"
-               x-model="$store.app.azureEndpoint"
-               placeholder="https://myresource.openai.azure.com/">
-        <input type="password" class="key-input" style="width:100%;"
-               x-model="$store.app.azureKey"
-               :placeholder="$store.app.azureConfigured ? '(saved - enter new to update)' : 'API key'">
-        <input type="text" class="key-input" style="width:100%;"
-               x-model="$store.app.azureApiVersion"
-               placeholder="API version (e.g. 2024-10-21)">
+      <div x-show="$store.app.keyModalProvider === 'azure_foundry'" style="margin-top:16px;display:flex;flex-direction:column;gap:18px;">
         <div>
-          <div class="field-label" style="margin-bottom:4px;font-size:11px;">Deployments</div>
-          <template x-for="(dep, idx) in $store.app.azureDeployments" :key="idx">
-            <div style="display:flex;gap:6px;margin-bottom:4px;">
-              <input type="text" class="key-input" style="flex:1;"
-                     :value="dep"
-                     @input="$store.app.azureDeployments[idx] = $event.target.value"
-                     placeholder="deployment-name">
-              <button class="btn btn-ghost btn-sm" style="padding:4px 8px;" @click="$store.app.removeAzureDeployment(idx)" title="Remove">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-          </template>
-          <button class="btn btn-ghost btn-sm" style="font-size:11px;" @click="$store.app.addAzureDeployment()">+ Add Deployment</button>
+          <div class="field-label" style="margin-bottom:6px;">Endpoint</div>
+          <input type="text" class="key-input" style="width:100%;"
+                 x-model="$store.app.azureEndpoint"
+                 placeholder="https://myresource.openai.azure.com/">
         </div>
-        <div style="display:flex;gap:8px;">
+        <div>
+          <div class="field-label" style="margin-bottom:6px;">API Key</div>
+          <input type="password" class="key-input" style="width:100%;"
+                 x-model="$store.app.azureKey"
+                 :placeholder="$store.app.azureConfigured ? '(saved - enter new to update)' : 'sk-...'"
+                 @keydown.escape="$store.app.closeKeyModal()">
+        </div>
+        <div>
+          <div class="field-label" style="margin-bottom:6px;">API Version</div>
+          <input type="text" class="key-input" style="width:100%;"
+                 x-model="$store.app.azureApiVersion"
+                 placeholder="2024-10-21">
+        </div>
+        <div>
+          <div class="field-label" style="margin-bottom:8px;">Deployments</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <template x-for="(dep, idx) in $store.app.azureDeployments" :key="idx">
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" class="key-input" style="flex:1;"
+                       :value="dep"
+                       @input="$store.app.azureDeployments[idx] = $event.target.value"
+                       placeholder="deployment-name">
+                <button class="btn btn-ghost btn-sm" style="padding:4px 8px;flex-shrink:0;" @click="$store.app.removeAzureDeployment(idx)" title="Remove">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </template>
+            <button class="btn btn-ghost btn-sm" style="font-size:11px;align-self:flex-start;" @click="$store.app.addAzureDeployment()">+ Add Deployment</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
           <button class="btn btn-primary btn-sm" @click="$store.app.submitAzureConfig()">Connect</button>
           <template x-if="$store.app.azureConfigured">
             <button class="btn btn-ghost btn-sm" @click="$store.app.disconnectAzure()">Disconnect</button>
