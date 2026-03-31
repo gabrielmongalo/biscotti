@@ -403,10 +403,15 @@
                 User Message
                 <span class="token-hint">~<span class="token-count" x-text="$store.app.msgTokens"></span> tokens</span>
               </div>
-              <div class="textarea-wrap">
-                <textarea class="msg-input" x-model="$store.app.userMessage"
+              <div class="textarea-wrap msg-editor-wrap">
+                <div id="msg-backdrop" x-html="
+                  escHtml($store.app.userMessage || '').replace(/\{\{(\w+)\}\}/g, '<span class=\'var-token\'>{{$1}}</span>')
+                "></div>
+                <textarea id="msg-editor" class="msg-input" x-model="$store.app.userMessage"
                           placeholder="What would a user say to this agent?"
-                          @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,200)+'px'"></textarea>
+                          @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,200)+'px'"
+                          @scroll="document.getElementById('msg-backdrop').scrollTop = $el.scrollTop"
+                          spellcheck="false"></textarea>
                 <button class="copy-btn copy-btn-inside" @click="$store.app.copyToClipboard($store.app.userMessage, $event)" title="Copy message">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>

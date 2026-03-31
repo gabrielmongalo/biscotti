@@ -529,21 +529,16 @@
     position: relative;
     overflow: hidden;
   }
-  #prompt-backdrop {
+  #prompt-backdrop, #msg-backdrop {
     position: absolute;
     inset: 0;
-    padding: 4px 20px 20px;
-    font-family: var(--mono);
-    font-size: 13px;
-    line-height: 1.8;
-    tab-size: 2;
     color: var(--text);
     white-space: pre-wrap;
     word-wrap: break-word;
     overflow-y: auto;
     pointer-events: none;
   }
-  #prompt-backdrop .var-token {
+  #prompt-backdrop .var-token, #msg-backdrop .var-token {
     color: var(--accent2);
     background: var(--accent-dim);
     border: 1px solid var(--accent-border);
@@ -552,27 +547,65 @@
     margin: 0 1px;
     font-weight: 500;
   }
-  #prompt-editor {
+  #prompt-editor, #msg-editor {
     position: relative;
     width: 100%;
-    height: 100%;
     resize: none;
     background: transparent;
     border: none;
     outline: none;
     color: transparent;
     caret-color: var(--text);
+    overflow-y: auto;
+    z-index: 1;
+  }
+  #prompt-editor::placeholder, #msg-editor::placeholder { color: var(--muted); font-style: italic; }
+  #prompt-editor::selection, #msg-editor::selection { color: var(--text); background: rgba(201,160,108,0.25); }
+
+  /* System prompt editor specifics */
+  #prompt-backdrop {
+    padding: 4px 20px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.8;
+    tab-size: 2;
+  }
+  #prompt-editor {
+    height: 100%;
     font-family: var(--mono);
     font-size: 13px;
     line-height: 1.8;
     padding: 4px 20px 20px;
-    overflow-y: auto;
     tab-size: 2;
-    z-index: 1;
   }
-  #prompt-editor::placeholder { color: var(--muted); font-style: italic; }
-  /* Selection needs visible text */
-  #prompt-editor::selection { color: var(--text); background: rgba(201,160,108,0.25); }
+  /* User message editor specifics */
+  .msg-editor-wrap {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+  .msg-editor-wrap:focus-within {
+    border-color: var(--accent-border);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  #msg-backdrop {
+    padding: 10px 14px;
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  #msg-editor {
+    min-height: 48px;
+    max-height: 200px;
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 10px 14px;
+    border: none;
+    border-radius: var(--radius-sm);
+  }
 
   /* Diff strip */
 
@@ -831,6 +864,7 @@
   }
   input[type=text]::placeholder, textarea.msg-input::placeholder { color: var(--muted); }
   textarea.msg-input { resize: none; min-height: 48px; max-height: 200px; line-height: 1.6; overflow-y: auto; }
+
 
   /* Variable inputs (compact grid, nested under message) */
   .var-section {
