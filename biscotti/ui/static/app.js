@@ -216,7 +216,9 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       return this.judgeModel !== this._savedJudgeModel || this.serializeCriteria(this.criteriaRows) !== this._savedJudgeCriteria;
     },
     get variables() {
-      return [...new Set([...this.prompt.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]))];
+      const fromPrompt = [...this.prompt.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
+      const fromMsg = [...(this.userMessage || '').matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
+      return [...new Set([...fromPrompt, ...fromMsg])];
     },
     get promptTokens() { return estimateTokens(this.prompt); },
     get msgTokens() { return estimateTokens(this.userMessage); },
