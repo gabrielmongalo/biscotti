@@ -215,6 +215,13 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     keyModalCallback: null,
     keyModalProviderDropdownOpen: false,
 
+    // Azure Foundry
+    azureEndpoint: '',
+    azureKey: '',
+    azureApiVersion: '2024-10-21',
+    azureDeployments: [''],
+    azureConfigured: false,
+
     // --- Computed ---
     get evalSettingsDirty() {
       return this.judgeModel !== this._savedJudgeModel || this.serializeCriteria(this.criteriaRows) !== this._savedJudgeCriteria;
@@ -988,6 +995,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.keyModalValue = '';
       this.keyModalCallback = null;
       this.keyModalOpen = true;
+      await this.loadAzureConfig();
     },
 
     async submitModalKey() {
@@ -1020,6 +1028,69 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.keyModalOpen = false;
       this.keyModalCallback = null;
       this.keyModalValue = '';
+    },
+
+    addAzureDeployment() {
+      this.azureDeployments.push('');
+    },
+
+    removeAzureDeployment(idx) {
+      this.azureDeployments.splice(idx, 1);
+      if (!this.azureDeployments.length) this.azureDeployments.push('');
+    },
+
+    async loadAzureConfig() {
+      try {
+        const data = await api('/api/settings/azure');
+        if (data.configured) {
+          this.azureEndpoint = data.endpoint;
+          this.azureApiVersion = data.api_version;
+          this.azureDeployments = data.deployments.length ? data.deployments : [''];
+          this.azureConfigured = true;
+        } else {
+          this.azureConfigured = false;
+        }
+      } catch {}
+    },
+
+    async submitAzureConfig() {
+      const endpoint = this.azureEndpoint.trim();
+      const key = this.azureKey.trim();
+      const deployments = this.azureDeployments.map(d => d.trim()).filter(Boolean);
+      if (!endpoint) { showToast('Enter an endpoint URL', 'error'); return; }
+      if (!key) { showToast('Enter an API key', 'error'); return; }
+      if (!deployments.length) { showToast('Add at least one deployment', 'error'); return; }
+      try {
+        await api('/api/settings/azure', 'POST', {
+          endpoint,
+          key,
+          api_version: this.azureApiVersion.trim() || '2024-10-21',
+          deployments,
+        });
+        this.azureKey = '';
+        this.azureConfigured = true;
+        showToast('Azure Foundry connected', 'success');
+        try { this.providerStatus = await api('/api/settings/status'); } catch {}
+        await this.loadModels();
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
+    },
+
+    async disconnectAzure() {
+      try {
+        await api('/api/settings/azure', 'DELETE');
+        this.azureEndpoint = '';
+        this.azureKey = '';
+        this.azureApiVersion = '2024-10-21';
+        this.azureDeployments = [''];
+        this.azureConfigured = false;
+        showToast('Azure Foundry disconnected', 'success');
+        try { this.providerStatus = await api('/api/settings/status'); } catch {}
+        await this.loadModels();
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
     },
 
     async disconnectProvider(provider) {
