@@ -63,4 +63,37 @@ def remove_key(provider: str) -> None:
 
 
 def available_providers() -> dict[str, bool]:
-    return {p: get_key(p) is not None for p in KNOWN_PROVIDERS}
+    result = {p: get_key(p) is not None for p in KNOWN_PROVIDERS}
+    result["azure_foundry"] = _AZURE_CONFIG is not None
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Azure Foundry config (in-memory only)
+# ---------------------------------------------------------------------------
+
+_AZURE_CONFIG: dict | None = None
+
+
+def set_azure_config(
+    endpoint: str,
+    key: str,
+    api_version: str = "2024-10-21",
+    deployments: list[str] | None = None,
+) -> None:
+    global _AZURE_CONFIG
+    _AZURE_CONFIG = {
+        "endpoint": endpoint.rstrip("/"),
+        "key": key,
+        "api_version": api_version,
+        "deployments": deployments or [],
+    }
+
+
+def get_azure_config() -> dict | None:
+    return _AZURE_CONFIG
+
+
+def remove_azure_config() -> None:
+    global _AZURE_CONFIG
+    _AZURE_CONFIG = None

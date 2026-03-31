@@ -48,3 +48,46 @@ def test_available_providers(monkeypatch):
     result = available_providers()
     assert result["anthropic"] is True
     assert result["openai"] is False
+
+
+class TestAzureConfig:
+    def test_set_and_get_azure_config(self):
+        from biscotti.key_store import set_azure_config, get_azure_config
+        set_azure_config(
+            endpoint="https://myresource.openai.azure.com/",
+            key="test-key-123",
+            api_version="2024-10-21",
+            deployments=["gpt4o-deploy", "embed-deploy"],
+        )
+        config = get_azure_config()
+        assert config is not None
+        assert config["endpoint"] == "https://myresource.openai.azure.com"
+        assert config["key"] == "test-key-123"
+        assert config["api_version"] == "2024-10-21"
+        assert config["deployments"] == ["gpt4o-deploy", "embed-deploy"]
+
+    def test_get_azure_config_returns_none_when_not_set(self):
+        from biscotti.key_store import get_azure_config
+        assert get_azure_config() is None
+
+    def test_remove_azure_config(self):
+        from biscotti.key_store import set_azure_config, get_azure_config, remove_azure_config
+        set_azure_config(
+            endpoint="https://test.openai.azure.com/",
+            key="key",
+            api_version="2024-10-21",
+            deployments=["deploy1"],
+        )
+        remove_azure_config()
+        assert get_azure_config() is None
+
+    def test_azure_config_updates_provider_status(self):
+        from biscotti.key_store import set_azure_config, available_providers
+        set_azure_config(
+            endpoint="https://test.openai.azure.com/",
+            key="key",
+            api_version="2024-10-21",
+            deployments=["deploy1"],
+        )
+        status = available_providers()
+        assert status.get("azure_foundry") is True

@@ -2,6 +2,7 @@ import pytest
 from biscotti.registry import _REGISTRY
 from biscotti.runner import _AGENT_CALLABLES
 from biscotti.key_store import _KEYS
+import biscotti.key_store as _ks
 
 
 @pytest.fixture(autouse=True)
@@ -10,6 +11,7 @@ def _clean_global_state():
     reg_snapshot = dict(_REGISTRY)
     call_snapshot = dict(_AGENT_CALLABLES)
     keys_snapshot = dict(_KEYS)
+    azure_snapshot = _ks._AZURE_CONFIG
     yield
     _REGISTRY.clear()
     _REGISTRY.update(reg_snapshot)
@@ -17,3 +19,4 @@ def _clean_global_state():
     _AGENT_CALLABLES.update(call_snapshot)
     _KEYS.clear()
     _KEYS.update(keys_snapshot)
+    _ks._AZURE_CONFIG = azure_snapshot
