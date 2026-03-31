@@ -76,7 +76,7 @@
   <div id="sidebar-footer">
     <button class="nav-item" @click="$store.app.openKeyManager()" title="Settings">
       <i data-lucide="settings"></i>
-      <span class="nav-label">Settings</span>
+      <span class="nav-label">API Keys</span>
     </button>
     <a class="nav-item" href="/biscotti/docs" title="Docs">
       <i data-lucide="book-open"></i>
@@ -115,15 +115,6 @@
   <!-- ========== PLAYGROUND VIEW ========== -->
   <div class="view" x-show="$store.app.activeView === 'playground'">
 
-  <!-- API key banner -->
-  <div class="api-key-banner" x-show="$store.app.connectedProviders.length === 0 && !$store.app._bannerDismissed" x-transition>
-    <i data-lucide="alert-triangle"></i>
-    <span>No API key configured -- add one in Settings to run tests</span>
-    <button class="btn btn-sm btn-ghost" @click="$store.app.openKeyManager()">Add Key</button>
-    <button class="banner-dismiss" @click="$store.app.dismissBanner()">
-      <i data-lucide="x"></i>
-    </button>
-  </div>
 
   <div id="panels">
     <!-- Left: Prompt editor -->
