@@ -693,6 +693,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         const tc = this.testCases.find(t => t.name === name);
         if (tc) {
           this.userMessage = tc.user_message;
+          // Set userMessage first so `this.variables` picks up user-message vars
           const vals = {};
           this.variables.forEach(v => { vals[v] = (tc.variable_values || {})[v] || ''; });
           this.varValues = vals;
