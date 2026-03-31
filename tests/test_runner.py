@@ -101,3 +101,36 @@ class TestExecuteRun:
         assert resp.output_tokens == 50
         assert resp.estimated_cost is not None
         assert resp.estimated_cost > 0
+
+    @pytest.mark.asyncio
+    async def test_user_message_variables_rendered(self, runner_store):
+        """Variables in user_message should be rendered before calling the agent."""
+        from biscotti.runner import execute_run, register_callable
+        from biscotti.registry import register_agent
+        from biscotti.models import AgentMeta, RunRequest
+
+        register_agent(AgentMeta(
+            name="template_agent",
+            description="tests user msg templating",
+            default_system_prompt="You are a test agent.",
+        ))
+
+        captured = {}
+
+        async def capture_fn(msg, prompt):
+            captured["user_message"] = msg
+            captured["system_prompt"] = prompt
+            return "ok"
+
+        register_callable("template_agent", capture_fn)
+
+        req = RunRequest(
+            agent_name="template_agent",
+            user_message="Review this code: {{code}}",
+            variable_values={"code": "print('hello')"},
+        )
+        resp = await execute_run(req, runner_store)
+
+        assert resp.outcome == "success"
+        assert captured["user_message"] == "Review this code: print('hello')"
+        assert "{{code}}" not in captured["user_message"]

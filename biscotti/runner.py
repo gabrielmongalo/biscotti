@@ -164,6 +164,7 @@ async def execute_run(
             pv = await store.set_status(pv.id, PromptStatus.current)
 
     rendered_prompt = _render_prompt(pv.system_prompt, request.variable_values)
+    rendered_user_message = _render_prompt(request.user_message, request.variable_values)
 
     # --- Call the agent ---
     callable_fn = get_callable(request.agent_name)
@@ -197,9 +198,9 @@ async def execute_run(
     else:
         try:
             if run_params and _callable_accepts_params(callable_fn):
-                result = await callable_fn(request.user_message, rendered_prompt, run_params)
+                result = await callable_fn(rendered_user_message, rendered_prompt, run_params)
             else:
-                result = await callable_fn(request.user_message, rendered_prompt)
+                result = await callable_fn(rendered_user_message, rendered_prompt)
             if isinstance(result, dict):
                 output = result.get("output", str(result))
                 input_tokens = result.get("input_tokens", 0)
@@ -225,7 +226,7 @@ async def execute_run(
         agent_name=request.agent_name,
         prompt_version=pv.version,
         test_case_name=request.test_case_name,
-        user_message=request.user_message,
+        user_message=rendered_user_message,
         variable_values=request.variable_values,
         system_prompt_rendered=rendered_prompt,
         output=output,
