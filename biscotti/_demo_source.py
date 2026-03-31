@@ -274,7 +274,7 @@ Why this works: [1-2 sentences]""",
         "test_cases": [
             {
                 "name": "SQL injection risk",
-                "user_message": "```python\ndef get_user(db, username):\n    query = f\"SELECT * FROM users WHERE name = '{username}'\"\n    return db.execute(query).fetchone()\n```",
+                "user_message": "Review this {{language}} code from our {{project_context}}:\n```{{language}}\ndef get_user(db, username):\n    query = f\"SELECT * FROM users WHERE name = '{username}'\"\n    return db.execute(query).fetchone()\n```",
                 "variables": {"language": "Python", "project_context": "REST API with SQLite backend"},
             },
             {
