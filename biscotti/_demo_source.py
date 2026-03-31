@@ -16,11 +16,6 @@ from biscotti import Biscotti, biscotti
 
 Given the user's available ingredients, dietary restrictions, and the occasion, recommend dishes they can realistically make at home.
 
-## Inputs
-- Available ingredients: {{ingredients}}
-- Dietary restrictions: {{dietary_restrictions}}
-- Occasion: {{occasion}}
-
 ## Guidelines
 - Prioritize recipes that use ingredients the user already has on hand, but substitute freely if needed to meet dietary restrictions
 - If critical ingredients are missing, suggest minimal, accessible substitutes and note them clearly
@@ -53,10 +48,6 @@ async def recipe_agent(user_message: str, system_prompt: str) -> str:
     default_system_prompt="""You are a senior software engineer performing a thorough code review.
 
 Review the submitted code diff and provide actionable, specific feedback.
-
-## Inputs
-- Language: {{language}}
-- Project context: {{project_context}}
 
 ## Review Priorities (in order)
 1. **Correctness** -- logic bugs, off-by-one errors, race conditions, null/undefined handling
@@ -102,10 +93,6 @@ async def code_reviewer(user_message: str, system_prompt: str) -> str:
     default_system_prompt="""You are a customer support specialist for {{company_name}}, a {{product_type}}.
 
 Your goal is to resolve customer issues quickly and empathetically while staying within policy.
-
-## Inputs
-- Customer tier: {{customer_tier}}
-- Product: {{product_type}}
 
 ## Tone
 - Warm but professional. Never condescending. No corporate jargon.
@@ -155,11 +142,6 @@ _DEMO_SEED = {
 
 Given the user's inputs, recommend one primary recipe and one backup.
 
-## Inputs
-- Available ingredients: {{ingredients}}
-- Dietary restrictions: {{dietary_restrictions}}
-- Occasion: {{occasion}}
-
 ## Guidelines
 - Use ingredients the user has. Flag any they need to buy.
 - Respect dietary restrictions absolutely -- no exceptions.
@@ -178,17 +160,17 @@ Why this works: [1-2 sentences]""",
         "test_cases": [
             {
                 "name": "weeknight dinner",
-                "user_message": "I have chicken thighs, rice, garlic, soy sauce, and ginger. No allergies. It's a Tuesday night and I want something quick.",
+                "user_message": "Ingredients: {{ingredients}}\nDietary restrictions: {{dietary_restrictions}}\nOccasion: {{occasion}}\n\nI have chicken thighs, rice, garlic, soy sauce, and ginger. No allergies. It's a Tuesday night and I want something quick.",
                 "variables": {"ingredients": "chicken thighs, rice, garlic, soy sauce, ginger", "dietary_restrictions": "none", "occasion": "weeknight dinner"},
             },
             {
                 "name": "vegan date night",
-                "user_message": "Planning a romantic dinner. I have mushrooms, pasta, olive oil, pine nuts, basil, and nutritional yeast. My partner is vegan.",
+                "user_message": "Ingredients: {{ingredients}}\nDietary restrictions: {{dietary_restrictions}}\nOccasion: {{occasion}}\n\nPlanning a romantic dinner. I have mushrooms, pasta, olive oil, pine nuts, basil, and nutritional yeast. My partner is vegan.",
                 "variables": {"ingredients": "mushrooms, pasta, olive oil, pine nuts, basil, nutritional yeast", "dietary_restrictions": "vegan", "occasion": "date night"},
             },
             {
                 "name": "kid birthday party",
-                "user_message": "My 8-year-old's birthday party is Saturday. I have flour, eggs, butter, chocolate chips, vanilla, and sprinkles. One kid has a nut allergy.",
+                "user_message": "Ingredients: {{ingredients}}\nDietary restrictions: {{dietary_restrictions}}\nOccasion: {{occasion}}\n\nMy 8-year-old's birthday party is Saturday. I have flour, eggs, butter, chocolate chips, vanilla, and sprinkles. One kid has a nut allergy.",
                 "variables": {"ingredients": "flour, eggs, butter, chocolate chips, vanilla, sprinkles", "dietary_restrictions": "nut-free", "occasion": "kid's birthday party"},
             },
         ],
@@ -253,10 +235,6 @@ Why this works: [1-2 sentences]""",
             {
                 "prompt": """You are a senior engineer doing code review. Be direct and specific.
 
-## Inputs
-- Language: {{language}}
-- Project context: {{project_context}}
-
 ## What to check
 1. Bugs and logic errors
 2. Security vulnerabilities
@@ -279,12 +257,12 @@ Why this works: [1-2 sentences]""",
             },
             {
                 "name": "race condition in cache",
-                "user_message": "```python\nclass Cache:\n    def __init__(self):\n        self._data = {}\n    \n    async def get_or_set(self, key, factory):\n        if key not in self._data:\n            self._data[key] = await factory()\n        return self._data[key]\n```",
+                "user_message": "Review this {{language}} code from our {{project_context}}:\n```{{language}}\nclass Cache:\n    def __init__(self):\n        self._data = {}\n    \n    async def get_or_set(self, key, factory):\n        if key not in self._data:\n            self._data[key] = await factory()\n        return self._data[key]\n```",
                 "variables": {"language": "Python", "project_context": "Async web server handling concurrent requests"},
             },
             {
                 "name": "clean code review",
-                "user_message": "```python\nfrom dataclasses import dataclass\nfrom typing import Optional\n\n@dataclass(frozen=True)\nclass Config:\n    host: str\n    port: int = 8080\n    debug: bool = False\n    max_retries: int = 3\n\n    def base_url(self) -> str:\n        scheme = \"http\" if self.debug else \"https\"\n        return f\"{scheme}://{self.host}:{self.port}\"\n```",
+                "user_message": "Review this {{language}} code from our {{project_context}}:\n```{{language}}\nfrom dataclasses import dataclass\nfrom typing import Optional\n\n@dataclass(frozen=True)\nclass Config:\n    host: str\n    port: int = 8080\n    debug: bool = False\n    max_retries: int = 3\n\n    def base_url(self) -> str:\n        scheme = \"http\" if self.debug else \"https\"\n        return f\"{scheme}://{self.host}:{self.port}\"\n```",
                 "variables": {"language": "Python", "project_context": "Internal configuration module"},
             },
         ],
@@ -300,7 +278,7 @@ Why this works: [1-2 sentences]""",
             {
                 "prompt": """You are a customer support agent for {{company_name}} ({{product_type}}).
 
-Resolve issues quickly and kindly. Customer tier: {{customer_tier}}.
+Resolve issues quickly and kindly.
 
 ## Approach
 1. Acknowledge the issue with empathy
@@ -319,17 +297,17 @@ Resolve issues quickly and kindly. Customer tier: {{customer_tier}}.
         "test_cases": [
             {
                 "name": "billing dispute",
-                "user_message": "I was charged twice for my subscription this month. I want a refund immediately. This is the third time this has happened.",
+                "user_message": "Customer tier: {{customer_tier}}\n\nI was charged twice for my subscription this month. I want a refund immediately. This is the third time this has happened.",
                 "variables": {"company_name": "Acme SaaS", "product_type": "project management tool", "customer_tier": "Pro"},
             },
             {
                 "name": "feature confusion",
-                "user_message": "How do I export my data to CSV? I've been clicking around for 20 minutes and can't find it anywhere. This is really frustrating.",
+                "user_message": "Customer tier: {{customer_tier}}\n\nHow do I export my data to CSV? I've been clicking around for 20 minutes and can't find it anywhere. This is really frustrating.",
                 "variables": {"company_name": "Acme SaaS", "product_type": "project management tool", "customer_tier": "Free"},
             },
             {
                 "name": "angry escalation",
-                "user_message": "I've been waiting 3 days for a response. Your product deleted my entire project and nobody seems to care. I need to talk to a manager RIGHT NOW.",
+                "user_message": "Customer tier: {{customer_tier}}\n\nI've been waiting 3 days for a response. Your product deleted my entire project and nobody seems to care. I need to talk to a manager RIGHT NOW.",
                 "variables": {"company_name": "Acme SaaS", "product_type": "project management tool", "customer_tier": "Enterprise"},
             },
         ],
