@@ -134,3 +134,34 @@ class TestExecuteRun:
         assert resp.outcome == "success"
         assert captured["user_message"] == "Review this code: print('hello')"
         assert "{{code}}" not in captured["user_message"]
+
+    @pytest.mark.asyncio
+    async def test_rendered_user_message_persisted(self, runner_store):
+        """RunLog should store the rendered user message, not the template."""
+        from biscotti.runner import execute_run, register_callable
+        from biscotti.registry import register_agent
+        from biscotti.models import AgentMeta, RunRequest
+
+        register_agent(AgentMeta(
+            name="persist_agent",
+            description="tests persistence",
+            default_system_prompt="You are a test agent.",
+        ))
+
+        async def echo_fn(msg, prompt):
+            return msg
+
+        register_callable("persist_agent", echo_fn)
+
+        req = RunRequest(
+            agent_name="persist_agent",
+            user_message="Hello {{name}}",
+            variable_values={"name": "World"},
+        )
+        resp = await execute_run(req, runner_store)
+
+        # Check persisted run
+        runs = await runner_store.list_runs("persist_agent")
+        assert len(runs) == 1
+        assert runs[0].user_message == "Hello World"
+        assert "{{name}}" not in runs[0].user_message
