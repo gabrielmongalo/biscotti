@@ -17,7 +17,10 @@ Quick start::
         return result.output
 
     bi = Biscotti()
-    app.mount("/biscotti", bi.app)
+    bi.mount(app)  # mounts at /biscotti
+
+Note: Define your LLM agent (e.g. PydanticAI Agent) at **module scope**,
+not inside the decorated function, to avoid recreating it on every call.
 """
 
 from .main import Biscotti
