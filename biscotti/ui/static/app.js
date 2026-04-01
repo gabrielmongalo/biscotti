@@ -226,7 +226,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     bulkSubView: 'new',
     bulkSelectedTests: [],
     bulkSelectedModels: [],
-    bulkTemperatures: [],
+    bulkSelectedTemps: [],
     bulkReasoningEfforts: [],
     bulkIncludeEval: false,
     bulkJudgeModel: '',
@@ -242,7 +242,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     bulkSortCol: null,
     bulkSortAsc: true,
     bulkExportOpen: false,
-    _bulkTempInput: null,
+    bulkTempInput: null,
     _bulkEventSource: null,
 
     // --- Computed ---
@@ -1562,14 +1562,14 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     get bulkCanStart() {
       return this.bulkSelectedTests.length > 0
         && this.bulkSelectedModels.length > 0
-        && (this.bulkTemperatures.length > 0 || this.bulkReasoningEfforts.length > 0)
+        && (this.bulkSelectedTemps.length > 0 || this.bulkReasoningEfforts.length > 0)
         && !this.bulkRunning;
     },
 
     get bulkSummaryText() {
       const t = this.bulkSelectedTests.length;
       const m = this.bulkSelectedModels.length;
-      const temps = this.bulkTemperatures.length;
+      const temps = this.bulkSelectedTemps.length;
       const res = this.bulkReasoningEfforts.length;
       const axes = temps + res;
       if (t === 0 || m === 0 || axes === 0) {
@@ -1582,7 +1582,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     get bulkConfigSummary() {
       const t = this.bulkSelectedTests.length;
       const m = this.bulkSelectedModels.length;
-      const axes = this.bulkTemperatures.length + this.bulkReasoningEfforts.length;
+      const axes = this.bulkSelectedTemps.length + this.bulkReasoningEfforts.length;
       return `${t} case${t !== 1 ? 's' : ''} x ${m} model${m !== 1 ? 's' : ''} x ${axes} config${axes !== 1 ? 's' : ''}`;
     },
 
@@ -1625,32 +1625,32 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       }
     },
 
-    addModel(m) {
+    bulkAddModel(m) {
       if (m && !this.bulkSelectedModels.includes(m)) {
         this.bulkSelectedModels.push(m);
       }
     },
 
-    removeModel(m) {
+    bulkRemoveModel(m) {
       this.bulkSelectedModels = this.bulkSelectedModels.filter(x => x !== m);
     },
 
-    addTemp() {
-      const val = parseFloat(this._bulkTempInput);
+    bulkAddTemp() {
+      const val = parseFloat(this.bulkTempInput);
       if (isNaN(val) || val < 0 || val > 2) {
         showToast('Temperature must be between 0 and 2', 'error');
         return;
       }
       const rounded = Math.round(val * 100) / 100;
-      if (!this.bulkTemperatures.includes(rounded)) {
-        this.bulkTemperatures.push(rounded);
-        this.bulkTemperatures.sort((a, b) => a - b);
+      if (!this.bulkSelectedTemps.includes(rounded)) {
+        this.bulkSelectedTemps.push(rounded);
+        this.bulkSelectedTemps.sort((a, b) => a - b);
       }
-      this._bulkTempInput = null;
+      this.bulkTempInput = null;
     },
 
-    removeTemp(t) {
-      this.bulkTemperatures = this.bulkTemperatures.filter(x => x !== t);
+    bulkRemoveTemp(t) {
+      this.bulkSelectedTemps = this.bulkSelectedTemps.filter(x => x !== t);
     },
 
     toggleRE(re) {
@@ -1681,7 +1681,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.bulkExportOpen = false;
 
       const configMatrix = [];
-      for (const temp of this.bulkTemperatures) {
+      for (const temp of this.bulkSelectedTemps) {
         configMatrix.push({ temperature: temp });
       }
       for (const re of this.bulkReasoningEfforts) {

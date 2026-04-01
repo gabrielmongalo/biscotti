@@ -1008,15 +1008,13 @@
               <!-- RIGHT: Models + Temperatures -->
               <div class="bulk-config-section">
                 <div class="bulk-label">Models</div>
-                <div class="bulk-chip-add">
-                  <select class="input"
-                          @change="$store.app.bulkAddModel($event.target.value); $event.target.value = ''">
-                    <option value="" disabled selected>Add model...</option>
-                    <template x-for="m in $store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m))" :key="m">
-                      <option :value="m" x-text="m"></option>
-                    </template>
-                  </select>
-                </div>
+                <select class="input bulk-model-select"
+                        @change="$store.app.bulkAddModel($event.target.value); $event.target.value = ''">
+                  <option value="" disabled selected>Add model...</option>
+                  <template x-for="m in $store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m))" :key="m">
+                    <option :value="m" x-text="m"></option>
+                  </template>
+                </select>
                 <div class="bulk-chip-container">
                   <template x-for="model in $store.app.bulkSelectedModels" :key="model">
                     <span class="bulk-chip">
@@ -1026,7 +1024,6 @@
                       </button>
                     </span>
                   </template>
-                  <div x-show="$store.app.bulkSelectedModels.length === 0" class="bulk-empty">No models selected</div>
                 </div>
 
                 <div class="bulk-label" style="margin-top:16px;">Temperatures</div>
@@ -1035,7 +1032,7 @@
                          placeholder="0.0 - 2.0"
                          x-model.number="$store.app.bulkTempInput"
                          @keydown.enter="$store.app.bulkAddTemp()">
-                  <button class="btn-ghost btn-sm" @click="$store.app.bulkAddTemp()">Add</button>
+                  <button class="btn btn-ghost btn-sm" @click="$store.app.bulkAddTemp()">Add</button>
                 </div>
                 <div class="bulk-chip-container">
                   <template x-for="temp in $store.app.bulkSelectedTemps" :key="temp">
@@ -1046,7 +1043,6 @@
                       </button>
                     </span>
                   </template>
-                  <div x-show="$store.app.bulkSelectedTemps.length === 0" class="bulk-empty">No temperatures added</div>
                 </div>
               </div>
 
