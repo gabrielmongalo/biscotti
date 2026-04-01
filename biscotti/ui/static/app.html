@@ -70,6 +70,12 @@
         <i data-lucide="bar-chart-2"></i>
         <span class="nav-label">Evals</span>
       </button>
+      <button class="nav-item"
+              :class="{ active: $store.app.activeView === 'bulk' }"
+              @click="$store.app.switchView('bulk')">
+        <i data-lucide="layers"></i>
+        <span class="nav-label">Bulk Run</span>
+      </button>
     </div>
   </div>
 
@@ -105,7 +111,7 @@
             x-text="$store.app.currentVersion?.status"></span>
     </button>
     <span class="toolbar-view-label" x-show="$store.app.activeView !== 'playground'"
-          x-text="$store.app.activeView === 'versions' ? 'Versions' : $store.app.activeView === 'agents' ? 'All Agents' : 'Evals'"></span>
+          x-text="$store.app.activeView === 'versions' ? 'Versions' : $store.app.activeView === 'agents' ? 'All Agents' : $store.app.activeView === 'bulk' ? 'Bulk Run' : 'Evals'"></span>
     <button class="theme-toggle" @click="$store.app.toggleTheme()" :title="$store.app.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
       <span x-show="$store.app.theme === 'dark'">&#9788;</span>
       <span x-show="$store.app.theme === 'light'">&#9790;</span>
@@ -943,6 +949,324 @@
           </button>
         </template>
       </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       BULK RUN VIEW
+       ============================================================ -->
+  <div class="view" x-show="$store.app.activeView === 'bulk'">
+    <div class="bulk-view">
+
+      <!-- Sub-navigation pills -->
+      <div class="bulk-sub-nav" role="tablist">
+        <button class="bulk-pill"
+                :class="{ active: $store.app.bulkSubView === 'new' }"
+                role="tab"
+                :aria-selected="$store.app.bulkSubView === 'new'"
+                @click="$store.app.bulkSubView = 'new'">New Run</button>
+        <button class="bulk-pill"
+                :class="{ active: $store.app.bulkSubView === 'history' }"
+                role="tab"
+                :aria-selected="$store.app.bulkSubView === 'history'"
+                @click="$store.app.bulkSubView = 'history'">History</button>
+      </div>
+
+      <!-- ======================== NEW RUN SUB-VIEW ======================== -->
+      <div x-show="$store.app.bulkSubView === 'new'">
+
+        <!-- Config panel (expandable when running) -->
+        <div x-show="!$store.app.bulkConfigCollapsed">
+          <div class="bulk-config">
+            <div class="bulk-config-grid">
+
+              <!-- LEFT: Test Cases -->
+              <div class="bulk-config-section">
+                <div class="bulk-label">Test Cases</div>
+                <div class="bulk-tc-list">
+                  <label class="bulk-tc-select-all">
+                    <input type="checkbox"
+                           :checked="$store.app.bulkSelectedTests.length === $store.app.testCases.length && $store.app.testCases.length > 0"
+                           @change="$store.app.bulkToggleAllTests($event.target.checked)">
+                    <span>Select All</span>
+                  </label>
+                  <template x-for="tc in $store.app.testCases" :key="tc.id">
+                    <label class="bulk-tc-item">
+                      <input type="checkbox"
+                             :value="tc.id"
+                             :checked="$store.app.bulkSelectedTests.includes(tc.id)"
+                             @change="$store.app.bulkToggleTest(tc.id)">
+                      <span x-text="tc.name"></span>
+                    </label>
+                  </template>
+                  <div x-show="$store.app.testCases.length === 0" class="bulk-empty">
+                    No test cases. Add some in the Playground.
+                  </div>
+                </div>
+              </div>
+
+              <!-- RIGHT: Models + Temperatures -->
+              <div class="bulk-config-section">
+                <div class="bulk-label">Models</div>
+                <div class="bulk-chip-add">
+                  <select class="input"
+                          @change="$store.app.bulkAddModel($event.target.value); $event.target.value = ''">
+                    <option value="" disabled selected>Add model...</option>
+                    <template x-for="m in $store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m))" :key="m">
+                      <option :value="m" x-text="m"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="bulk-chip-container">
+                  <template x-for="model in $store.app.bulkSelectedModels" :key="model">
+                    <span class="bulk-chip">
+                      <span x-text="model"></span>
+                      <button class="bulk-chip-x" @click="$store.app.bulkRemoveModel(model)" aria-label="Remove model">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </span>
+                  </template>
+                  <div x-show="$store.app.bulkSelectedModels.length === 0" class="bulk-empty">No models selected</div>
+                </div>
+
+                <div class="bulk-label" style="margin-top:16px;">Temperatures</div>
+                <div class="bulk-temp-add">
+                  <input type="number" class="input" min="0" max="2" step="0.1"
+                         placeholder="0.0 - 2.0"
+                         x-model.number="$store.app.bulkTempInput"
+                         @keydown.enter="$store.app.bulkAddTemp()">
+                  <button class="btn-ghost btn-sm" @click="$store.app.bulkAddTemp()">Add</button>
+                </div>
+                <div class="bulk-chip-container">
+                  <template x-for="temp in $store.app.bulkSelectedTemps" :key="temp">
+                    <span class="bulk-chip">
+                      <span x-text="temp.toFixed(1)"></span>
+                      <button class="bulk-chip-x" @click="$store.app.bulkRemoveTemp(temp)" aria-label="Remove temperature">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </span>
+                  </template>
+                  <div x-show="$store.app.bulkSelectedTemps.length === 0" class="bulk-empty">No temperatures added</div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Advanced Settings (collapsible) -->
+            <div style="margin-top:16px;">
+              <button class="settings-toggle" @click="$store.app.bulkAdvancedOpen = !$store.app.bulkAdvancedOpen">
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="none"
+                     :style="$store.app.bulkAdvancedOpen ? '' : 'transform:rotate(-90deg)'">
+                  <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Advanced Settings
+              </button>
+              <div class="settings-body" x-show="$store.app.bulkAdvancedOpen" x-collapse>
+                <div class="bulk-advanced-grid">
+                  <div>
+                    <div class="bulk-label">Reasoning Effort</div>
+                    <div class="bulk-checks">
+                      <template x-for="re in ['low', 'medium', 'high']" :key="re">
+                        <label class="bulk-check-item">
+                          <input type="checkbox"
+                                 :value="re"
+                                 :checked="$store.app.bulkReasoningEfforts.includes(re)"
+                                 @change="$store.app.bulkToggleReasoningEffort(re)">
+                          <span x-text="re.charAt(0).toUpperCase() + re.slice(1)"></span>
+                        </label>
+                      </template>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="bulk-check-item">
+                      <input type="checkbox"
+                             :checked="$store.app.bulkScoreWithJudge"
+                             @change="$store.app.bulkScoreWithJudge = $event.target.checked">
+                      <span>Score with Judge</span>
+                    </label>
+                    <div x-show="$store.app.bulkScoreWithJudge" style="margin-top:8px;">
+                      <div class="bulk-label">Judge Model</div>
+                      <select class="input" x-model="$store.app.bulkJudgeModel">
+                        <template x-for="m in $store.app.availableModels" :key="m">
+                          <option :value="m" x-text="m"></option>
+                        </template>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="bulk-concurrency">
+                    <div class="bulk-label">Concurrency</div>
+                    <input type="number" class="input" min="1" max="20"
+                           x-model.number="$store.app.bulkConcurrency">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Collapsed config header (shown when running) -->
+        <div class="bulk-config-collapsed" x-show="$store.app.bulkConfigCollapsed"
+             @click="$store.app.bulkConfigCollapsed = false">
+          <span class="bulk-config-summary"
+                x-text="$store.app.bulkSelectedTests.length + ' tests x ' + $store.app.bulkSelectedModels.length + ' models x ' + $store.app.bulkSelectedTemps.length + ' temps'"></span>
+          <span class="bulk-label" style="margin-left:auto;">Click to expand</span>
+        </div>
+
+        <!-- Summary bar -->
+        <div class="bulk-summary-bar">
+          <span x-text="$store.app.bulkSelectedTests.length + ' tests'"></span>
+          <span class="mono">x</span>
+          <span x-text="$store.app.bulkSelectedModels.length + ' models'"></span>
+          <span class="mono">x</span>
+          <span x-text="$store.app.bulkSelectedTemps.length + ' temps'"></span>
+          <template x-if="$store.app.bulkReasoningEfforts.length > 0">
+            <span>
+              <span class="mono">x</span>
+              <span x-text="$store.app.bulkReasoningEfforts.length + ' RE'"></span>
+            </span>
+          </template>
+          <span class="mono">=</span>
+          <strong x-text="$store.app.bulkTotalRuns + ' runs'"></strong>
+        </div>
+
+        <!-- Start / Cancel -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <button class="btn-primary"
+                  :disabled="$store.app.bulkRunning || $store.app.bulkTotalRuns === 0"
+                  @click="$store.app.bulkStart()"
+                  x-show="!$store.app.bulkRunning">
+            Start Bulk Run
+          </button>
+          <button class="btn-ghost"
+                  x-show="$store.app.bulkRunning"
+                  @click="$store.app.bulkCancel()">
+            Cancel
+          </button>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="bulk-progress" x-show="$store.app.bulkRunning || $store.app.bulkResults.length > 0">
+          <div class="bulk-progress-bar" role="progressbar"
+               :aria-valuenow="$store.app.bulkProgress"
+               aria-valuemin="0" aria-valuemax="100">
+            <div class="bulk-progress-fill"
+                 :style="'width:' + $store.app.bulkProgress + '%'"></div>
+          </div>
+          <span class="bulk-progress-text"
+                x-text="$store.app.bulkCompleted + ' / ' + $store.app.bulkTotalRuns + ($store.app.bulkRunning ? ' running...' : ' complete')"></span>
+        </div>
+
+        <!-- Error banner -->
+        <div class="bulk-error-banner"
+             x-show="$store.app.bulkFailCount > 0 && !$store.app.bulkRunning">
+          <i data-lucide="alert-triangle"></i>
+          <span x-text="$store.app.bulkFailCount + ' of ' + $store.app.bulkTotalRuns + ' runs failed'"></span>
+        </div>
+
+        <!-- Results table -->
+        <div class="bulk-results" x-show="$store.app.bulkResults.length > 0">
+          <div class="bulk-results-header">
+            <span class="bulk-results-title"
+                  x-text="'Results (' + $store.app.bulkResults.length + ')'"></span>
+            <div class="bulk-export-split" @click.outside="$store.app.bulkExportMenuOpen = false">
+              <button class="btn-ghost btn-sm" @click="$store.app.bulkExport('csv')">Export CSV</button>
+              <button class="bulk-export-chevron btn-ghost btn-sm"
+                      @click="$store.app.bulkExportMenuOpen = !$store.app.bulkExportMenuOpen"
+                      aria-label="More export options">
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="bulk-export-menu" x-show="$store.app.bulkExportMenuOpen">
+                <button class="bulk-export-dropdown" @click="$store.app.bulkExport('tsv'); $store.app.bulkExportMenuOpen = false">Export TSV</button>
+                <button class="bulk-export-dropdown" @click="$store.app.bulkExport('xlsx'); $store.app.bulkExportMenuOpen = false">Export Excel</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bulk-table-wrap">
+            <table class="bulk-table">
+              <thead>
+                <tr>
+                  <th class="bulk-sortable" @click="$store.app.bulkSort('test_case')">
+                    Test Case <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'test_case' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
+                  </th>
+                  <th class="bulk-sortable" @click="$store.app.bulkSort('model')">
+                    Model <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'model' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
+                  </th>
+                  <th class="bulk-sortable" @click="$store.app.bulkSort('temperature')">
+                    Temp <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'temperature' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
+                  </th>
+                  <th class="bulk-sortable" @click="$store.app.bulkSort('reasoning_effort')">
+                    RE <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'reasoning_effort' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
+                  </th>
+                  <th class="bulk-sortable" @click="$store.app.bulkSort('latency')">
+                    Latency <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'latency' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
+                  </th>
+                  <th class="bulk-sortable" @click="$store.app.bulkSort('input_tokens')">
+                    In Tokens <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'input_tokens' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
+                  </th>
+                  <th class="bulk-sortable" @click="$store.app.bulkSort('output_tokens')">
+                    Out Tokens <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'output_tokens' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
+                  </th>
+                  <th class="bulk-sortable" @click="$store.app.bulkSort('cost')">
+                    Cost <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'cost' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
+                  </th>
+                  <th class="bulk-sortable" x-show="$store.app.bulkScoreWithJudge" @click="$store.app.bulkSort('score')">
+                    Score <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'score' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
+                  </th>
+                  <th class="bulk-sortable" @click="$store.app.bulkSort('outcome')">
+                    Outcome <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'outcome' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="row in $store.app.bulkSortedResults" :key="row.id">
+                  <tr>
+                    <td x-text="row.test_case"></td>
+                    <td class="mono" x-text="row.model"></td>
+                    <td class="mono" x-text="row.temperature?.toFixed(1) ?? '--'"></td>
+                    <td x-text="row.reasoning_effort || '--'"></td>
+                    <td class="mono" x-text="row.latency ? row.latency.toFixed(1) + 's' : '--'"></td>
+                    <td class="mono" x-text="row.input_tokens?.toLocaleString() ?? '--'"></td>
+                    <td class="mono" x-text="row.output_tokens?.toLocaleString() ?? '--'"></td>
+                    <td class="mono" x-text="row.cost != null ? formatCost(row.cost) : '--'"></td>
+                    <td x-show="$store.app.bulkScoreWithJudge"
+                        :style="row.score != null ? 'color:' + scoreColor(row.score) : ''"
+                        x-text="row.score != null ? row.score.toFixed(1) : '--'"></td>
+                    <td>
+                      <span :class="{ 'eval-pass': row.outcome === 'pass', 'eval-fail': row.outcome === 'fail', 'eval-error': row.outcome === 'error' }"
+                            x-text="row.outcome || '--'"></span>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================== HISTORY SUB-VIEW ======================== -->
+      <div x-show="$store.app.bulkSubView === 'history'">
+        <div x-show="$store.app.bulkHistory.length === 0" class="bulk-empty" style="padding:32px 0;">
+          No bulk runs yet. Start one from the New Run tab.
+        </div>
+        <div class="bulk-history-list" x-show="$store.app.bulkHistory.length > 0">
+          <template x-for="run in $store.app.bulkHistory" :key="run.id">
+            <div class="bulk-history-row">
+              <span class="bulk-history-date" x-text="formatDate(run.created_at)"></span>
+              <span class="bulk-history-config"
+                    x-text="run.test_count + ' tests x ' + run.model_count + ' models x ' + run.temp_count + ' temps'"></span>
+              <span class="bulk-history-status"
+                    :class="{ 'eval-pass': run.status === 'complete', 'eval-fail': run.status === 'failed', 'eval-error': run.status === 'cancelled' }"
+                    x-text="run.status"></span>
+              <div class="bulk-history-actions">
+                <button class="btn-ghost btn-sm" @click="$store.app.bulkLoadRun(run.id)">View</button>
+                <button class="btn-ghost btn-sm" @click="$store.app.bulkExportRun(run.id, 'csv')">Export</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
     </div>
   </div>
 
