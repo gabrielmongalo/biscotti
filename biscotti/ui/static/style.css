@@ -1486,12 +1486,21 @@
     width: 540px;
     max-width: 90vw;
     max-height: 85vh;
-    overflow-y: auto;
+    overflow: visible;
     display: flex;
     flex-direction: column;
     gap: 20px;
     box-shadow: var(--shadow-md);
     animation: slideUp 0.2s ease;
+  }
+  #key-modal-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+    max-height: calc(85vh - 120px);
+    margin: -4px;
+    padding: 4px;
   }
   #key-modal h3 {
     font-size: 15px;

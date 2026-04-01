@@ -994,6 +994,7 @@
     <!-- Add key form -->
     <div x-show="$store.app.disconnectedProviders.length" class="key-modal-form">
       <div class="field-label" style="margin-bottom:6px;">Add Provider</div>
+      <!-- Provider dropdown (outside scroll wrapper so it doesn't clip) -->
       <div class="key-modal-form-row">
         <div class="provider-select-wrap" @click.outside="$store.app.keyModalProviderDropdownOpen = false">
           <button class="provider-select-trigger" @click="$store.app.keyModalProviderDropdownOpen = !$store.app.keyModalProviderDropdownOpen">
@@ -1010,8 +1011,12 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Scrollable form content -->
+    <div id="key-modal-scroll">
       <!-- Standard API key input (non-Azure providers) -->
-      <div x-show="$store.app.keyModalProvider !== 'azure_foundry'" class="key-modal-form-row" style="margin-top:8px;">
+      <div x-show="$store.app.disconnectedProviders.length && $store.app.keyModalProvider !== 'azure_foundry'" class="key-modal-form-row">
         <input type="password" class="key-input" style="flex:1;"
                x-model="$store.app.keyModalValue"
                placeholder="Paste API key..."
@@ -1021,7 +1026,7 @@
       </div>
 
       <!-- Azure Foundry form (shown when Azure Foundry selected) -->
-      <div x-show="$store.app.keyModalProvider === 'azure_foundry'" style="margin-top:16px;display:flex;flex-direction:column;gap:18px;">
+      <div x-show="$store.app.disconnectedProviders.length && $store.app.keyModalProvider === 'azure_foundry'" style="display:flex;flex-direction:column;gap:20px;">
         <div>
           <div class="field-label" style="margin-bottom:6px;">Endpoint</div>
           <input type="text" class="key-input" style="width:100%;"
@@ -1058,19 +1063,19 @@
             <button class="btn btn-ghost btn-sm" style="font-size:11px;align-self:flex-start;" @click="$store.app.addAzureDeployment()">+ Add Deployment</button>
           </div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:4px;">
+        <div style="display:flex;gap:8px;">
           <button class="btn btn-primary btn-sm" @click="$store.app.submitAzureConfig()">Connect</button>
           <template x-if="$store.app.azureConfigured">
             <button class="btn btn-ghost btn-sm" @click="$store.app.disconnectAzure()">Disconnect</button>
           </template>
         </div>
       </div>
-    </div>
 
-    <!-- All connected message -->
-    <div x-show="!$store.app.disconnectedProviders.length && $store.app.connectedProviders.length"
-         style="font-size:12px;color:var(--muted);padding:4px 0;">
-      All providers connected.
+      <!-- All connected message -->
+      <div x-show="!$store.app.disconnectedProviders.length && $store.app.connectedProviders.length"
+           style="font-size:12px;color:var(--muted);padding:4px 0;">
+        All providers connected.
+      </div>
     </div>
 
     <div class="key-modal-actions">
