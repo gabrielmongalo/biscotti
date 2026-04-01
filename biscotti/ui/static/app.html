@@ -1026,27 +1026,27 @@
       </div>
 
       <!-- Azure Foundry form (shown when Azure Foundry selected) -->
-      <div x-show="$store.app.disconnectedProviders.length && $store.app.keyModalProvider === 'azure_foundry'" style="display:flex;flex-direction:column;gap:20px;">
+      <div x-show="$store.app.disconnectedProviders.length && $store.app.keyModalProvider === 'azure_foundry'" style="display:flex;flex-direction:column;">
         <div>
           <div class="field-label" style="margin-bottom:6px;">Endpoint</div>
           <input type="text" class="key-input" style="width:100%;"
                  x-model="$store.app.azureEndpoint"
                  placeholder="https://myresource.openai.azure.com/">
         </div>
-        <div>
+        <div style="margin-top:20px;">
           <div class="field-label" style="margin-bottom:6px;">API Key</div>
           <input type="password" class="key-input" style="width:100%;"
                  x-model="$store.app.azureKey"
                  :placeholder="$store.app.azureConfigured ? '(saved - enter new to update)' : 'sk-...'"
                  @keydown.escape="$store.app.closeKeyModal()">
         </div>
-        <div>
+        <div style="margin-top:20px;">
           <div class="field-label" style="margin-bottom:6px;">API Version</div>
           <input type="text" class="key-input" style="width:100%;"
                  x-model="$store.app.azureApiVersion"
                  placeholder="2024-10-21">
         </div>
-        <div>
+        <div style="margin-top:20px;">
           <div class="field-label" style="margin-bottom:8px;">Deployments</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <template x-for="(dep, idx) in $store.app.azureDeployments" :key="idx">
@@ -1063,7 +1063,7 @@
             <button class="btn btn-ghost btn-sm" style="font-size:11px;align-self:flex-start;" @click="$store.app.addAzureDeployment()">+ Add Deployment</button>
           </div>
         </div>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;margin-top:20px;">
           <button class="btn btn-primary btn-sm" @click="$store.app.submitAzureConfig()">Connect</button>
           <template x-if="$store.app.azureConfigured">
             <button class="btn btn-ghost btn-sm" @click="$store.app.disconnectAzure()">Disconnect</button>
