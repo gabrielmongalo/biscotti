@@ -49,9 +49,10 @@ def build_router(store: PromptStore) -> APIRouter:
     async def ui_root() -> FileResponse:
         return FileResponse(_UI_DIR / "app.html")
 
-    @router.get("/home", response_class=HTMLResponse, include_in_schema=False)
-    async def ui_home() -> FileResponse:
-        return FileResponse(_UI_DIR / "landing.html")
+    @router.get("/home", include_in_schema=False)
+    async def ui_home():
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url=".")
 
     @router.get("/docs", response_class=HTMLResponse, include_in_schema=False)
     async def ui_docs() -> FileResponse:
