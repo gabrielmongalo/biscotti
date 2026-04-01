@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .models import (
+    BulkRunRequest,
     PromptStatus,
     PromptVersion,
     PromptVersionCreate,
@@ -589,6 +590,153 @@ def build_router(store: PromptStore) -> APIRouter:
         from .key_store import remove_azure_config, available_providers
         remove_azure_config()
         return {"status": "ok", "providers": available_providers()}
+
+    # ==================================================================
+    # Bulk Runs
+    # ==================================================================
+
+    @router.post("/api/agents/{agent_name}/bulk-run", tags=["bulk-runs"])
+    async def start_bulk_run(agent_name: str, body: BulkRunRequest) -> dict:
+        """Start a bulk run (matrix of test cases x model configs)."""
+        import asyncio
+        _require_agent(agent_name)
+        body.agent_name = agent_name
+
+        # Resolve prompt version
+        if body.prompt_version_id is not None:
+            pv = await store.get_prompt_version(body.prompt_version_id)
+            prompt_version = pv.version if pv else 0
+        else:
+            pv = await store.get_current_version(agent_name)
+            prompt_version = pv.version if pv else 0
+
+        # Compute total runs from the plan
+        from .bulk import generate_run_plan
+        plan = generate_run_plan(
+            test_case_names=body.test_case_names,
+            models=body.models,
+            temperatures=body.temperatures,
+            reasoning_efforts=body.reasoning_efforts,
+        )
+        total_runs = len(plan)
+
+        # Persist bulk run record
+        config_matrix = {
+            "models": body.models,
+            "temperatures": body.temperatures,
+            "reasoning_efforts": body.reasoning_efforts,
+        }
+        bulk_run_id = await store.save_bulk_run(
+            agent_name=agent_name,
+            prompt_version=prompt_version,
+            config_matrix=config_matrix,
+            test_cases=body.test_case_names,
+            include_eval=body.include_eval,
+            judge_model=body.judge_model,
+            concurrency=body.concurrency,
+            total_runs=total_runs,
+        )
+
+        # Launch background execution
+        from .bulk import execute_bulk_run_by_id
+        asyncio.create_task(execute_bulk_run_by_id(bulk_run_id, body, store))
+
+        bulk_run = await store.get_bulk_run(bulk_run_id)
+        return bulk_run
+
+    @router.get("/api/agents/{agent_name}/bulk-runs", tags=["bulk-runs"])
+    async def list_bulk_runs(agent_name: str, limit: int = 50) -> list[dict]:
+        _require_agent(agent_name)
+        return await store.list_bulk_runs(agent_name, limit=limit)
+
+    @router.get("/api/agents/{agent_name}/bulk-runs/{bulk_run_id}", tags=["bulk-runs"])
+    async def get_bulk_run_detail(agent_name: str, bulk_run_id: int) -> dict:
+        _require_agent(agent_name)
+        bulk_run = await store.get_bulk_run(bulk_run_id)
+        if bulk_run is None or bulk_run["agent_name"] != agent_name:
+            raise HTTPException(404, "Bulk run not found")
+        runs = await store.get_bulk_run_runs(bulk_run_id)
+        bulk_run["runs"] = [r.model_dump(mode="json") for r in runs]
+        return bulk_run
+
+    @router.get("/api/agents/{agent_name}/bulk-runs/{bulk_run_id}/stream", tags=["bulk-runs"])
+    async def stream_bulk_run(agent_name: str, bulk_run_id: int):
+        """SSE stream that polls bulk run progress."""
+        import asyncio
+        import json
+        from starlette.responses import StreamingResponse
+
+        _require_agent(agent_name)
+        bulk_run = await store.get_bulk_run(bulk_run_id)
+        if bulk_run is None or bulk_run["agent_name"] != agent_name:
+            raise HTTPException(404, "Bulk run not found")
+
+        last_completed = -1
+
+        async def event_stream():
+            nonlocal last_completed
+            while True:
+                br = await store.get_bulk_run(bulk_run_id)
+                if br is None:
+                    break
+
+                current_completed = br["completed_runs"]
+
+                # Emit individual run_complete events for newly completed runs
+                if current_completed > last_completed:
+                    runs = await store.get_bulk_run_runs(bulk_run_id)
+                    for run in runs[max(last_completed, 0):current_completed]:
+                        yield f"event: run_complete\ndata: {json.dumps(run.model_dump(mode='json'))}\n\n"
+
+                    yield f"event: progress\ndata: {json.dumps({'completed': current_completed, 'total': br['total_runs']})}\n\n"
+                    last_completed = current_completed
+
+                if br["status"] in ("completed", "cancelled", "error"):
+                    yield f"event: done\ndata: {json.dumps({'id': bulk_run_id, 'status': br['status'], 'completed': br['completed_runs'], 'total': br['total_runs']})}\n\n"
+                    break
+
+                await asyncio.sleep(0.3)
+
+        return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+    @router.get("/api/agents/{agent_name}/bulk-runs/{bulk_run_id}/export", tags=["bulk-runs"])
+    async def export_bulk_run(
+        agent_name: str,
+        bulk_run_id: int,
+        format: str = "csv",
+    ):
+        from starlette.responses import Response
+        from .export import generate_export
+
+        _require_agent(agent_name)
+        bulk_run = await store.get_bulk_run(bulk_run_id)
+        if bulk_run is None or bulk_run["agent_name"] != agent_name:
+            raise HTTPException(404, "Bulk run not found")
+
+        runs = await store.get_bulk_run_runs(bulk_run_id)
+        include_score = bulk_run.get("include_eval", False)
+        data = generate_export(runs, format=format, include_score=include_score)
+
+        content_types = {
+            "csv": "text/csv",
+            "tsv": "text/tab-separated-values",
+            "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+        ext = format if format in content_types else "csv"
+        return Response(
+            content=data,
+            media_type=content_types.get(ext, "text/csv"),
+            headers={"Content-Disposition": f'attachment; filename="bulk-run-{bulk_run_id}.{ext}"'},
+        )
+
+    @router.post("/api/agents/{agent_name}/bulk-runs/{bulk_run_id}/cancel", tags=["bulk-runs"])
+    async def cancel_bulk_run(agent_name: str, bulk_run_id: int) -> dict:
+        _require_agent(agent_name)
+        bulk_run = await store.get_bulk_run(bulk_run_id)
+        if bulk_run is None or bulk_run["agent_name"] != agent_name:
+            raise HTTPException(404, "Bulk run not found")
+        await store.update_bulk_run(bulk_run_id, status="cancelled")
+        return {"id": bulk_run_id, "status": "cancelled"}
 
     # ==================================================================
     # Health
