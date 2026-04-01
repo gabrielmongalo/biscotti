@@ -804,6 +804,7 @@ a:hover { color: var(--accent-hover); }
       <a href="#extended-callable" class="sidebar-link" data-section="extended-callable">Extended Callable</a>
       <a href="#return-types" class="sidebar-link" data-section="return-types">Return Types</a>
       <a href="#claude-code" class="sidebar-link" data-section="claude-code">Claude Code</a>
+      <a href="#azure-foundry" class="sidebar-link" data-section="azure-foundry">Azure Foundry</a>
     </div>
 
     <div class="sidebar-group">
@@ -1243,6 +1244,41 @@ async def my_agent(user_message: str, system_prompt: str, params: dict) -> str:
         </ul>
       </section>
 
+      <section class="doc-section" id="azure-foundry">
+        <h2><a href="#azure-foundry" class="anchor-link">#</a>Azure Foundry</h2>
+        <p>Use Azure-hosted model deployments as your judge or coach model.</p>
+        <h3>Setup</h3>
+        <ol>
+          <li>Click <strong>API Keys</strong> in the sidebar</li>
+          <li>Select <strong>Azure Foundry</strong> from the provider dropdown</li>
+          <li>Enter your Azure OpenAI resource details:</li>
+        </ol>
+        <ul>
+          <li><strong>Endpoint</strong> -- your resource URL, e.g. <code>https://myresource.openai.azure.com/</code></li>
+          <li><strong>API Key</strong> -- your Azure API key</li>
+          <li><strong>API Version</strong> -- defaults to <code>2024-10-21</code></li>
+          <li><strong>Deployments</strong> -- one or more deployment names</li>
+        </ul>
+        <h3>Usage</h3>
+        <p>Once connected, your deployments appear in model dropdowns with the <code>azure:</code> prefix. Select them like any other model:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">example</span>
+          </div>
+          <div class="code-body">
+<pre>azure:my-gpt4o-deploy
+azure:my-embedding-deploy</pre>
+          </div>
+        </div>
+        <p>Under the hood, biscotti routes <code>azure:*</code> models through the Azure OpenAI client with your configured endpoint and credentials. The configuration is session-only and never persisted to disk.</p>
+        <h3>REST API</h3>
+        <ul>
+          <li><code>GET /api/settings/azure</code> -- returns current config (without the key)</li>
+          <li><code>POST /api/settings/azure</code> -- set config (endpoint, key, api_version, deployments)</li>
+          <li><code>DELETE /api/settings/azure</code> -- remove config</li>
+        </ul>
+      </section>
+
       <!-- ============================================================
            API Reference
            ============================================================ -->
@@ -1323,17 +1359,7 @@ export OPENAI_API_KEY=sk-...'>Copy</button>
           </div>
         </div>
         <h3>API Keys panel</h3>
-        <p>Click "API Keys" in the sidebar to open the key management panel. Select a provider from the dropdown and paste your key. Keys are session-only and never written to disk.</p>
-
-        <h3 id="azure-foundry">Azure Foundry</h3>
-        <p>To use Azure-hosted models as your judge or coach, select "Azure Foundry" from the provider dropdown in the API Keys panel and configure:</p>
-        <ul>
-          <li><strong>Endpoint</strong> -- your Azure OpenAI resource URL (e.g. <code>https://myresource.openai.azure.com/</code>)</li>
-          <li><strong>API Key</strong> -- your Azure API key</li>
-          <li><strong>API Version</strong> -- defaults to <code>2024-10-21</code></li>
-          <li><strong>Deployments</strong> -- one or more deployment names you want to use</li>
-        </ul>
-        <p>Once connected, deployments appear in model dropdowns as <code>azure:deployment-name</code>. The configuration is session-only, same as other API keys.</p>
+        <p>Click "API Keys" in the sidebar to open the key management panel. Select a provider from the dropdown and paste your key. Keys are session-only and never written to disk. For Azure-hosted models, see the <a href="#azure-foundry">Azure Foundry</a> integration.</p>
       </section>
 
       <!-- ============================================================
@@ -1565,6 +1591,7 @@ app.<span class="fn">include_router</span>(bi.router, <span class="par">prefix</
     'extended-callable': 'Integrations',
     'return-types': 'Integrations',
     'claude-code': 'Integrations',
+    'azure-foundry': 'Integrations',
     'rest-api': 'API Reference',
     'data-models': 'API Reference',
     'api-keys': 'API Reference',
