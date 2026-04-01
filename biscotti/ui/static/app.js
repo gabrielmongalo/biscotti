@@ -222,6 +222,29 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     azureDeployments: [''],
     azureConfigured: false,
 
+    // --- Bulk Run ---
+    bulkSubView: 'new',
+    bulkSelectedTests: [],
+    bulkSelectedModels: [],
+    bulkTemperatures: [],
+    bulkReasoningEfforts: [],
+    bulkIncludeEval: false,
+    bulkJudgeModel: '',
+    bulkConcurrency: 3,
+    bulkAdvancedOpen: false,
+    bulkRunning: false,
+    bulkConfigExpanded: false,
+    bulkResults: [],
+    bulkCompleted: 0,
+    bulkTotalRuns: 0,
+    bulkCurrentId: null,
+    bulkHistory: [],
+    bulkSortCol: null,
+    bulkSortAsc: true,
+    bulkExportOpen: false,
+    _bulkTempInput: null,
+    _bulkEventSource: null,
+
     // --- Computed ---
     get evalSettingsDirty() {
       return this.judgeModel !== this._savedJudgeModel || this.serializeCriteria(this.criteriaRows) !== this._savedJudgeCriteria;
@@ -527,6 +550,11 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         });
       } else if (view === 'versions') {
         this.loadVersions();
+      }
+      if (view === 'bulk' && this.currentAgent) {
+        this.loadTestCases();
+        this.loadModels();
+        this.loadBulkHistory();
       }
       setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 0);
     },
@@ -1525,6 +1553,248 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       const btn = event.currentTarget;
       btn.classList.add('copied');
       setTimeout(() => btn.classList.remove('copied'), 1200);
+    },
+
+    // ================================================================
+    // Bulk Run
+    // ================================================================
+
+    get bulkCanStart() {
+      return this.bulkSelectedTests.length > 0
+        && this.bulkSelectedModels.length > 0
+        && (this.bulkTemperatures.length > 0 || this.bulkReasoningEfforts.length > 0)
+        && !this.bulkRunning;
+    },
+
+    get bulkSummaryText() {
+      const t = this.bulkSelectedTests.length;
+      const m = this.bulkSelectedModels.length;
+      const temps = this.bulkTemperatures.length;
+      const res = this.bulkReasoningEfforts.length;
+      const axes = temps + res;
+      if (t === 0 || m === 0 || axes === 0) {
+        return '<span style="color:var(--muted)">Select test cases, models, and at least one temperature or reasoning effort</span>';
+      }
+      const total = t * m * axes;
+      return `<span class="mono">${t}</span> test case${t !== 1 ? 's' : ''} &times; <span class="mono">${m}</span> model${m !== 1 ? 's' : ''} &times; <span class="mono">${axes}</span> config${axes !== 1 ? 's' : ''} = <strong class="mono">${total} run${total !== 1 ? 's' : ''}</strong>`;
+    },
+
+    get bulkConfigSummary() {
+      const t = this.bulkSelectedTests.length;
+      const m = this.bulkSelectedModels.length;
+      const axes = this.bulkTemperatures.length + this.bulkReasoningEfforts.length;
+      return `${t} case${t !== 1 ? 's' : ''} x ${m} model${m !== 1 ? 's' : ''} x ${axes} config${axes !== 1 ? 's' : ''}`;
+    },
+
+    get bulkProgressPercent() {
+      if (this.bulkTotalRuns <= 0) return 0;
+      return Math.round((this.bulkCompleted / this.bulkTotalRuns) * 100);
+    },
+
+    get bulkErrorCount() {
+      return this.bulkResults.filter(r => r.outcome === 'error').length;
+    },
+
+    get sortedBulkResults() {
+      if (!this.bulkSortCol) return this.bulkResults;
+      const col = this.bulkSortCol;
+      const asc = this.bulkSortAsc;
+      return [...this.bulkResults].sort((a, b) => {
+        let va = a[col], vb = b[col];
+        if (va == null) va = '';
+        if (vb == null) vb = '';
+        if (typeof va === 'number' && typeof vb === 'number') return asc ? va - vb : vb - va;
+        return asc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+      });
+    },
+
+    toggleAllTests(checked) {
+      if (checked) {
+        this.bulkSelectedTests = this.testCases.map(tc => tc.name);
+      } else {
+        this.bulkSelectedTests = [];
+      }
+    },
+
+    toggleTest(name) {
+      const idx = this.bulkSelectedTests.indexOf(name);
+      if (idx === -1) {
+        this.bulkSelectedTests.push(name);
+      } else {
+        this.bulkSelectedTests.splice(idx, 1);
+      }
+    },
+
+    addModel(m) {
+      if (m && !this.bulkSelectedModels.includes(m)) {
+        this.bulkSelectedModels.push(m);
+      }
+    },
+
+    removeModel(m) {
+      this.bulkSelectedModels = this.bulkSelectedModels.filter(x => x !== m);
+    },
+
+    addTemp() {
+      const val = parseFloat(this._bulkTempInput);
+      if (isNaN(val) || val < 0 || val > 2) {
+        showToast('Temperature must be between 0 and 2', 'error');
+        return;
+      }
+      const rounded = Math.round(val * 100) / 100;
+      if (!this.bulkTemperatures.includes(rounded)) {
+        this.bulkTemperatures.push(rounded);
+        this.bulkTemperatures.sort((a, b) => a - b);
+      }
+      this._bulkTempInput = null;
+    },
+
+    removeTemp(t) {
+      this.bulkTemperatures = this.bulkTemperatures.filter(x => x !== t);
+    },
+
+    toggleRE(re) {
+      const idx = this.bulkReasoningEfforts.indexOf(re);
+      if (idx === -1) {
+        this.bulkReasoningEfforts.push(re);
+      } else {
+        this.bulkReasoningEfforts.splice(idx, 1);
+      }
+    },
+
+    sortBulk(col) {
+      if (this.bulkSortCol === col) {
+        this.bulkSortAsc = !this.bulkSortAsc;
+      } else {
+        this.bulkSortCol = col;
+        this.bulkSortAsc = true;
+      }
+    },
+
+    async startBulkRun() {
+      if (!this.bulkCanStart) return;
+      const agent = this.currentAgent;
+      this.bulkRunning = true;
+      this.bulkResults = [];
+      this.bulkCompleted = 0;
+      this.bulkSubView = 'new';
+      this.bulkExportOpen = false;
+
+      const configMatrix = [];
+      for (const temp of this.bulkTemperatures) {
+        configMatrix.push({ temperature: temp });
+      }
+      for (const re of this.bulkReasoningEfforts) {
+        configMatrix.push({ reasoning_effort: re });
+      }
+
+      this.bulkTotalRuns = this.bulkSelectedTests.length * this.bulkSelectedModels.length * configMatrix.length;
+
+      try {
+        const data = await api(`/api/agents/${encodeURIComponent(agent)}/bulk-run`, 'POST', {
+          test_names: this.bulkSelectedTests,
+          models: this.bulkSelectedModels,
+          config_matrix: configMatrix,
+          include_eval: this.bulkIncludeEval,
+          judge_model: this.bulkIncludeEval ? this.bulkJudgeModel : null,
+          concurrency: this.bulkConcurrency,
+        });
+
+        this.bulkCurrentId = data.bulk_run_id;
+
+        // Connect to SSE stream
+        if (this._bulkEventSource) this._bulkEventSource.close();
+        const es = new EventSource(BASE + `/api/agents/${encodeURIComponent(agent)}/bulk-run/${data.bulk_run_id}/stream`);
+        this._bulkEventSource = es;
+
+        es.addEventListener('run_complete', (e) => {
+          const result = JSON.parse(e.data);
+          this.bulkResults.push(result);
+        });
+
+        es.addEventListener('progress', (e) => {
+          const d = JSON.parse(e.data);
+          this.bulkCompleted = d.completed;
+        });
+
+        es.addEventListener('done', () => {
+          this.bulkRunning = false;
+          es.close();
+          this._bulkEventSource = null;
+          this.loadBulkHistory();
+          showToast('Bulk run complete', 'info');
+        });
+
+        es.addEventListener('error_event', (e) => {
+          const d = JSON.parse(e.data);
+          showToast(d.message || 'Bulk run error', 'error');
+        });
+
+        es.onerror = () => {
+          this.bulkRunning = false;
+          es.close();
+          this._bulkEventSource = null;
+          showToast('Lost connection to bulk run stream', 'error');
+        };
+      } catch (err) {
+        this.bulkRunning = false;
+        showToast(err.message, 'error');
+      }
+    },
+
+    async cancelBulkRun() {
+      if (!this.bulkCurrentId || !this.currentAgent) return;
+      try {
+        await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/bulk-run/${this.bulkCurrentId}/cancel`, 'POST');
+        showToast('Bulk run cancelled', 'info');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    },
+
+    async loadBulkHistory() {
+      if (!this.currentAgent) return;
+      try {
+        const data = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/bulk-runs`);
+        this.bulkHistory = data;
+      } catch (err) {
+        console.warn('Failed to load bulk history:', err);
+      }
+    },
+
+    formatBulkConfig(run) {
+      if (!run.config_matrix) return '';
+      const parts = [];
+      for (const cfg of run.config_matrix) {
+        if (cfg.temperature !== undefined) parts.push(`t=${cfg.temperature}`);
+        if (cfg.reasoning_effort !== undefined) parts.push(`re=${cfg.reasoning_effort}`);
+      }
+      return parts.join(', ');
+    },
+
+    async viewBulkRun(id) {
+      if (!this.currentAgent) return;
+      try {
+        const data = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/bulk-run/${id}`);
+        this.bulkCurrentId = id;
+        this.bulkResults = data.runs || [];
+        this.bulkTotalRuns = data.total_runs || this.bulkResults.length;
+        this.bulkCompleted = this.bulkResults.length;
+        this.bulkSubView = 'new';
+        this.bulkConfigExpanded = false;
+        this.bulkRunning = false;
+        setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    },
+
+    exportBulkRun(format, id) {
+      const bulkId = id || this.bulkCurrentId;
+      if (!bulkId || !this.currentAgent) return;
+      const url = BASE + `/api/agents/${encodeURIComponent(this.currentAgent)}/bulk-run/${bulkId}/export?format=${format}`;
+      window.open(url, '_blank');
+      this.bulkExportOpen = false;
     },
   });
 });
