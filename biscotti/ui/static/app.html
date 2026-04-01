@@ -969,7 +969,7 @@
                 :class="{ active: $store.app.bulkSubView === 'history' }"
                 role="tab"
                 :aria-selected="$store.app.bulkSubView === 'history'"
-                @click="$store.app.bulkSubView = 'history'">History</button>
+                @click="$store.app.bulkSubView = 'history'; $store.app.loadBulkHistory()">History</button>
       </div>
 
       <!-- ======================== NEW RUN SUB-VIEW ======================== -->
@@ -994,8 +994,8 @@
                     <label class="bulk-tc-item">
                       <input type="checkbox"
                              :value="tc.id"
-                             :checked="$store.app.bulkSelectedTests.includes(tc.id)"
-                             @change="$store.app.bulkToggleTest(tc.id)">
+                             :checked="$store.app.bulkSelectedTests.includes(tc.name)"
+                             @change="$store.app.bulkToggleTest(tc.name)">
                       <span x-text="tc.name"></span>
                     </label>
                   </template>
@@ -1083,11 +1083,11 @@
                   <div>
                     <label class="bulk-check-item">
                       <input type="checkbox"
-                             :checked="$store.app.bulkScoreWithJudge"
-                             @change="$store.app.bulkScoreWithJudge = $event.target.checked">
+                             :checked="$store.app.bulkIncludeEval"
+                             @change="$store.app.bulkIncludeEval = $event.target.checked">
                       <span>Score with Judge</span>
                     </label>
-                    <div x-show="$store.app.bulkScoreWithJudge" style="margin-top:8px;">
+                    <div x-show="$store.app.bulkIncludeEval" style="margin-top:8px;">
                       <div class="bulk-label">Judge Model</div>
                       <select class="input" x-model="$store.app.bulkJudgeModel">
                         <template x-for="m in $store.app.availableModels" :key="m">
@@ -1121,16 +1121,16 @@
         </div>
 
         <!-- Start / Cancel -->
-        <div style="display:flex;gap:8px;margin-bottom:16px;">
-          <button class="btn-primary"
-                  :disabled="$store.app.bulkRunning || $store.app.bulkTotalRuns === 0"
-                  @click="$store.app.bulkStart()"
+        <div style="display:flex;gap:8px;margin-bottom:16px;justify-content:flex-end;">
+          <button class="btn btn-primary"
+                  :disabled="!$store.app.bulkCanStart"
+                  @click="$store.app.startBulkRun()"
                   x-show="!$store.app.bulkRunning">
             Start Bulk Run
           </button>
-          <button class="btn-ghost"
+          <button class="btn btn-ghost"
                   x-show="$store.app.bulkRunning"
-                  @click="$store.app.bulkCancel()">
+                  @click="$store.app.cancelBulkRun()">
             Cancel
           </button>
         </div>
@@ -1138,10 +1138,10 @@
         <!-- Progress bar -->
         <div class="bulk-progress" x-show="$store.app.bulkRunning || $store.app.bulkResults.length > 0">
           <div class="bulk-progress-bar" role="progressbar"
-               :aria-valuenow="$store.app.bulkProgress"
+               :aria-valuenow="$store.app.bulkProgressPercent"
                aria-valuemin="0" aria-valuemax="100">
             <div class="bulk-progress-fill"
-                 :style="'width:' + $store.app.bulkProgress + '%'"></div>
+                 :style="'width:' + $store.app.bulkProgressPercent + '%'"></div>
           </div>
           <span class="bulk-progress-text"
                 x-text="$store.app.bulkCompleted + ' / ' + $store.app.bulkTotalRuns + ($store.app.bulkRunning ? ' running...' : ' complete')"></span>
@@ -1149,9 +1149,9 @@
 
         <!-- Error banner -->
         <div class="bulk-error-banner"
-             x-show="$store.app.bulkFailCount > 0 && !$store.app.bulkRunning">
+             x-show="$store.app.bulkErrorCount > 0 && !$store.app.bulkRunning">
           <i data-lucide="alert-triangle"></i>
-          <span x-text="$store.app.bulkFailCount + ' of ' + $store.app.bulkTotalRuns + ' runs failed'"></span>
+          <span x-text="$store.app.bulkErrorCount + ' of ' + $store.app.bulkTotalRuns + ' runs failed'"></span>
         </div>
 
         <!-- Results table -->
@@ -1159,16 +1159,16 @@
           <div class="bulk-results-header">
             <span class="bulk-results-title"
                   x-text="'Results (' + $store.app.bulkResults.length + ')'"></span>
-            <div class="bulk-export-split" @click.outside="$store.app.bulkExportMenuOpen = false">
-              <button class="btn-ghost btn-sm" @click="$store.app.bulkExport('csv')">Export CSV</button>
+            <div class="bulk-export-split" @click.outside="$store.app.bulkExportOpen = false">
+              <button class="btn-ghost btn-sm" @click="$store.app.exportBulkRun('csv')">Export CSV</button>
               <button class="bulk-export-chevron btn-ghost btn-sm"
-                      @click="$store.app.bulkExportMenuOpen = !$store.app.bulkExportMenuOpen"
+                      @click="$store.app.bulkExportOpen = !$store.app.bulkExportOpen"
                       aria-label="More export options">
                 <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <div class="bulk-export-menu" x-show="$store.app.bulkExportMenuOpen">
-                <button class="bulk-export-dropdown" @click="$store.app.bulkExport('tsv'); $store.app.bulkExportMenuOpen = false">Export TSV</button>
-                <button class="bulk-export-dropdown" @click="$store.app.bulkExport('xlsx'); $store.app.bulkExportMenuOpen = false">Export Excel</button>
+              <div class="bulk-export-menu" x-show="$store.app.bulkExportOpen">
+                <button class="bulk-export-dropdown" @click="$store.app.exportBulkRun('tsv'); $store.app.bulkExportOpen = false">Export TSV</button>
+                <button class="bulk-export-dropdown" @click="$store.app.exportBulkRun('xlsx'); $store.app.bulkExportOpen = false">Export Excel</button>
               </div>
             </div>
           </div>
@@ -1201,7 +1201,7 @@
                   <th class="bulk-sortable" @click="$store.app.bulkSort('cost')">
                     Cost <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'cost' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
                   </th>
-                  <th class="bulk-sortable" x-show="$store.app.bulkScoreWithJudge" @click="$store.app.bulkSort('score')">
+                  <th class="bulk-sortable" x-show="$store.app.bulkIncludeEval" @click="$store.app.bulkSort('score')">
                     Score <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'score' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
                   </th>
                   <th class="bulk-sortable" @click="$store.app.bulkSort('outcome')">
@@ -1220,7 +1220,7 @@
                     <td class="mono" x-text="row.input_tokens?.toLocaleString() ?? '--'"></td>
                     <td class="mono" x-text="row.output_tokens?.toLocaleString() ?? '--'"></td>
                     <td class="mono" x-text="row.cost != null ? formatCost(row.cost) : '--'"></td>
-                    <td x-show="$store.app.bulkScoreWithJudge"
+                    <td x-show="$store.app.bulkIncludeEval"
                         :style="row.score != null ? 'color:' + scoreColor(row.score) : ''"
                         x-text="row.score != null ? row.score.toFixed(1) : '--'"></td>
                     <td>
@@ -1243,15 +1243,15 @@
         <div class="bulk-history-list" x-show="$store.app.bulkHistory.length > 0">
           <template x-for="run in $store.app.bulkHistory" :key="run.id">
             <div class="bulk-history-row">
-              <span class="bulk-history-date" x-text="formatDate(run.created_at)"></span>
+              <span class="bulk-history-date mono" x-text="formatDate(run.created_at)"></span>
               <span class="bulk-history-config"
-                    x-text="run.test_count + ' tests x ' + run.model_count + ' models x ' + run.temp_count + ' temps'"></span>
+                    x-text="$store.app.formatBulkConfig(run)"></span>
               <span class="bulk-history-status"
-                    :class="{ 'eval-pass': run.status === 'complete', 'eval-fail': run.status === 'failed', 'eval-error': run.status === 'cancelled' }"
+                    :class="'status-' + run.status"
                     x-text="run.status"></span>
               <div class="bulk-history-actions">
-                <button class="btn-ghost btn-sm" @click="$store.app.bulkLoadRun(run.id)">View</button>
-                <button class="btn-ghost btn-sm" @click="$store.app.bulkExportRun(run.id, 'csv')">Export</button>
+                <button class="btn btn-ghost btn-sm" @click="$store.app.viewBulkRun(run.id)">View</button>
+                <button class="btn btn-ghost btn-sm" @click="$store.app.exportBulkRun('csv', run.id)">Export</button>
               </div>
             </div>
           </template>

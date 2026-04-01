@@ -244,6 +244,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     bulkExportOpen: false,
     bulkTempInput: null,
     _bulkEventSource: null,
+    bulkConfigCollapsed: false,
     _bulkModelDropdownOpen: false,
     _bulkModelSearch: '',
 
@@ -1610,7 +1611,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       });
     },
 
-    toggleAllTests(checked) {
+    bulkToggleAllTests(checked) {
       if (checked) {
         this.bulkSelectedTests = this.testCases.map(tc => tc.name);
       } else {
@@ -1618,7 +1619,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       }
     },
 
-    toggleTest(name) {
+    bulkToggleTest(name) {
       const idx = this.bulkSelectedTests.indexOf(name);
       if (idx === -1) {
         this.bulkSelectedTests.push(name);
@@ -1655,7 +1656,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.bulkSelectedTemps = this.bulkSelectedTemps.filter(x => x !== t);
     },
 
-    toggleRE(re) {
+    bulkToggleReasoningEffort(re) {
       const idx = this.bulkReasoningEfforts.indexOf(re);
       if (idx === -1) {
         this.bulkReasoningEfforts.push(re);
