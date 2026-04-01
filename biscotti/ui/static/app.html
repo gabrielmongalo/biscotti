@@ -1008,13 +1008,20 @@
               <!-- RIGHT: Models + Temperatures -->
               <div class="bulk-config-section">
                 <div class="bulk-label">Models</div>
-                <select class="input bulk-model-select"
-                        @change="$store.app.bulkAddModel($event.target.value); $event.target.value = ''">
-                  <option value="" disabled selected>Add model...</option>
-                  <template x-for="m in $store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m))" :key="m">
-                    <option :value="m" x-text="m"></option>
-                  </template>
-                </select>
+                <div class="typeahead-wrap" @click.outside="$store.app._bulkModelDropdownOpen = false">
+                  <input type="text" class="model-input" style="width:100%;cursor:pointer;caret-color:transparent;"
+                         placeholder="Add model..."
+                         readonly
+                         @focus="$store.app._bulkModelDropdownOpen = true"
+                         @keydown.escape="$store.app._bulkModelDropdownOpen = false; $el.blur()"
+                         @keydown.tab="$store.app._bulkModelDropdownOpen = false">
+                  <div class="typeahead-dropdown" :class="{ open: $store.app._bulkModelDropdownOpen }">
+                    <template x-for="m in $store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m))" :key="m">
+                      <div class="typeahead-item" @mousedown.prevent="$store.app.bulkAddModel(m); $store.app._bulkModelDropdownOpen = false" x-text="m"></div>
+                    </template>
+                    <div class="typeahead-empty" x-show="$store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m)).length === 0">All models selected</div>
+                  </div>
+                </div>
                 <div class="bulk-chip-container">
                   <template x-for="model in $store.app.bulkSelectedModels" :key="model">
                     <span class="bulk-chip">
@@ -1110,19 +1117,7 @@
 
         <!-- Summary bar -->
         <div class="bulk-summary-bar">
-          <span x-text="$store.app.bulkSelectedTests.length + ' tests'"></span>
-          <span class="mono">x</span>
-          <span x-text="$store.app.bulkSelectedModels.length + ' models'"></span>
-          <span class="mono">x</span>
-          <span x-text="$store.app.bulkSelectedTemps.length + ' temps'"></span>
-          <template x-if="$store.app.bulkReasoningEfforts.length > 0">
-            <span>
-              <span class="mono">x</span>
-              <span x-text="$store.app.bulkReasoningEfforts.length + ' RE'"></span>
-            </span>
-          </template>
-          <span class="mono">=</span>
-          <strong x-text="$store.app.bulkTotalRuns + ' runs'"></strong>
+          <span x-html="$store.app.bulkSummaryText"></span>
         </div>
 
         <!-- Start / Cancel -->

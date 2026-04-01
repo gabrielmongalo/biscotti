@@ -3365,17 +3365,6 @@
   font-size: 14px; line-height: 1; padding: 0 2px;
 }
 .bulk-chip-x:hover { color: var(--red); }
-.bulk-model-select {
-  width: 100%;
-  appearance: none; -webkit-appearance: none;
-  background: var(--surface2) url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
-  border: 1px solid var(--border2); border-radius: 6px;
-  padding: 7px 28px 7px 10px; font-size: 13px; color: var(--text);
-  font-family: var(--sans); cursor: pointer;
-}
-.bulk-model-select:hover { border-color: var(--border3); }
-.bulk-model-select:focus { outline: none; border-color: var(--accent); }
-
 /* Temperature add */
 .bulk-temp-add { display: flex; gap: 6px; align-items: center; }
 .bulk-temp-add input {

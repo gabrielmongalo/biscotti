@@ -244,6 +244,8 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     bulkExportOpen: false,
     bulkTempInput: null,
     _bulkEventSource: null,
+    _bulkModelDropdownOpen: false,
+    _bulkModelSearch: '',
 
     // --- Computed ---
     get evalSettingsDirty() {
@@ -1680,31 +1682,28 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.bulkSubView = 'new';
       this.bulkExportOpen = false;
 
-      const configMatrix = [];
-      for (const temp of this.bulkSelectedTemps) {
-        configMatrix.push({ temperature: temp });
-      }
-      for (const re of this.bulkReasoningEfforts) {
-        configMatrix.push({ reasoning_effort: re });
-      }
-
-      this.bulkTotalRuns = this.bulkSelectedTests.length * this.bulkSelectedModels.length * configMatrix.length;
+      const temps = this.bulkSelectedTemps;
+      const res = this.bulkReasoningEfforts;
+      this.bulkTotalRuns = this.bulkSelectedTests.length * this.bulkSelectedModels.length * ((temps.length + res.length) || 1);
 
       try {
         const data = await api(`/api/agents/${encodeURIComponent(agent)}/bulk-run`, 'POST', {
-          test_names: this.bulkSelectedTests,
+          agent_name: agent,
+          test_case_names: this.bulkSelectedTests,
           models: this.bulkSelectedModels,
-          config_matrix: configMatrix,
+          temperatures: temps,
+          reasoning_efforts: res,
           include_eval: this.bulkIncludeEval,
           judge_model: this.bulkIncludeEval ? this.bulkJudgeModel : null,
           concurrency: this.bulkConcurrency,
         });
 
-        this.bulkCurrentId = data.bulk_run_id;
+        this.bulkCurrentId = data.id;
+        this.bulkTotalRuns = data.total_runs;
 
         // Connect to SSE stream
         if (this._bulkEventSource) this._bulkEventSource.close();
-        const es = new EventSource(BASE + `/api/agents/${encodeURIComponent(agent)}/bulk-run/${data.bulk_run_id}/stream`);
+        const es = new EventSource(BASE + `/api/agents/${encodeURIComponent(agent)}/bulk-runs/${data.id}/stream`);
         this._bulkEventSource = es;
 
         es.addEventListener('run_complete', (e) => {
