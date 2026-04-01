@@ -28,6 +28,13 @@ class RunOutcome(str, Enum):
     error = "error"
 
 
+class BulkRunStatus(str, Enum):
+    running = "running"
+    completed = "completed"
+    cancelled = "cancelled"
+    error = "error"
+
+
 # ---------------------------------------------------------------------------
 # Agent registration (in-memory, populated by @biscotti decorator)
 # ---------------------------------------------------------------------------
@@ -125,6 +132,7 @@ class RunLog(BaseModel):
     temperature: float | None = None
     reasoning_effort: str | None = None
     estimated_cost: float | None = None
+    bulk_run_id: int | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -221,3 +229,37 @@ class CoachResponse(BaseModel):
     summary: str
     suggestions: list[CoachSuggestion]
     revised_prompt: str
+
+
+# ---------------------------------------------------------------------------
+# Bulk run
+# ---------------------------------------------------------------------------
+
+class BulkRunRequest(BaseModel):
+    agent_name: str
+    prompt_version_id: int | None = None
+    models: list[str]
+    temperatures: list[float]
+    reasoning_efforts: list[str] = Field(default_factory=list)
+    test_case_names: list[str]
+    include_eval: bool = False
+    judge_model: str | None = None
+    concurrency: int = 3
+
+
+class BulkRunSummary(BaseModel):
+    id: int | None = None
+    agent_name: str
+    config_matrix: dict[str, Any]
+    test_cases: list[str]
+    include_eval: bool = False
+    judge_model: str | None = None
+    concurrency: int = 3
+    total_runs: int = 0
+    completed_runs: int = 0
+    status: BulkRunStatus = BulkRunStatus.running
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class BulkRunDetail(BulkRunSummary):
+    runs: list[RunLog] = Field(default_factory=list)
