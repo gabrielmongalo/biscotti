@@ -1064,7 +1064,7 @@
                 </svg>
                 Advanced Settings
               </button>
-              <div class="settings-body" x-show="$store.app.bulkAdvancedOpen" x-collapse>
+              <div class="settings-body" :class="{ open: $store.app.bulkAdvancedOpen }">
                 <div class="bulk-advanced-grid">
                   <div>
                     <div class="bulk-label">Reasoning Effort</div>
