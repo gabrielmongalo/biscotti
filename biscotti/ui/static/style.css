@@ -3373,12 +3373,82 @@
   font-size: 13px; font-family: 'DM Mono', monospace;
 }
 
-/* Advanced settings grid */
-.bulk-advanced-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 8px 0; }
-@media (max-width: 700px) { .bulk-advanced-grid { grid-template-columns: 1fr; } }
+/* Advanced settings panel */
+.bulk-advanced-panel {
+  padding: 12px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bulk-advanced-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .bulk-checks { display: flex; gap: 12px; }
 .bulk-check-item { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
-.bulk-concurrency { width: 60px !important; }
+
+/* Custom checkbox (dark theme) */
+.bulk-check-item input[type="checkbox"],
+.bulk-tc-select-all input[type="checkbox"],
+.bulk-tc-item input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  width: 16px; height: 16px; flex-shrink: 0;
+  border: 1.5px solid var(--border3);
+  border-radius: 3px;
+  background: var(--surface2);
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.15s, background 0.15s;
+  margin: 0;
+}
+.bulk-check-item input[type="checkbox"]:hover,
+.bulk-tc-select-all input[type="checkbox"]:hover,
+.bulk-tc-item input[type="checkbox"]:hover {
+  border-color: var(--accent-border);
+}
+.bulk-check-item input[type="checkbox"]:checked,
+.bulk-tc-select-all input[type="checkbox"]:checked,
+.bulk-tc-item input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.bulk-check-item input[type="checkbox"]:checked::after,
+.bulk-tc-select-all input[type="checkbox"]:checked::after,
+.bulk-tc-item input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4.5px; top: 1.5px;
+  width: 5px; height: 9px;
+  border: solid var(--bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Concurrency number input */
+.bulk-concurrency-input {
+  width: 52px;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  -moz-appearance: textfield;
+}
+.bulk-concurrency-input::-webkit-inner-spin-button,
+.bulk-concurrency-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  display: none;
+}
+.bulk-concurrency-input:focus {
+  border-color: var(--accent-border);
+  outline: none;
+}
 
 /* Summary bar */
 .bulk-summary-bar {

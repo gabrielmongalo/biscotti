@@ -1065,9 +1065,9 @@
                 Advanced Settings
               </button>
               <div class="settings-body" :class="{ open: $store.app.bulkAdvancedOpen }">
-                <div class="bulk-advanced-grid">
-                  <div>
-                    <div class="bulk-label">Reasoning Effort</div>
+                <div class="bulk-advanced-panel">
+                  <div class="bulk-advanced-row">
+                    <span class="bulk-label" style="margin:0;">Reasoning Effort</span>
                     <div class="bulk-checks">
                       <template x-for="re in ['low', 'medium', 'high']" :key="re">
                         <label class="bulk-check-item">
@@ -1080,25 +1080,25 @@
                       </template>
                     </div>
                   </div>
-                  <div>
+                  <div class="bulk-advanced-row">
                     <label class="bulk-check-item">
                       <input type="checkbox"
                              :checked="$store.app.bulkIncludeEval"
                              @change="$store.app.bulkIncludeEval = $event.target.checked">
                       <span>Score with Judge</span>
                     </label>
-                    <div x-show="$store.app.bulkIncludeEval" style="margin-top:8px;">
-                      <div class="bulk-label">Judge Model</div>
-                      <select class="input" x-model="$store.app.bulkJudgeModel">
+                    <div x-show="$store.app.bulkIncludeEval" style="margin-left:12px;">
+                      <select class="input" style="font-size:12px;padding:5px 8px;" x-model="$store.app.bulkJudgeModel">
+                        <option value="">Select model...</option>
                         <template x-for="m in $store.app.availableModels" :key="m">
                           <option :value="m" x-text="m"></option>
                         </template>
                       </select>
                     </div>
                   </div>
-                  <div class="bulk-concurrency">
-                    <div class="bulk-label">Concurrency</div>
-                    <input type="number" class="input" min="1" max="20"
+                  <div class="bulk-advanced-row">
+                    <span class="bulk-label" style="margin:0;">Concurrency</span>
+                    <input type="number" class="bulk-concurrency-input" min="1" max="20"
                            x-model.number="$store.app.bulkConcurrency">
                   </div>
                 </div>
