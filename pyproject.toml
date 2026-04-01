@@ -27,6 +27,7 @@ dependencies = [
     "anyio>=4.0",
     "pydantic-ai>=0.70.0",
     "uvicorn>=0.30",
+    "openpyxl>=3.1.0",
 ]
 
 [project.optional-dependencies]
