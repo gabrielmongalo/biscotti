@@ -1115,24 +1115,22 @@
           <span class="bulk-label" style="margin-left:auto;">Click to expand</span>
         </div>
 
-        <!-- Summary bar -->
+        <!-- Summary bar + action -->
         <div class="bulk-summary-bar">
           <span x-html="$store.app.bulkSummaryText"></span>
-        </div>
-
-        <!-- Start / Cancel -->
-        <div style="display:flex;gap:8px;margin-bottom:16px;justify-content:flex-end;">
-          <button class="btn btn-primary"
-                  :disabled="!$store.app.bulkCanStart"
-                  @click="$store.app.startBulkRun()"
-                  x-show="!$store.app.bulkRunning">
-            Start Bulk Run
-          </button>
-          <button class="btn btn-ghost"
-                  x-show="$store.app.bulkRunning"
-                  @click="$store.app.cancelBulkRun()">
-            Cancel
-          </button>
+          <div style="margin-left:auto;flex-shrink:0;">
+            <button class="btn btn-primary"
+                    :disabled="!$store.app.bulkCanStart"
+                    @click="$store.app.startBulkRun()"
+                    x-show="!$store.app.bulkRunning">
+              Start Bulk Run
+            </button>
+            <button class="btn btn-ghost"
+                    x-show="$store.app.bulkRunning"
+                    @click="$store.app.cancelBulkRun()">
+              Cancel
+            </button>
+          </div>
         </div>
 
         <!-- Progress bar -->

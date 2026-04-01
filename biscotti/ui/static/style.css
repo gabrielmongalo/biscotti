@@ -3313,7 +3313,7 @@
 /* ================================================================
    Bulk Run
    ================================================================ */
-.bulk-view { padding: 0 4px; }
+.bulk-view { padding: 20px; overflow-y: auto; flex: 1; }
 
 /* Sub-nav pills */
 .bulk-sub-nav { display: flex; gap: 4px; margin-bottom: 16px; }
