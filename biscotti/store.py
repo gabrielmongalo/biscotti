@@ -95,6 +95,21 @@ CREATE TABLE IF NOT EXISTS eval_runs (
     case_details    TEXT,
     created_at      TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS bulk_runs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_name      TEXT    NOT NULL,
+    prompt_version  INTEGER NOT NULL,
+    config_matrix   TEXT    NOT NULL DEFAULT '{}',
+    test_cases      TEXT    NOT NULL DEFAULT '[]',
+    include_eval    INTEGER NOT NULL DEFAULT 0,
+    judge_model     TEXT,
+    concurrency     INTEGER NOT NULL DEFAULT 3,
+    total_runs      INTEGER NOT NULL DEFAULT 0,
+    completed_runs  INTEGER NOT NULL DEFAULT 0,
+    status          TEXT    NOT NULL DEFAULT 'running',
+    created_at      TEXT    NOT NULL
+);
 """
 
 
@@ -130,6 +145,13 @@ class PromptStore:
         except Exception:
             await self._db.execute(
                 "ALTER TABLE agent_settings ADD COLUMN coach_model TEXT NOT NULL DEFAULT ''"
+            )
+        # Migrate: add bulk_run_id column to run_logs if missing
+        try:
+            await self._db.execute("SELECT bulk_run_id FROM run_logs LIMIT 0")
+        except Exception:
+            await self._db.execute(
+                "ALTER TABLE run_logs ADD COLUMN bulk_run_id INTEGER"
             )
         await self._db.commit()
 
@@ -322,8 +344,9 @@ class PromptStore:
                 variable_values, system_prompt_rendered, output, outcome,
                 error_message, latency_ms, input_tokens, output_tokens,
                 score, score_reasoning, model_used, model_selected,
-                temperature, reasoning_effort, estimated_cost, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                temperature, reasoning_effort, estimated_cost, bulk_run_id,
+                created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 run.agent_name,
                 run.prompt_version,
@@ -344,6 +367,7 @@ class PromptStore:
                 run.temperature,
                 run.reasoning_effort,
                 run.estimated_cost,
+                run.bulk_run_id,
                 now,
             ),
         ) as cur:
@@ -471,6 +495,73 @@ class PromptStore:
             (score, reasoning, run_id),
         )
         await self.db.commit()
+
+    # ------------------------------------------------------------------
+    # Bulk runs
+    # ------------------------------------------------------------------
+
+    async def save_bulk_run(self, agent_name, prompt_version, config_matrix, test_cases, include_eval, judge_model, concurrency, total_runs) -> int:
+        now = datetime.now(timezone.utc).isoformat()
+        async with self.db.execute(
+            """INSERT INTO bulk_runs
+               (agent_name, prompt_version, config_matrix, test_cases,
+                include_eval, judge_model, concurrency, total_runs,
+                completed_runs, status, created_at)
+               VALUES (?,?,?,?,?,?,?,?,0,'running',?)""",
+            (agent_name, prompt_version, json.dumps(config_matrix), json.dumps(test_cases),
+             1 if include_eval else 0, judge_model, concurrency, total_runs, now),
+        ) as cur:
+            bulk_id = cur.lastrowid
+        await self.db.commit()
+        return bulk_id
+
+    async def get_bulk_run(self, bulk_run_id: int) -> dict | None:
+        async with self.db.execute("SELECT * FROM bulk_runs WHERE id = ?", (bulk_run_id,)) as cur:
+            row = await cur.fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["config_matrix"] = json.loads(d["config_matrix"])
+        d["test_cases"] = json.loads(d["test_cases"])
+        d["include_eval"] = bool(d["include_eval"])
+        d["created_at"] = datetime.fromisoformat(d["created_at"])
+        return d
+
+    async def update_bulk_run(self, bulk_run_id: int, **kwargs) -> None:
+        sets, vals = [], []
+        for key in ("completed_runs", "status"):
+            if key in kwargs:
+                sets.append(f"{key} = ?")
+                vals.append(kwargs[key])
+        if not sets:
+            return
+        vals.append(bulk_run_id)
+        await self.db.execute(f"UPDATE bulk_runs SET {', '.join(sets)} WHERE id = ?", vals)
+        await self.db.commit()
+
+    async def list_bulk_runs(self, agent_name: str, limit: int = 50) -> list[dict]:
+        async with self.db.execute(
+            "SELECT * FROM bulk_runs WHERE agent_name = ? ORDER BY created_at DESC LIMIT ?",
+            (agent_name, limit),
+        ) as cur:
+            rows = await cur.fetchall()
+        results = []
+        for row in rows:
+            d = dict(row)
+            d["config_matrix"] = json.loads(d["config_matrix"])
+            d["test_cases"] = json.loads(d["test_cases"])
+            d["include_eval"] = bool(d["include_eval"])
+            d["created_at"] = datetime.fromisoformat(d["created_at"])
+            results.append(d)
+        return results
+
+    async def get_bulk_run_runs(self, bulk_run_id: int) -> list[RunLog]:
+        async with self.db.execute(
+            "SELECT * FROM run_logs WHERE bulk_run_id = ? ORDER BY created_at ASC",
+            (bulk_run_id,),
+        ) as cur:
+            rows = await cur.fetchall()
+        return [_row_to_run(r) for r in rows]
 
 
 # ---------------------------------------------------------------------------
