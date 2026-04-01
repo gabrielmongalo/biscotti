@@ -183,7 +183,7 @@ Available params: `model`, `temperature`, `reasoning_effort`, `variable_values`.
 3. Select a judge model and run. Each test case is scored per criterion with a pass/fail and a reasoning note.
 4. Compare aggregate scores across prompt versions to decide what to promote.
 
-The judge model needs an API key. You can set it via environment variable or in the UI settings panel (session-only, never persisted to disk):
+The judge model needs an API key. You can set it via environment variable or in the API Keys panel (session-only, never persisted to disk):
 
 ```bash
 export ANTHROPIC_API_KEY=sk-...
@@ -191,6 +191,10 @@ export OPENAI_API_KEY=sk-...
 ```
 
 Resolution order: environment variable > in-memory UI key.
+
+### Azure Foundry
+
+To use Azure-hosted models as your judge or coach, open the API Keys panel and select "Azure Foundry" from the provider dropdown. Enter your endpoint URL, API key, API version, and one or more deployment names. Connected deployments appear in model dropdowns as `azure:deployment-name`.
 
 ---
 
@@ -238,6 +242,9 @@ All endpoints are available under the mount path (e.g. `/biscotti/api/`):
 | GET | `/api/settings/status` | Provider auth status |
 | POST | `/api/settings/api-key` | Set API key (session-only) |
 | DELETE | `/api/settings/api-key/{provider}` | Remove API key |
+| GET | `/api/settings/azure` | Get Azure Foundry config |
+| POST | `/api/settings/azure` | Set Azure Foundry config |
+| DELETE | `/api/settings/azure` | Remove Azure Foundry config |
 | GET | `/api/health` | Health check |
 
 Interactive docs: `/biscotti/openapi`

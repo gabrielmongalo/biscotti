@@ -954,7 +954,7 @@ app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)<
           <li>Select an agent in the sidebar</li>
           <li>Add <a href="#test-cases">test cases</a> in the Test Cases tab -- give each a name and user message</li>
           <li>Open the Evals tab and click "Generate from Prompt" to auto-create scoring criteria</li>
-          <li>Set your judge model -- this requires an <a href="#api-keys">API key</a> (environment variable or the Settings panel)</li>
+          <li>Set your judge model -- this requires an <a href="#api-keys">API key</a> (environment variable or the API Keys panel)</li>
           <li>Click "Run Eval" to score all test cases against your criteria</li>
           <li>Edit the system prompt, save a new <a href="#versioning">version</a>, and re-run the eval to compare scores</li>
         </ol>
@@ -1022,7 +1022,7 @@ Always respond in {{language}}."""</span>,
         <p>biscotti includes an LLM-as-judge evaluation system. You need an <a href="#api-keys">API key</a> configured for at least one provider before running evals.</p>
         <ol>
           <li><strong>Generate criteria</strong> -- click "Generate from Prompt" to auto-create scoring rubrics from your system prompt</li>
-          <li><strong>Configure judge model</strong> -- pick any connected model (Anthropic, OpenAI, Gemini, Mistral, Groq, DeepSeek, xAI, Cohere, Azure OpenAI, Together AI). Format: <code>provider:model-name</code>, e.g. <code>anthropic:claude-sonnet-4-6</code></li>
+          <li><strong>Configure judge model</strong> -- pick any connected model (Anthropic, OpenAI, Gemini, Mistral, Groq, DeepSeek, xAI, Cohere, Azure OpenAI, Together AI, or <a href="#azure-foundry">Azure Foundry</a> deployments). Format: <code>provider:model-name</code>, e.g. <code>anthropic:claude-sonnet-4-6</code> or <code>azure:my-gpt4o-deploy</code></li>
           <li><strong>Run batch evals</strong> -- score all <a href="#test-cases">test cases</a> against your criteria in one click</li>
           <li><strong>Track history</strong> -- compare scores across <a href="#versioning">prompt versions</a></li>
         </ol>
@@ -1037,7 +1037,7 @@ Always respond in {{language}}."""</span>,
           <li>Patterns across test cases</li>
           <li>Specific prompt edits to improve scores</li>
         </ul>
-        <p>Configure the coach model separately from the judge model in Settings. A coach model must be set before coaching will work. Both use the same <code>provider:model-name</code> format and require an <a href="#api-keys">API key</a> for the selected provider.</p>
+        <p>Configure the coach model separately from the judge model in the API Keys panel. A coach model must be set before coaching will work. Both use the same <code>provider:model-name</code> format and require an <a href="#api-keys">API key</a> for the selected provider.</p>
       </section>
 
       <!-- ============================================================
@@ -1282,6 +1282,9 @@ async def my_agent(user_message: str, system_prompt: str, params: dict) -> str:
               <tr><td class="method method-get">GET</td><td class="path">/api/settings/status</td><td>Provider auth status</td></tr>
               <tr><td class="method method-post">POST</td><td class="path">/api/settings/api-key</td><td>Set API key (session)</td></tr>
               <tr><td class="method method-delete">DELETE</td><td class="path">/api/settings/api-key/{provider}</td><td>Remove API key</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/settings/azure</td><td>Get Azure Foundry config</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/settings/azure</td><td>Set Azure Foundry config</td></tr>
+              <tr><td class="method method-delete">DELETE</td><td class="path">/api/settings/azure</td><td>Remove Azure Foundry config</td></tr>
             </tbody>
           </table>
         </div>
@@ -1319,8 +1322,18 @@ export OPENAI_API_KEY=sk-...'>Copy</button>
 <span class="sh">export OPENAI_API_KEY=sk-...</span></pre>
           </div>
         </div>
-        <h3>UI settings panel</h3>
-        <p>Open Settings in the main app and enter keys per provider. Keys are session-only and never written to disk.</p>
+        <h3>API Keys panel</h3>
+        <p>Click "API Keys" in the sidebar to open the key management panel. Select a provider from the dropdown and paste your key. Keys are session-only and never written to disk.</p>
+
+        <h3 id="azure-foundry">Azure Foundry</h3>
+        <p>To use Azure-hosted models as your judge or coach, select "Azure Foundry" from the provider dropdown in the API Keys panel and configure:</p>
+        <ul>
+          <li><strong>Endpoint</strong> -- your Azure OpenAI resource URL (e.g. <code>https://myresource.openai.azure.com/</code>)</li>
+          <li><strong>API Key</strong> -- your Azure API key</li>
+          <li><strong>API Version</strong> -- defaults to <code>2024-10-21</code></li>
+          <li><strong>Deployments</strong> -- one or more deployment names you want to use</li>
+        </ul>
+        <p>Once connected, deployments appear in model dropdowns as <code>azure:deployment-name</code>. The configuration is session-only, same as other API keys.</p>
       </section>
 
       <!-- ============================================================
