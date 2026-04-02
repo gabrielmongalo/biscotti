@@ -1009,7 +1009,7 @@
               <div class="bulk-config-section">
                 <div class="bulk-label">Models</div>
                 <div class="typeahead-wrap" @click.outside="$store.app._bulkModelDropdownOpen = false">
-                  <input type="text" class="model-input" style="width:100%;cursor:pointer;caret-color:transparent;"
+                  <input type="text" class="model-input bulk-model-trigger"
                          placeholder="Add model..."
                          readonly
                          @focus="$store.app._bulkModelDropdownOpen = true"
@@ -1033,7 +1033,7 @@
                   </template>
                 </div>
 
-                <div class="bulk-label" style="margin-top:16px;">Temperatures</div>
+                <div class="bulk-label bulk-label--spaced">Temperatures</div>
                 <div class="bulk-temp-add">
                   <input type="number" class="input" min="0" max="2" step="0.1"
                          placeholder="0.0 - 2.0"
@@ -1056,7 +1056,7 @@
             </div>
 
             <!-- Advanced Settings (collapsible) -->
-            <div style="margin-top:16px;">
+            <div class="bulk-section-gap">
               <button class="settings-toggle" @click="$store.app.bulkAdvancedOpen = !$store.app.bulkAdvancedOpen">
                 <svg width="10" height="6" viewBox="0 0 10 6" fill="none"
                      :style="$store.app.bulkAdvancedOpen ? '' : 'transform:rotate(-90deg)'">
@@ -1067,7 +1067,7 @@
               <div class="settings-body" :class="{ open: $store.app.bulkAdvancedOpen }">
                 <div class="bulk-advanced-panel">
                   <div class="bulk-advanced-row">
-                    <span class="bulk-label" style="margin:0;">Reasoning Effort</span>
+                    <span class="bulk-label bulk-label--inline">Reasoning Effort</span>
                     <div class="bulk-checks">
                       <template x-for="re in ['low', 'medium', 'high']" :key="re">
                         <label class="bulk-check-item">
@@ -1087,9 +1087,9 @@
                              @change="$store.app.bulkIncludeEval = $event.target.checked">
                       <span>Score with Judge</span>
                     </label>
-                    <div x-show="$store.app.bulkIncludeEval" style="margin-left:12px;">
-                      <div class="typeahead-wrap" style="width:220px;" @click.outside="$store.app._bulkJudgeDropdownOpen = false">
-                        <input type="text" class="model-input" style="width:100%;font-size:12px;padding:6px 10px;cursor:pointer;"
+                    <div x-show="$store.app.bulkIncludeEval" class="bulk-judge-reveal">
+                      <div class="typeahead-wrap bulk-judge-wrap" @click.outside="$store.app._bulkJudgeDropdownOpen = false">
+                        <input type="text" class="model-input bulk-judge-input"
                                :value="$store.app.bulkJudgeModel || ''"
                                placeholder="Select model..."
                                readonly
@@ -1107,7 +1107,7 @@
                     </div>
                   </div>
                   <div class="bulk-advanced-row">
-                    <span class="bulk-label" style="margin:0;">Concurrency</span>
+                    <span class="bulk-label bulk-label--inline">Concurrency</span>
                     <input type="number" class="bulk-concurrency-input" min="1" max="20"
                            x-model.number="$store.app.bulkConcurrency">
                   </div>
@@ -1122,13 +1122,13 @@
              @click="$store.app.bulkConfigCollapsed = false">
           <span class="bulk-config-summary"
                 x-text="$store.app.bulkSelectedTests.length + ' tests x ' + $store.app.bulkSelectedModels.length + ' models x ' + $store.app.bulkSelectedTemps.length + ' temps'"></span>
-          <span class="bulk-label" style="margin-left:auto;">Click to expand</span>
+          <span class="bulk-label bulk-label--hint">Click to expand</span>
         </div>
 
         <!-- Summary bar + action -->
         <div class="bulk-summary-bar">
           <span x-html="$store.app.bulkSummaryText"></span>
-          <div style="margin-left:auto;flex-shrink:0;">
+          <div class="bulk-action-right">
             <button class="btn btn-primary"
                     :disabled="!$store.app.bulkCanStart"
                     @click="$store.app.startBulkRun()"
@@ -1168,15 +1168,15 @@
             <span class="bulk-results-title"
                   x-text="'Results (' + $store.app.bulkResults.length + ')'"></span>
             <div class="bulk-export-split" @click.outside="$store.app.bulkExportOpen = false">
-              <button class="btn-ghost btn-sm" @click="$store.app.exportBulkRun('csv')">Export CSV</button>
-              <button class="bulk-export-chevron btn-ghost btn-sm"
+              <button class="btn btn-ghost btn-sm" @click="$store.app.exportBulkRun('csv')">Export CSV</button>
+              <button class="btn btn-ghost btn-sm bulk-export-chevron"
                       @click="$store.app.bulkExportOpen = !$store.app.bulkExportOpen"
                       aria-label="More export options">
                 <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
               <div class="bulk-export-menu" x-show="$store.app.bulkExportOpen">
-                <button class="bulk-export-dropdown" @click="$store.app.exportBulkRun('tsv'); $store.app.bulkExportOpen = false">Export TSV</button>
-                <button class="bulk-export-dropdown" @click="$store.app.exportBulkRun('xlsx'); $store.app.bulkExportOpen = false">Export Excel</button>
+                <button @click="$store.app.exportBulkRun('tsv'); $store.app.bulkExportOpen = false">TSV</button>
+                <button @click="$store.app.exportBulkRun('xlsx'); $store.app.bulkExportOpen = false">Excel</button>
               </div>
             </div>
           </div>
@@ -1245,7 +1245,7 @@
 
       <!-- ======================== HISTORY SUB-VIEW ======================== -->
       <div x-show="$store.app.bulkSubView === 'history'">
-        <div x-show="$store.app.bulkHistory.length === 0" class="bulk-empty" style="padding:32px 0;">
+        <div x-show="$store.app.bulkHistory.length === 0" class="bulk-empty bulk-history-empty">
           No bulk runs yet. Start one from the New Run tab.
         </div>
         <div class="bulk-history-list" x-show="$store.app.bulkHistory.length > 0">

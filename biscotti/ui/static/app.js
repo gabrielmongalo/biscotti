@@ -1599,7 +1599,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       return this.bulkResults.filter(r => r.outcome === 'error').length;
     },
 
-    get sortedBulkResults() {
+    get bulkSortedResults() {
       if (!this.bulkSortCol) return this.bulkResults;
       const col = this.bulkSortCol;
       const asc = this.bulkSortAsc;
