@@ -1088,12 +1088,22 @@
                       <span>Score with Judge</span>
                     </label>
                     <div x-show="$store.app.bulkIncludeEval" style="margin-left:12px;">
-                      <select class="input" style="font-size:12px;padding:5px 8px;" x-model="$store.app.bulkJudgeModel">
-                        <option value="">Select model...</option>
-                        <template x-for="m in $store.app.availableModels" :key="m">
-                          <option :value="m" x-text="m"></option>
-                        </template>
-                      </select>
+                      <div class="typeahead-wrap" style="width:220px;" @click.outside="$store.app._bulkJudgeDropdownOpen = false">
+                        <input type="text" class="model-input" style="width:100%;font-size:12px;padding:6px 10px;cursor:pointer;"
+                               :value="$store.app.bulkJudgeModel || ''"
+                               placeholder="Select model..."
+                               readonly
+                               @focus="$store.app._bulkJudgeDropdownOpen = true"
+                               @keydown.escape="$store.app._bulkJudgeDropdownOpen = false; $el.blur()">
+                        <div class="typeahead-dropdown" :class="{ open: $store.app._bulkJudgeDropdownOpen }">
+                          <template x-for="m in $store.app.availableModels" :key="m">
+                            <div class="typeahead-item"
+                                 :class="{ highlighted: m === $store.app.bulkJudgeModel }"
+                                 @mousedown.prevent="$store.app.bulkJudgeModel = m; $store.app._bulkJudgeDropdownOpen = false"
+                                 x-text="m"></div>
+                          </template>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div class="bulk-advanced-row">
