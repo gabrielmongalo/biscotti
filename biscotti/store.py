@@ -147,9 +147,9 @@ class PromptStore:
                 "ALTER TABLE agent_settings ADD COLUMN coach_model TEXT NOT NULL DEFAULT ''"
             )
         # Migrate: add bulk_run_id column to run_logs if missing
-        try:
-            await self._db.execute("SELECT bulk_run_id FROM run_logs LIMIT 0")
-        except Exception:
+        async with self._db.execute("PRAGMA table_info(run_logs)") as cur:
+            columns = [row[1] for row in await cur.fetchall()]
+        if "bulk_run_id" not in columns:
             await self._db.execute(
                 "ALTER TABLE run_logs ADD COLUMN bulk_run_id INTEGER"
             )
