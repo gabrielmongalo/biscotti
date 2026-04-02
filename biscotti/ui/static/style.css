@@ -3319,7 +3319,11 @@
 .bulk-label--inline { margin: 0; }
 .bulk-label--spaced { margin-top: 16px; }
 .bulk-label--hint { margin-left: auto; }
-.bulk-section-gap { margin-top: 24px; }
+.bulk-section-gap {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border2);
+}
 .bulk-action-right { margin-left: auto; flex-shrink: 0; }
 .bulk-model-trigger {
   width: 100%; cursor: pointer; caret-color: transparent;
