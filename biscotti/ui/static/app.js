@@ -242,7 +242,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     bulkSortCol: null,
     bulkSortAsc: true,
     bulkExportOpen: false,
-    bulkTempInput: null,
+    bulkTempInput: '',
     _bulkEventSource: null,
     bulkConfigCollapsed: false,
     _bulkModelDropdownOpen: false,
@@ -1650,7 +1650,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         this.bulkSelectedTemps.push(rounded);
         this.bulkSelectedTemps.sort((a, b) => a - b);
       }
-      this.bulkTempInput = null;
+      this.bulkTempInput = '';
     },
 
     bulkRemoveTemp(t) {

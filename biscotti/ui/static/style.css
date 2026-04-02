@@ -3396,7 +3396,10 @@
 }
 .bulk-temp-add input::-webkit-inner-spin-button,
 .bulk-temp-add input::-webkit-outer-spin-button {
-  -webkit-appearance: none; display: none;
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+  margin: 0;
 }
 .bulk-temp-add input:focus {
   border-color: var(--accent-border); outline: none;
