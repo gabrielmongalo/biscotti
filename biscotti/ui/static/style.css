@@ -3388,6 +3388,14 @@
   width: 70px; padding: 4px 8px; background: var(--surface2);
   border: 1px solid var(--border2); border-radius: 6px; color: var(--text);
   font-size: 13px; font-family: 'DM Mono', monospace;
+  -moz-appearance: textfield;
+}
+.bulk-temp-add input::-webkit-inner-spin-button,
+.bulk-temp-add input::-webkit-outer-spin-button {
+  -webkit-appearance: none; display: none;
+}
+.bulk-temp-add input:focus {
+  border-color: var(--accent-border); outline: none;
 }
 
 /* Advanced settings panel */
