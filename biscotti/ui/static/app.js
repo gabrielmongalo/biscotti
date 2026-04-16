@@ -232,6 +232,8 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     bulkJudgeModel: '',
     bulkConcurrency: 3,
     bulkAdvancedOpen: false,
+    _bulkModelInput: '',
+    _bulkModelHighlightIdx: -1,
     bulkRunning: false,
     bulkConfigExpanded: false,
     bulkResults: [],
@@ -1570,6 +1572,13 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         && !this.bulkRunning;
     },
 
+    get bulkFilteredModels() {
+      const q = (this._bulkModelInput || '').toLowerCase().trim();
+      return this.availableModels.filter(m =>
+        !this.bulkSelectedModels.includes(m) && (!q || m.toLowerCase().includes(q))
+      );
+    },
+
     get bulkSummaryText() {
       const t = this.bulkSelectedTests.length;
       const m = this.bulkSelectedModels.length;
@@ -1577,7 +1586,10 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       const res = this.bulkReasoningEfforts.length;
       const axes = temps + res;
       if (t === 0 || m === 0 || axes === 0) {
-        return '<span style="color:var(--muted)">Select test cases, models, and at least one temperature or reasoning effort</span>';
+        let msg = 'Select test cases to run.';
+        if (t > 0 && m === 0) msg = 'Add at least one model in Variants.';
+        else if (t > 0 && m > 0 && axes === 0) msg = 'Add a temperature or choose a reasoning effort in Variants.';
+        return `<span class="bulk-summary-warning">${msg}</span>`;
       }
       const total = t * m * axes;
       return `<span class="mono">${t}</span> test case${t !== 1 ? 's' : ''} &times; <span class="mono">${m}</span> model${m !== 1 ? 's' : ''} &times; <span class="mono">${axes}</span> config${axes !== 1 ? 's' : ''} = <strong class="mono">${total} run${total !== 1 ? 's' : ''}</strong>`;
@@ -1633,6 +1645,9 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       if (m && !this.bulkSelectedModels.includes(m)) {
         this.bulkSelectedModels.push(m);
       }
+      this._bulkModelInput = '';
+      this._bulkModelHighlightIdx = -1;
+      this._bulkModelDropdownOpen = false;
     },
 
     bulkRemoveModel(m) {

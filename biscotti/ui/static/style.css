@@ -3317,7 +3317,6 @@
 
 /* Utility classes for bulk run */
 .bulk-label--inline { margin: 0; }
-.bulk-label--spaced { margin-top: 16px; }
 .bulk-label--hint { margin-left: auto; }
 .bulk-section-gap {
   margin-top: 20px;
@@ -3325,9 +3324,7 @@
   border-top: 1px solid var(--border2);
 }
 .bulk-action-right { margin-left: auto; flex-shrink: 0; }
-.bulk-model-trigger {
-  width: 100%; cursor: pointer; caret-color: transparent;
-}
+.bulk-model-trigger { width: 100%; }
 .bulk-judge-wrap { width: 220px; }
 .bulk-judge-input {
   width: 100%; font-size: 12px; padding: 6px 10px; cursor: pointer;
@@ -3345,15 +3342,53 @@
 .bulk-pill:hover { border-color: var(--accent); color: var(--text); }
 .bulk-pill.active { border-color: var(--accent); color: var(--accent); background: var(--surface); }
 
-/* Config grid */
-.bulk-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 700px) { .bulk-config-grid { grid-template-columns: 1fr; } }
-.bulk-config-section { display: flex; flex-direction: column; gap: 4px; }
+/* Config layout — linear stack */
+.bulk-config { display: flex; flex-direction: column; max-width: 520px; }
+.bulk-config-section { display: flex; flex-direction: column; gap: 8px; }
+
+/* Temperatures + Reasoning Effort side by side within Variants */
+.bulk-variant-params {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+}
+@media (max-width: 600px) { .bulk-variant-params { grid-template-columns: 1fr; } }
+.bulk-variant-block--nosep {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* Step headers */
+.bulk-step-header {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px;
+}
+.bulk-step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); color: var(--bg);
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+}
+.bulk-step-num--inline {
+  width: 16px; height: 16px; font-size: 9px;
+}
+
+/* Variant blocks within the right column */
+.bulk-variant-block { display: flex; flex-direction: column; gap: 6px; }
+.bulk-variant-block--sep {
+  padding-top: 12px;
+  border-top: 1px solid var(--border2);
+}
+.bulk-variant-empty {
+  font-size: 12px; color: var(--muted); padding: 4px 2px;
+  font-style: italic;
+}
 
 /* Labels */
 .bulk-label {
   font-size: 12px; font-weight: 500; color: var(--text-secondary);
-  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;
 }
 
 /* Test case list */
@@ -3485,6 +3520,7 @@
 /* Summary bar */
 .bulk-summary-bar {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  max-width: 520px;
   background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px;
   margin: 12px 0; font-size: 13px;
 }

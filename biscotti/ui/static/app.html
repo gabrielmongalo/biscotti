@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
-<script src="app.js?v=12"></script>
+<script src="app.js?v=13"></script>
 </head>
 <body x-data x-init="$store.app.init()">
 
@@ -978,11 +978,10 @@
         <!-- Config panel (expandable when running) -->
         <div x-show="!$store.app.bulkConfigCollapsed">
           <div class="bulk-config">
-            <div class="bulk-config-grid">
 
-              <!-- LEFT: Test Cases -->
+              <!-- Step 1: Test Cases -->
               <div class="bulk-config-section">
-                <div class="bulk-label">Test Cases</div>
+                <div class="bulk-step-header"><span class="bulk-step-num">1</span>Test Cases</div>
                 <div class="bulk-tc-list">
                   <label class="bulk-tc-select-all">
                     <input type="checkbox"
@@ -1005,69 +1004,73 @@
                 </div>
               </div>
 
-              <!-- RIGHT: Models + Temperatures -->
-              <div class="bulk-config-section">
-                <div class="bulk-label">Models</div>
-                <div class="typeahead-wrap" @click.outside="$store.app._bulkModelDropdownOpen = false">
-                  <input type="text" class="model-input bulk-model-trigger"
-                         placeholder="Add model..."
-                         readonly
-                         @focus="$store.app._bulkModelDropdownOpen = true"
-                         @keydown.escape="$store.app._bulkModelDropdownOpen = false; $el.blur()"
-                         @keydown.tab="$store.app._bulkModelDropdownOpen = false">
-                  <div class="typeahead-dropdown" :class="{ open: $store.app._bulkModelDropdownOpen }">
-                    <template x-for="m in $store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m))" :key="m">
-                      <div class="typeahead-item" @mousedown.prevent="$store.app.bulkAddModel(m); $store.app._bulkModelDropdownOpen = false" x-text="m"></div>
+              <!-- Step 2: Variants -->
+              <div class="bulk-section-gap bulk-config-section">
+                <div class="bulk-step-header"><span class="bulk-step-num">2</span>Variants</div>
+
+                <!-- Models (full width) -->
+                <div class="bulk-variant-block">
+                  <div class="bulk-label">Models</div>
+                  <div class="typeahead-wrap" @click.outside="$store.app._bulkModelDropdownOpen = false">
+                    <input type="text" class="model-input bulk-model-trigger"
+                           placeholder="Search models..."
+                           x-model="$store.app._bulkModelInput"
+                           autocomplete="off"
+                           @focus="$store.app._bulkModelDropdownOpen = true"
+                           @input="$store.app._bulkModelDropdownOpen = true; $store.app._bulkModelHighlightIdx = -1"
+                           @keydown.arrow-down.prevent="$store.app._bulkModelHighlightIdx = Math.min($store.app._bulkModelHighlightIdx + 1, $store.app.bulkFilteredModels.length - 1)"
+                           @keydown.arrow-up.prevent="$store.app._bulkModelHighlightIdx = Math.max($store.app._bulkModelHighlightIdx - 1, 0)"
+                           @keydown.enter.prevent="if ($store.app._bulkModelHighlightIdx >= 0) $store.app.bulkAddModel($store.app.bulkFilteredModels[$store.app._bulkModelHighlightIdx])"
+                           @keydown.escape="$store.app._bulkModelDropdownOpen = false; $el.blur()">
+                    <div class="typeahead-dropdown" :class="{ open: $store.app._bulkModelDropdownOpen }">
+                      <template x-for="(m, idx) in $store.app.bulkFilteredModels" :key="m">
+                        <div class="typeahead-item"
+                             :class="{ highlighted: idx === $store.app._bulkModelHighlightIdx }"
+                             @mousedown.prevent="$store.app.bulkAddModel(m)"
+                             x-text="m"></div>
+                      </template>
+                      <div class="typeahead-empty" x-show="$store.app.bulkFilteredModels.length === 0"
+                           x-text="$store.app.availableModels.length === $store.app.bulkSelectedModels.length ? 'All models selected' : 'No matching models'"></div>
+                    </div>
+                  </div>
+                  <div class="bulk-chip-container">
+                    <template x-for="model in $store.app.bulkSelectedModels" :key="model">
+                      <span class="bulk-chip">
+                        <span x-text="model"></span>
+                        <button class="bulk-chip-x" @click="$store.app.bulkRemoveModel(model)" aria-label="Remove model">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                      </span>
                     </template>
-                    <div class="typeahead-empty" x-show="$store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m)).length === 0">All models selected</div>
+                    <div x-show="$store.app.bulkSelectedModels.length === 0" class="bulk-variant-empty">No models added yet</div>
                   </div>
                 </div>
-                <div class="bulk-chip-container">
-                  <template x-for="model in $store.app.bulkSelectedModels" :key="model">
-                    <span class="bulk-chip">
-                      <span x-text="model"></span>
-                      <button class="bulk-chip-x" @click="$store.app.bulkRemoveModel(model)" aria-label="Remove model">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    </span>
-                  </template>
-                </div>
 
-                <div class="bulk-label bulk-label--spaced">Temperatures</div>
-                <div class="bulk-temp-add">
-                  <input type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*"
-                         placeholder="0.7"
-                         x-model="$store.app.bulkTempInput"
-                         @keydown.enter="$store.app.bulkAddTemp()">
-                  <button class="btn btn-ghost btn-sm" @click="$store.app.bulkAddTemp()">Add</button>
-                </div>
-                <div class="bulk-chip-container">
-                  <template x-for="temp in $store.app.bulkSelectedTemps" :key="temp">
-                    <span class="bulk-chip">
-                      <span x-text="temp.toFixed(1)"></span>
-                      <button class="bulk-chip-x" @click="$store.app.bulkRemoveTemp(temp)" aria-label="Remove temperature">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    </span>
-                  </template>
-                </div>
-              </div>
+                <!-- Temperatures + Reasoning Effort (side by side — both compact parameters) -->
+                <div class="bulk-variant-params">
+                  <div class="bulk-variant-block bulk-variant-block--sep">
+                    <div class="bulk-label">Temperatures</div>
+                    <div class="bulk-temp-add">
+                      <input type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*"
+                             placeholder="0.7"
+                             x-model="$store.app.bulkTempInput"
+                             @keydown.enter="$store.app.bulkAddTemp()">
+                      <button class="btn btn-ghost btn-sm" @click="$store.app.bulkAddTemp()">Add</button>
+                    </div>
+                    <div class="bulk-chip-container">
+                      <template x-for="temp in $store.app.bulkSelectedTemps" :key="temp">
+                        <span class="bulk-chip">
+                          <span x-text="temp.toFixed(1)"></span>
+                          <button class="bulk-chip-x" @click="$store.app.bulkRemoveTemp(temp)" aria-label="Remove temperature">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          </button>
+                        </span>
+                      </template>
+                    </div>
+                  </div>
 
-            </div>
-
-            <!-- Advanced Settings (collapsible) -->
-            <div class="bulk-section-gap">
-              <button class="settings-toggle" @click="$store.app.bulkAdvancedOpen = !$store.app.bulkAdvancedOpen">
-                <svg width="10" height="6" viewBox="0 0 10 6" fill="none"
-                     :style="$store.app.bulkAdvancedOpen ? '' : 'transform:rotate(-90deg)'">
-                  <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                Advanced Settings
-              </button>
-              <div class="settings-body" :class="{ open: $store.app.bulkAdvancedOpen }">
-                <div class="bulk-advanced-panel">
-                  <div class="bulk-advanced-row">
-                    <span class="bulk-label bulk-label--inline">Reasoning Effort</span>
+                  <div class="bulk-variant-block bulk-variant-block--nosep">
+                    <div class="bulk-label">Reasoning Effort</div>
                     <div class="bulk-checks">
                       <template x-for="re in ['low', 'medium', 'high']" :key="re">
                         <label class="bulk-check-item">
@@ -1080,12 +1083,27 @@
                       </template>
                     </div>
                   </div>
+                </div>
+
+              </div>
+
+            <!-- Options (collapsible) -->
+            <div class="bulk-section-gap">
+              <button class="settings-toggle" @click="$store.app.bulkAdvancedOpen = !$store.app.bulkAdvancedOpen">
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="none"
+                     :style="$store.app.bulkAdvancedOpen ? '' : 'transform:rotate(-90deg)'">
+                  <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="bulk-step-num bulk-step-num--inline">3</span> Options
+              </button>
+              <div class="settings-body" :class="{ open: $store.app.bulkAdvancedOpen }">
+                <div class="bulk-advanced-panel">
                   <div class="bulk-advanced-row">
                     <label class="bulk-check-item">
                       <input type="checkbox"
                              :checked="$store.app.bulkIncludeEval"
                              @change="$store.app.bulkIncludeEval = $event.target.checked">
-                      <span>Score with Judge</span>
+                      <span>Auto-Evaluate with Judge Model</span>
                     </label>
                     <div x-show="$store.app.bulkIncludeEval" class="bulk-judge-reveal">
                       <div class="typeahead-wrap bulk-judge-wrap" @click.outside="$store.app._bulkJudgeDropdownOpen = false">
