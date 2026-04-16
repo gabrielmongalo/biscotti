@@ -177,10 +177,6 @@ document.addEventListener('alpine:init', () => {
     coachModelName: '',
     coachModelDropdownOpen: false,
     coachModelHighlightIdx: -1,
-    coachProviderDropdownOpen: false,
-    coachProviderHighlightIdx: -1,
-    coachModelNameDropdownOpen: false,
-    coachModelNameHighlightIdx: -1,
     coachReviewMode: false,
     coachSuggestions: [],
     coachExpandedIdx: -1,
@@ -468,8 +464,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
 
     selectCoachProvider(providerId) {
       this.coachModelProvider = providerId;
-      this.coachProviderDropdownOpen = false;
-      this.coachProviderHighlightIdx = -1;
       // Clear model name if it doesn't belong to this provider
       const names = this._suggestedModels
         .filter(m => m.split(':')[0] === providerId)
@@ -482,8 +476,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
 
     selectCoachModelName(modelName) {
       this.coachModelName = modelName;
-      this.coachModelNameDropdownOpen = false;
-      this.coachModelNameHighlightIdx = -1;
       this.syncCoachModel();
     },
 

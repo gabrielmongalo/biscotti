@@ -157,49 +157,44 @@
           <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Coach Model</span>
           <div class="split-model-wrap" style="flex:1;max-width:400px;">
             <!-- Provider combobox -->
-            <div class="typeahead-wrap split-model-provider" @click.outside="$store.app.coachProviderDropdownOpen = false">
-              <input type="text" class="model-input"
-                     x-model="$store.app.coachModelProvider"
-                     @focus="$store.app.coachProviderDropdownOpen = true"
-                     @input="$store.app.coachProviderDropdownOpen = true; $store.app.coachProviderHighlightIdx = -1; $store.app.syncCoachModel()"
-                     @blur="$store.app.syncCoachModel()"
-                     @keydown.escape="$store.app.coachProviderDropdownOpen = false"
-                     @keydown.arrow-down.prevent="$store.app.coachProviderHighlightIdx = Math.min($store.app.coachProviderHighlightIdx + 1, $store.app.coachFilteredProviders.length - 1)"
-                     @keydown.arrow-up.prevent="$store.app.coachProviderHighlightIdx = Math.max($store.app.coachProviderHighlightIdx - 1, 0)"
-                     @keydown.enter.prevent="if ($store.app.coachProviderHighlightIdx >= 0) $store.app.selectCoachProvider($store.app.coachFilteredProviders[$store.app.coachProviderHighlightIdx].id)"
-                     placeholder="Provider"
-                     autocomplete="off"
-                     style="font-size:12px;">
-              <div class="typeahead-dropdown" :class="{ open: $store.app.coachProviderDropdownOpen && $store.app.coachFilteredProviders.length }">
-                <template x-for="(p, pi) in $store.app.coachFilteredProviders" :key="p.id">
-                  <div class="typeahead-item typeahead-item-provider"
-                       :class="{ highlighted: pi === $store.app.coachProviderHighlightIdx }"
-                       @mousedown.prevent="$store.app.selectCoachProvider(p.id)">
-                    <span x-text="p.label"></span>
+            <div class="typeahead-wrap split-model-provider"
+                 x-data="typeahead({
+                   items: () => $store.app.coachFilteredProviders.map(p => ({ key: p.id, label: p.label, value: p.id })),
+                   onSelect: (id) => { $store.app.selectCoachProvider(id); },
+                   placeholder: 'Provider',
+                   searchable: true,
+                   inputStyle: 'font-size:12px',
+                 })"
+                 @click.outside="close()"
+                 x-effect="query = $store.app.coachModelProvider">
+              <input x-bind="input"
+                     @input="$store.app.coachModelProvider = query; $store.app.syncCoachModel()"
+                     @blur="$store.app.syncCoachModel()">
+              <div x-bind="dropdown">
+                <template x-for="(item, idx) in filtered" :key="item.key">
+                  <div class="typeahead-item typeahead-item-provider" x-bind="option(idx)">
+                    <span x-text="item.label"></span>
                   </div>
                 </template>
               </div>
             </div>
             <!-- Model name combobox -->
-            <div class="typeahead-wrap split-model-name" @click.outside="$store.app.coachModelNameDropdownOpen = false">
-              <input type="text" class="model-input"
-                     x-model="$store.app.coachModelName"
-                     @focus="$store.app.coachModelNameDropdownOpen = true"
-                     @input="$store.app.coachModelNameDropdownOpen = true; $store.app.coachModelNameHighlightIdx = -1; $store.app.syncCoachModel()"
-                     @blur="$store.app.syncCoachModel()"
-                     @keydown.escape="$store.app.coachModelNameDropdownOpen = false"
-                     @keydown.arrow-down.prevent="$store.app.coachModelNameHighlightIdx = Math.min($store.app.coachModelNameHighlightIdx + 1, $store.app.coachFilteredModelNames.length - 1)"
-                     @keydown.arrow-up.prevent="$store.app.coachModelNameHighlightIdx = Math.max($store.app.coachModelNameHighlightIdx - 1, 0)"
-                     @keydown.enter.prevent="if ($store.app.coachModelNameHighlightIdx >= 0) $store.app.selectCoachModelName($store.app.coachFilteredModelNames[$store.app.coachModelNameHighlightIdx])"
-                     placeholder="Model name"
-                     autocomplete="off"
-                     style="font-size:12px;">
-              <div class="typeahead-dropdown" :class="{ open: $store.app.coachModelNameDropdownOpen && $store.app.coachFilteredModelNames.length }">
-                <template x-for="(m, mi) in $store.app.coachFilteredModelNames" :key="m">
-                  <div class="typeahead-item"
-                       :class="{ highlighted: mi === $store.app.coachModelNameHighlightIdx }"
-                       @mousedown.prevent="$store.app.selectCoachModelName(m)"
-                       x-text="m"></div>
+            <div class="typeahead-wrap split-model-name"
+                 x-data="typeahead({
+                   items: () => $store.app.coachFilteredModelNames,
+                   onSelect: (m) => { $store.app.selectCoachModelName(m); },
+                   placeholder: 'Model name',
+                   searchable: true,
+                   inputStyle: 'font-size:12px',
+                 })"
+                 @click.outside="close()"
+                 x-effect="query = $store.app.coachModelName">
+              <input x-bind="input"
+                     @input="$store.app.coachModelName = query; $store.app.syncCoachModel()"
+                     @blur="$store.app.syncCoachModel()">
+              <div x-bind="dropdown">
+                <template x-for="(item, idx) in filtered" :key="item.key">
+                  <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
                 </template>
               </div>
             </div>
