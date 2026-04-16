@@ -122,9 +122,7 @@ document.addEventListener('alpine:init', () => {
     settingsOpen: false,
     modelInput: '',
     modelPlaceholder: 'default (auto)',
-    modelDropdownOpen: false,
     availableModels: [],
-    highlightedModelIdx: -1,
     temperature: 1.0,
     reasoningEffort: null,
 
@@ -824,8 +822,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
 
     selectModel(name) {
       this.modelInput = name;
-      this.modelDropdownOpen = false;
-      this.highlightedModelIdx = -1;
     },
 
     stepTemp(delta) {

@@ -434,18 +434,19 @@
             <div class="settings-body" :class="{ open: $store.app.settingsOpen }">
               <div class="settings-field">
                 <span class="settings-label">Model</span>
-                <div class="typeahead-wrap" @click.outside="$store.app.modelDropdownOpen = false">
-                  <input type="text" class="model-input" style="width:100%;"
-                         x-model="$store.app.modelInput"
-                         :placeholder="$store.app.modelPlaceholder"
-                         @focus="$store.app.modelDropdownOpen = true"
-                         @input="$store.app.modelDropdownOpen = true; $store.app.highlightedModelIdx = -1"
-                         @keydown.arrow-down.prevent="$store.app.highlightedModelIdx = Math.min($store.app.highlightedModelIdx + 1, $store.app.filteredModels.length - 1)"
-                         @keydown.arrow-up.prevent="$store.app.highlightedModelIdx = Math.max($store.app.highlightedModelIdx - 1, 0)"
-                         @keydown.enter.prevent="if ($store.app.highlightedModelIdx >= 0) $store.app.selectModel($store.app.filteredModels[$store.app.highlightedModelIdx])"
-                         @keydown.escape="$store.app.modelDropdownOpen = false"
-                         autocomplete="off">
-                  <div class="typeahead-dropdown" :class="{ open: $store.app.modelDropdownOpen }">
+                <div class="typeahead-wrap"
+                     x-data="typeahead({
+                       items: () => $store.app.filteredModels,
+                       onSelect: (m) => { $store.app.selectModel(m); },
+                       placeholder: $store.app.modelPlaceholder,
+                       searchable: true,
+                       inputStyle: 'width:100%',
+                     })"
+                     @click.outside="close()"
+                     x-effect="query = $store.app.modelInput">
+                  <input x-bind="input"
+                         @input="$store.app.modelInput = query">
+                  <div x-bind="dropdown">
                     <template x-if="!$store.app.filteredModels.length">
                       <div class="typeahead-empty">No matching models</div>
                     </template>
@@ -455,8 +456,9 @@
                           <div class="typeahead-group" x-text="provider"></div>
                           <template x-for="m in $store.app.groupedModels[provider]" :key="m">
                             <div class="typeahead-item"
-                                 :class="{ highlighted: $store.app.filteredModels.indexOf(m) === $store.app.highlightedModelIdx }"
-                                 @mousedown.prevent="$store.app.selectModel(m)"
+                                 :class="{ highlighted: $store.app.filteredModels.indexOf(m) === highlightIdx }"
+                                 @mousedown.prevent="_select({ key: m, label: m, value: m })"
+                                 @mouseenter="highlightIdx = $store.app.filteredModels.indexOf(m)"
                                  x-text="m"></div>
                           </template>
                         </div>
