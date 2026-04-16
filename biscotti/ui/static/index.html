@@ -1107,19 +1107,20 @@
                       <span>Auto-Evaluate with Judge Model</span>
                     </label>
                     <div x-show="$store.app.bulkIncludeEval" class="bulk-judge-reveal">
-                      <div class="typeahead-wrap bulk-judge-wrap" @click.outside="$store.app._bulkJudgeDropdownOpen = false">
-                        <input type="text" class="model-input bulk-judge-input"
-                               :value="$store.app.bulkJudgeModel || ''"
-                               placeholder="Select model..."
-                               readonly
-                               @focus="$store.app._bulkJudgeDropdownOpen = true"
-                               @keydown.escape="$store.app._bulkJudgeDropdownOpen = false; $el.blur()">
-                        <div class="typeahead-dropdown" :class="{ open: $store.app._bulkJudgeDropdownOpen }">
-                          <template x-for="m in $store.app.availableModels" :key="m">
-                            <div class="typeahead-item"
-                                 :class="{ highlighted: m === $store.app.bulkJudgeModel }"
-                                 @mousedown.prevent="$store.app.bulkJudgeModel = m; $store.app._bulkJudgeDropdownOpen = false"
-                                 x-text="m"></div>
+                      <div class="typeahead-wrap bulk-judge-wrap"
+                           x-data="typeahead({
+                             items: () => $store.app.availableModels,
+                             selected: () => $store.app.bulkJudgeModel,
+                             onSelect: (m) => { $store.app.bulkJudgeModel = m; },
+                             placeholder: 'Select model...',
+                             searchable: false,
+                             inputClass: 'model-input bulk-judge-input',
+                           })"
+                           @click.outside="close()">
+                        <input x-bind="input">
+                        <div x-bind="dropdown">
+                          <template x-for="(item, idx) in filtered" :key="item.key">
+                            <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
                           </template>
                         </div>
                       </div>

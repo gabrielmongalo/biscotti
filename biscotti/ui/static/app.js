@@ -249,7 +249,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     bulkConfigCollapsed: false,
     _bulkModelDropdownOpen: false,
     _bulkModelSearch: '',
-    _bulkJudgeDropdownOpen: false,
 
     // --- Computed ---
     get evalSettingsDirty() {
