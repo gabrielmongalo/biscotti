@@ -143,8 +143,6 @@ document.addEventListener('alpine:init', () => {
     judgeModel: '',
     judgeModelProvider: '',
     judgeModelName: '',
-    judgeModelDropdownOpen: false,
-    judgeModelHighlightIdx: -1,
     judgeCriteria: '',
     criteriaRows: [],
     _savedJudgeModel: '',
@@ -170,8 +168,6 @@ document.addEventListener('alpine:init', () => {
     coachModel: '',
     coachModelProvider: '',
     coachModelName: '',
-    coachModelDropdownOpen: false,
-    coachModelHighlightIdx: -1,
     coachReviewMode: false,
     coachSuggestions: [],
     coachExpandedIdx: -1,
@@ -919,8 +915,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       const [p, ...r] = (name || '').split(':');
       this.judgeModelProvider = r.length ? p : '';
       this.judgeModelName = r.length ? r.join(':') : (name || '');
-      this.judgeModelDropdownOpen = false;
-      this.judgeModelHighlightIdx = -1;
     },
 
     selectCoachModel(name) {
@@ -928,8 +922,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       const [p, ...r] = (name || '').split(':');
       this.coachModelProvider = r.length ? p : '';
       this.coachModelName = r.length ? r.join(':') : (name || '');
-      this.coachModelDropdownOpen = false;
-      this.coachModelHighlightIdx = -1;
       // Persist to backend
       if (this.currentAgent) {
         api(`/api/agents/${encodeURIComponent(this.currentAgent)}/settings`, 'PUT', {
