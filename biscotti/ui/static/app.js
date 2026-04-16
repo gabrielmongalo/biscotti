@@ -232,8 +232,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     bulkJudgeModel: '',
     bulkConcurrency: 3,
     bulkAdvancedOpen: false,
-    _bulkModelInput: '',
-    _bulkModelHighlightIdx: -1,
     bulkRunning: false,
     bulkConfigExpanded: false,
     bulkResults: [],
@@ -247,7 +245,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     bulkTempInput: '',
     _bulkEventSource: null,
     bulkConfigCollapsed: false,
-    _bulkModelDropdownOpen: false,
     _bulkModelSearch: '',
 
     // --- Computed ---
@@ -1571,13 +1568,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         && !this.bulkRunning;
     },
 
-    get bulkFilteredModels() {
-      const q = (this._bulkModelInput || '').toLowerCase().trim();
-      return this.availableModels.filter(m =>
-        !this.bulkSelectedModels.includes(m) && (!q || m.toLowerCase().includes(q))
-      );
-    },
-
     get bulkSummaryText() {
       const t = this.bulkSelectedTests.length;
       const m = this.bulkSelectedModels.length;
@@ -1644,9 +1634,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       if (m && !this.bulkSelectedModels.includes(m)) {
         this.bulkSelectedModels.push(m);
       }
-      this._bulkModelInput = '';
-      this._bulkModelHighlightIdx = -1;
-      this._bulkModelDropdownOpen = false;
     },
 
     bulkRemoveModel(m) {

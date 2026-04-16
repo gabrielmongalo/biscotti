@@ -1012,25 +1012,21 @@
                 <!-- Models (full width) -->
                 <div class="bulk-variant-block">
                   <div class="bulk-label">Models</div>
-                  <div class="typeahead-wrap" @click.outside="$store.app._bulkModelDropdownOpen = false">
-                    <input type="text" class="model-input bulk-model-trigger"
-                           placeholder="Search models..."
-                           x-model="$store.app._bulkModelInput"
-                           autocomplete="off"
-                           @focus="$store.app._bulkModelDropdownOpen = true"
-                           @input="$store.app._bulkModelDropdownOpen = true; $store.app._bulkModelHighlightIdx = -1"
-                           @keydown.arrow-down.prevent="$store.app._bulkModelHighlightIdx = Math.min($store.app._bulkModelHighlightIdx + 1, $store.app.bulkFilteredModels.length - 1)"
-                           @keydown.arrow-up.prevent="$store.app._bulkModelHighlightIdx = Math.max($store.app._bulkModelHighlightIdx - 1, 0)"
-                           @keydown.enter.prevent="if ($store.app._bulkModelHighlightIdx >= 0) $store.app.bulkAddModel($store.app.bulkFilteredModels[$store.app._bulkModelHighlightIdx])"
-                           @keydown.escape="$store.app._bulkModelDropdownOpen = false; $el.blur()">
-                    <div class="typeahead-dropdown" :class="{ open: $store.app._bulkModelDropdownOpen }">
-                      <template x-for="(m, idx) in $store.app.bulkFilteredModels" :key="m">
-                        <div class="typeahead-item"
-                             :class="{ highlighted: idx === $store.app._bulkModelHighlightIdx }"
-                             @mousedown.prevent="$store.app.bulkAddModel(m)"
-                             x-text="m"></div>
+                  <div class="typeahead-wrap"
+                       x-data="typeahead({
+                         items: () => $store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m)),
+                         onSelect: (m) => { $store.app.bulkSelectedModels.push(m); },
+                         placeholder: 'Search models...',
+                         searchable: true,
+                         inputClass: 'model-input bulk-model-trigger',
+                       })"
+                       @click.outside="close()">
+                    <input x-bind="input">
+                    <div x-bind="dropdown">
+                      <template x-for="(item, idx) in filtered" :key="item.key">
+                        <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
                       </template>
-                      <div class="typeahead-empty" x-show="$store.app.bulkFilteredModels.length === 0"
+                      <div x-bind="empty"
                            x-text="$store.app.availableModels.length === $store.app.bulkSelectedModels.length ? 'All models selected' : 'No matching models'"></div>
                     </div>
                   </div>
