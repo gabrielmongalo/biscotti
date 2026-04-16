@@ -145,11 +145,6 @@ document.addEventListener('alpine:init', () => {
     judgeModelName: '',
     judgeModelDropdownOpen: false,
     judgeModelHighlightIdx: -1,
-    judgeProviderDropdownOpen: false,
-    judgeProviderHighlightIdx: -1,
-    _fixedDropdownRect: null,
-    judgeModelNameDropdownOpen: false,
-    judgeModelNameHighlightIdx: -1,
     judgeCriteria: '',
     criteriaRows: [],
     _savedJudgeModel: '',
@@ -443,8 +438,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
 
     selectJudgeProvider(providerId) {
       this.judgeModelProvider = providerId;
-      this.judgeProviderDropdownOpen = false;
-      this.judgeProviderHighlightIdx = -1;
       // Clear model name if it doesn't belong to this provider
       const names = this._suggestedModels
         .filter(m => m.split(':')[0] === providerId)
@@ -457,8 +450,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
 
     selectJudgeModelName(modelName) {
       this.judgeModelName = modelName;
-      this.judgeModelNameDropdownOpen = false;
-      this.judgeModelNameHighlightIdx = -1;
       this.syncJudgeModel();
     },
 

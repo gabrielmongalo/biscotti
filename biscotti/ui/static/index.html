@@ -736,52 +736,43 @@
               <div class="field-label">Judge Model</div>
               <div class="split-model-wrap">
                 <!-- Provider combobox -->
-                <div class="typeahead-wrap split-model-provider" @click.outside="$store.app.judgeProviderDropdownOpen = false">
-                  <input type="text" class="model-input"
-                         x-model="$store.app.judgeModelProvider"
-                         @click="$store.app.judgeProviderDropdownOpen = true; $store.app._fixedDropdownRect = $event.target.getBoundingClientRect()"
-                         @focus="$store.app.judgeProviderDropdownOpen = true; $store.app._fixedDropdownRect = $event.target.getBoundingClientRect()"
-                         @input="$store.app.judgeProviderDropdownOpen = true; $store.app.judgeProviderHighlightIdx = -1; $store.app.syncJudgeModel(); $store.app._fixedDropdownRect = $event.target.getBoundingClientRect()"
-                         @blur="$store.app.syncJudgeModel()"
-                         @keydown.escape="$store.app.judgeProviderDropdownOpen = false"
-                         @keydown.arrow-down.prevent="$store.app.judgeProviderHighlightIdx = Math.min($store.app.judgeProviderHighlightIdx + 1, $store.app.judgeFilteredProviders.length - 1)"
-                         @keydown.arrow-up.prevent="$store.app.judgeProviderHighlightIdx = Math.max($store.app.judgeProviderHighlightIdx - 1, 0)"
-                         @keydown.enter.prevent="if ($store.app.judgeProviderHighlightIdx >= 0) $store.app.selectJudgeProvider($store.app.judgeFilteredProviders[$store.app.judgeProviderHighlightIdx].id)"
-                         placeholder="Provider"
-                         autocomplete="off"
-                         style="font-size:12px;">
-                  <div class="typeahead-dropdown fixed-dropdown"
-                       :class="{ open: $store.app.judgeProviderDropdownOpen && $store.app.judgeFilteredProviders.length }"
-                       :style="$store.app._fixedDropdownRect ? `top:${$store.app._fixedDropdownRect.bottom + 4}px;left:${$store.app._fixedDropdownRect.left}px;width:${$store.app._fixedDropdownRect.width}px` : ''">
-                    <template x-for="(p, pi) in $store.app.judgeFilteredProviders" :key="p.id">
-                      <div class="typeahead-item"
-                           :class="{ highlighted: pi === $store.app.judgeProviderHighlightIdx }"
-                           @mousedown.prevent="$store.app.selectJudgeProvider(p.id)"
-                           x-text="p.label">
-                      </div>
+                <div class="typeahead-wrap split-model-provider"
+                     x-data="typeahead({
+                       items: () => $store.app.judgeFilteredProviders.map(p => ({ key: p.id, label: p.label, value: p.id })),
+                       onSelect: (id) => { $store.app.selectJudgeProvider(id); },
+                       placeholder: 'Provider',
+                       searchable: true,
+                       inputStyle: 'font-size:12px',
+                       fixed: true,
+                     })"
+                     @click.outside="close()"
+                     x-effect="query = $store.app.judgeModelProvider">
+                  <input x-bind="input"
+                         @input="$store.app.judgeModelProvider = query; $store.app.syncJudgeModel()"
+                         @blur="$store.app.syncJudgeModel()">
+                  <div x-bind="dropdown">
+                    <template x-for="(item, idx) in filtered" :key="item.key">
+                      <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
                     </template>
                   </div>
                 </div>
                 <!-- Model name combobox -->
-                <div class="typeahead-wrap split-model-name" @click.outside="$store.app.judgeModelNameDropdownOpen = false">
-                  <input type="text" class="model-input"
-                         x-model="$store.app.judgeModelName"
-                         @focus="$store.app.judgeModelNameDropdownOpen = true"
-                         @input="$store.app.judgeModelNameDropdownOpen = true; $store.app.judgeModelNameHighlightIdx = -1; $store.app.syncJudgeModel()"
-                         @blur="$store.app.syncJudgeModel()"
-                         @keydown.escape="$store.app.judgeModelNameDropdownOpen = false"
-                         @keydown.arrow-down.prevent="$store.app.judgeModelNameHighlightIdx = Math.min($store.app.judgeModelNameHighlightIdx + 1, $store.app.judgeFilteredModelNames.length - 1)"
-                         @keydown.arrow-up.prevent="$store.app.judgeModelNameHighlightIdx = Math.max($store.app.judgeModelNameHighlightIdx - 1, 0)"
-                         @keydown.enter.prevent="if ($store.app.judgeModelNameHighlightIdx >= 0) $store.app.selectJudgeModelName($store.app.judgeFilteredModelNames[$store.app.judgeModelNameHighlightIdx])"
-                         placeholder="Model name"
-                         autocomplete="off"
-                         style="font-size:12px;">
-                  <div class="typeahead-dropdown" :class="{ open: $store.app.judgeModelNameDropdownOpen && $store.app.judgeFilteredModelNames.length }">
-                    <template x-for="(m, mi) in $store.app.judgeFilteredModelNames" :key="m">
-                      <div class="typeahead-item"
-                           :class="{ highlighted: mi === $store.app.judgeModelNameHighlightIdx }"
-                           @mousedown.prevent="$store.app.selectJudgeModelName(m)"
-                           x-text="m"></div>
+                <div class="typeahead-wrap split-model-name"
+                     x-data="typeahead({
+                       items: () => $store.app.judgeFilteredModelNames,
+                       onSelect: (m) => { $store.app.selectJudgeModelName(m); },
+                       placeholder: 'Model name',
+                       searchable: true,
+                       inputStyle: 'font-size:12px',
+                     })"
+                     @click.outside="close()"
+                     x-effect="query = $store.app.judgeModelName">
+                  <input x-bind="input"
+                         @input="$store.app.judgeModelName = query; $store.app.syncJudgeModel()"
+                         @blur="$store.app.syncJudgeModel()">
+                  <div x-bind="dropdown">
+                    <template x-for="(item, idx) in filtered" :key="item.key">
+                      <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
                     </template>
                   </div>
                 </div>
