@@ -52,18 +52,46 @@ def _run_dev(host: str, port: int) -> None:
         print("  pip install uvicorn")
         sys.exit(1)
 
-    _print_banner(host, port)
+    config_path = Path("biscotti_config.py")
 
-    uvicorn.run(
-        "biscotti._demo_source:app",
-        host=host,
-        port=port,
-        reload=False,
-        log_level="warning",   # keep output clean
-    )
+    if config_path.exists():
+        # User project mode — import config to trigger register() calls
+        _import_user_config(config_path)
+        _print_banner(host, port, demo=False)
+        uvicorn.run(
+            "biscotti._user_source:app",
+            host=host,
+            port=port,
+            reload=False,
+            log_level="warning",
+        )
+    else:
+        # Demo mode
+        _print_banner(host, port, demo=True)
+        uvicorn.run(
+            "biscotti._demo_source:app",
+            host=host,
+            port=port,
+            reload=False,
+            log_level="warning",
+        )
 
 
-def _print_banner(host: str, port: int) -> None:
+def _import_user_config(config_path: Path) -> None:
+    """Import biscotti_config.py to trigger register() calls."""
+    import importlib.util
+
+    # Add CWD to sys.path so the user's imports resolve
+    cwd = str(config_path.parent.resolve())
+    if cwd not in sys.path:
+        sys.path.insert(0, cwd)
+
+    spec = importlib.util.spec_from_file_location("biscotti_config", config_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+
+def _print_banner(host: str, port: int, demo: bool = True) -> None:
     url = f"http://{host}:{port}/biscotti"
     print()
     print("  biscotti dev server")
@@ -71,8 +99,15 @@ def _print_banner(host: str, port: int) -> None:
     print(f"  UI   ->  {url}")
     print(f"  API  ->  {url}/api/agents")
     print()
-    print("  Two demo agents are pre-loaded.")
-    print("  Edit their prompts, run tests, save versions.")
+    if demo:
+        print("  Mode: demo (no biscotti_config.py found)")
+        print("  Run `biscotti init` to connect your agents.")
+    else:
+        from .registry import list_agents
+        agents = list_agents()
+        print(f"  Mode: project ({len(agents)} agent(s) registered)")
+        for a in agents:
+            print(f"    - {a.name}")
     print()
     print("  Press Ctrl+C to stop.")
     print()
