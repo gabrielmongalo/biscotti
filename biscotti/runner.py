@@ -175,6 +175,7 @@ async def execute_run(
     input_tokens = 0
     output_tokens = 0
     model_used = "unknown"
+    tool_calls = []
 
     start = time.monotonic()
 
@@ -206,6 +207,7 @@ async def execute_run(
                 input_tokens = result.get("input_tokens", 0)
                 output_tokens = result.get("output_tokens", 0)
                 model_used = result.get("model", "unknown")
+                tool_calls = result.get("tool_calls", [])
             else:
                 output = str(result)
         except Exception as exc:
@@ -240,6 +242,7 @@ async def execute_run(
         temperature=request.temperature,
         reasoning_effort=request.reasoning_effort,
         estimated_cost=cost,
+        tool_calls=tool_calls,
     )
     saved = await store.save_run(run)
 
@@ -256,4 +259,5 @@ async def execute_run(
         model_used=effective_model,
         prompt_version=pv.version,
         estimated_cost=cost,
+        tool_calls=tool_calls,
     )

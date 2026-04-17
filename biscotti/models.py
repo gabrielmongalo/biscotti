@@ -133,6 +133,7 @@ class RunLog(BaseModel):
     reasoning_effort: str | None = None
     estimated_cost: float | None = None
     bulk_run_id: int | None = None
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -161,6 +162,7 @@ class RunResponse(BaseModel):
     model_used: str
     prompt_version: int
     estimated_cost: float | None = None
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

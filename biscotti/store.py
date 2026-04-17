@@ -153,6 +153,13 @@ class PromptStore:
             await self._db.execute(
                 "ALTER TABLE run_logs ADD COLUMN bulk_run_id INTEGER"
             )
+        # Migrate: add tool_calls column to run_logs if missing
+        async with self._db.execute("PRAGMA table_info(run_logs)") as cur:
+            columns = [row[1] for row in await cur.fetchall()]
+        if "tool_calls" not in columns:
+            await self._db.execute(
+                "ALTER TABLE run_logs ADD COLUMN tool_calls TEXT NOT NULL DEFAULT '[]'"
+            )
         await self._db.commit()
 
     async def close(self) -> None:
@@ -345,8 +352,8 @@ class PromptStore:
                 error_message, latency_ms, input_tokens, output_tokens,
                 score, score_reasoning, model_used, model_selected,
                 temperature, reasoning_effort, estimated_cost, bulk_run_id,
-                created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                tool_calls, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 run.agent_name,
                 run.prompt_version,
@@ -368,6 +375,7 @@ class PromptStore:
                 run.reasoning_effort,
                 run.estimated_cost,
                 run.bulk_run_id,
+                json.dumps(run.tool_calls),
                 now,
             ),
         ) as cur:
@@ -585,6 +593,7 @@ def _row_to_tc(row: aiosqlite.Row) -> TestCase:
 def _row_to_run(row: aiosqlite.Row) -> RunLog:
     d = dict(row)
     d["variable_values"] = json.loads(d["variable_values"])
+    d["tool_calls"] = json.loads(d.get("tool_calls") or "[]")
     d["created_at"] = datetime.fromisoformat(d["created_at"])
     return RunLog(**d)
 
