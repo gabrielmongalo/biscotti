@@ -42,6 +42,15 @@ class TestExtractSystemPrompt:
         assert "Base instructions." in prompt
         assert "Extra from decorator." in prompt
 
+    def test_instructions_decorator_callable(self):
+        """@agent.instructions stores a callable, not a string."""
+        agent = Agent('test')
+        @agent.instructions
+        def my_instructions() -> str:
+            return "Instructions from decorator."
+        prompt = _extract_system_prompt(agent)
+        assert "Instructions from decorator." in prompt
+
 
 class TestExtractModelName:
     def test_model_name(self):

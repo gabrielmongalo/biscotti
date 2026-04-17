@@ -100,14 +100,16 @@ def register(
 def _extract_system_prompt(agent: Any) -> str:
     """Extract the system prompt from a PydanticAI Agent.
 
-    Checks ``agent._instructions`` (str or list[str]) and
+    Checks ``agent._instructions`` (str, list[str], or list[callable]) and
     ``agent._system_prompt_functions`` (list of SystemPromptRunner objects).
-    For static prompt functions (no RunContext arg), calls them to get the text.
-    For dynamic ones, inserts a placeholder.
+    Callables (from ``@agent.instructions`` decorator) are called to get strings.
+    For dynamic ones (that require RunContext), inserts a placeholder.
     """
     parts: list[str] = []
 
-    # 1. Instructions (the `instructions=` kwarg)
+    # 1. Instructions (the `instructions=` kwarg or @agent.instructions decorator)
+    # PydanticAI stores these as a list — items can be strings (from instructions=)
+    # or callables (from @agent.instructions decorator).
     instructions = getattr(agent, "_instructions", None)
     if instructions:
         if isinstance(instructions, str):
@@ -116,6 +118,15 @@ def _extract_system_prompt(agent: Any) -> str:
             for item in instructions:
                 if isinstance(item, str):
                     parts.append(item)
+                elif callable(item):
+                    # @agent.instructions stores a callable — call it
+                    try:
+                        result = item()
+                        if isinstance(result, str):
+                            parts.append(result)
+                    except Exception:
+                        fn_name = getattr(item, "__name__", "instructions")
+                        parts.append(f"[dynamic: {fn_name}]")
 
     # 2. System prompt functions (@agent.system_prompt decorators)
     prompt_functions = getattr(agent, "_system_prompt_functions", None) or []
