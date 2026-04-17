@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 <script src="components.js?v=1"></script>
 </head>
 <body x-data x-init="$store.app.init()">
@@ -111,6 +111,8 @@
             :class="'badge-' + ($store.app.currentVersion?.status || 'draft')"
             x-text="$store.app.currentVersion?.status"></span>
     </button>
+    <span class="output-type-badge" x-show="$store.app.agentOutputType !== 'str'"
+          x-text="'Output: ' + $store.app.agentOutputType"></span>
     <span class="toolbar-view-label" x-show="$store.app.activeView !== 'playground'"
           x-text="$store.app.activeView === 'versions' ? 'Versions' : $store.app.activeView === 'agents' ? 'All Agents' : $store.app.activeView === 'bulk' ? 'Bulk Run' : 'Evals'"></span>
     <button class="theme-toggle" @click="$store.app.toggleTheme()" :title="$store.app.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
@@ -489,6 +491,21 @@
             </div>
           </div>
 
+          <!-- === TOOLS PANEL (PydanticAI agents) === -->
+          <div x-show="$store.app.agentTools.length > 0" class="panel-card" x-transition>
+            <div class="field-group">
+              <div class="field-label">Tools</div>
+              <div class="tools-list">
+                <template x-for="tool in $store.app.agentTools" :key="tool.name">
+                  <div class="tool-item">
+                    <div class="tool-name" x-text="tool.name"></div>
+                    <div class="tool-desc" x-text="tool.description" x-show="tool.description"></div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+
           <!-- === RESULTS CARD: Output + Metrics === -->
           <div class="panel-card panel-card-results">
             <div class="field-group">
@@ -496,6 +513,17 @@
               <div id="output-box"
                    :class="$store.app.outputState"
                    x-text="$store.app.output || 'Run a test to see the agent\'s response here.'"></div>
+            </div>
+            <!-- Tool calls trace -->
+            <div x-show="$store.app.metrics?.toolCalls?.length" class="tool-calls-trace" x-transition>
+              <div class="field-label">Tool Calls</div>
+              <template x-for="tc in ($store.app.metrics?.toolCalls || [])" :key="tc.tool_name">
+                <div class="tool-call-item">
+                  <span class="tool-call-name" x-text="tc.tool_name"></span>
+                  <span class="tool-call-args" x-text="JSON.stringify(tc.args, null, 2)"></span>
+                  <div x-show="tc.return_value" class="tool-call-result" x-text="tc.return_value"></div>
+                </div>
+              </template>
             </div>
             <div class="metrics-bar" x-show="$store.app.metrics" x-transition>
               <span class="metric-item"><span class="metric-label">Latency</span> <span class="metric-value" x-text="($store.app.metrics?.latency || 0) + 'ms'"></span></span>

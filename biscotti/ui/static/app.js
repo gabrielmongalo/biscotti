@@ -106,6 +106,10 @@ document.addEventListener('alpine:init', () => {
     tcSaving: false,
     tcName: '',
 
+    // --- Agent metadata (PydanticAI) ---
+    agentTools: [],
+    agentOutputType: 'str',
+
     // --- Test run ---
     userMessage: '',
     varValues: {},
@@ -557,14 +561,18 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         return;
       }
 
+      // Fetch agent detail for PydanticAI metadata (tools, output type)
+      const detail = await api(`/api/agents/${encodeURIComponent(name)}`);
+      this.agentTools = detail.tools || [];
+      this.agentOutputType = (detail.output_type && detail.output_type.type) || 'str';
+
       const cur = this.versions.find(v => v.status === 'current');
       if (cur) {
         this.loadVersion(cur);
       } else if (this.versions.length) {
         this.loadVersion(this.versions[0]);
       } else {
-        const meta = await api(`/api/agents/${encodeURIComponent(name)}`);
-        this.prompt = meta.default_system_prompt || '';
+        this.prompt = detail.default_system_prompt || '';
         this.originalPrompt = this.prompt;
       }
       this.isDirty = false;
@@ -852,6 +860,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
           outTokens: outTok,
           model: result.model_used && result.model_used !== 'unknown' ? result.model_used : null,
           cost: result.estimated_cost,
+          toolCalls: result.tool_calls || [],
         };
       } catch (e) {
         this.outputState = 'error';

@@ -3602,3 +3602,77 @@
 .status-error { background: var(--red-dim); color: var(--red); }
 .bulk-history-actions { display: flex; gap: 6px; }
 
+/* ================================================================
+   Tools panel (PydanticAI agent metadata)
+   ================================================================ */
+.tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tool-item {
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+}
+.tool-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 500;
+}
+.tool-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Output type badge */
+.output-type-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+/* Tool calls trace */
+.tool-calls-trace {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.tool-call-item {
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  font-size: 12px;
+}
+.tool-call-name {
+  font-family: var(--mono);
+  color: var(--accent);
+  font-weight: 500;
+  margin-right: 8px;
+}
+.tool-call-args {
+  font-family: var(--mono);
+  color: var(--muted);
+  font-size: 11px;
+}
+.tool-call-result {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border2);
+  font-size: 11px;
+  color: var(--text2);
+  white-space: pre-wrap;
+  max-height: 100px;
+  overflow-y: auto;
+}
+

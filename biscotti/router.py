@@ -93,6 +93,8 @@ def build_router(store: PromptStore) -> APIRouter:
                 "version_count": len(versions),
                 "test_case_count": test_case_count,
                 "recent_run_count": len(runs),
+                "tool_count": len(getattr(agent, '_pydanticai_tools', [])),
+                "output_type": getattr(agent, '_pydanticai_output', {"type": "str"}).get("type", "str"),
             })
         return result
 
@@ -102,6 +104,8 @@ def build_router(store: PromptStore) -> APIRouter:
         if meta is None:
             raise HTTPException(404, f"Agent '{agent_name}' not registered")
         live = await store.get_current_version(agent_name)
+        tools = getattr(meta, '_pydanticai_tools', [])
+        output_info = getattr(meta, '_pydanticai_output', {"type": "str", "schema": None})
         return {
             "name": meta.name,
             "description": meta.description,
@@ -110,6 +114,8 @@ def build_router(store: PromptStore) -> APIRouter:
             "default_system_prompt": meta.default_system_prompt,
             "current_version": live.version if live else None,
             "current_prompt": live.system_prompt if live else meta.default_system_prompt,
+            "tools": tools,
+            "output_type": output_info,
         }
 
     # ==================================================================
