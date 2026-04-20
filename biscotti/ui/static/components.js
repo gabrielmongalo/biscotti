@@ -93,7 +93,6 @@ function typeahead(config = {}) {
       return {
         'x-ref': 'typeaheadInput',
         type: 'text',
-        class: inputClass || 'model-input',
         style: inputStyle,
         autocomplete: 'off',
         placeholder: placeholder,
@@ -187,8 +186,7 @@ function typeahead(config = {}) {
     get dropdown() {
       const self = this;
       const base = {
-        class: 'typeahead-dropdown' + (fixed ? ' fixed-dropdown' : ''),
-        ':class'() { return { open: self.open }; },
+        ':class'() { return { open: self.open, 'fixed-dropdown': fixed }; },
       };
 
       if (fixed) {

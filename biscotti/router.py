@@ -67,6 +67,10 @@ def build_router(store: PromptStore) -> APIRouter:
     async def ui_js() -> FileResponse:
         return FileResponse(_UI_DIR / "app.js", media_type="application/javascript")
 
+    @router.get("/components.js", include_in_schema=False)
+    async def ui_components() -> FileResponse:
+        return FileResponse(_UI_DIR / "components.js", media_type="application/javascript")
+
     @router.get("/style.css", include_in_schema=False)
     async def ui_css() -> FileResponse:
         return FileResponse(_UI_DIR / "style.css", media_type="text/css")

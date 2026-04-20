@@ -109,6 +109,7 @@ document.addEventListener('alpine:init', () => {
     // --- Agent metadata (PydanticAI) ---
     agentTools: [],
     agentOutputType: 'str',
+    agentKnownVars: [],
 
     // --- Test run ---
     userMessage: '',
@@ -243,7 +244,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     get variables() {
       const fromPrompt = [...this.prompt.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
       const fromMsg = [...(this.userMessage || '').matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
-      return [...new Set([...fromPrompt, ...fromMsg])];
+      return [...new Set([...fromPrompt, ...fromMsg, ...this.agentKnownVars])];
     },
     get promptTokens() { return estimateTokens(this.prompt); },
     get msgTokens() { return estimateTokens(this.userMessage); },
@@ -341,36 +342,17 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       }
       return groups;
     },
-    get coachFilteredProviders() {
-      const q = (this.coachModelProvider || '').toLowerCase();
-      if (!q) return this.judgeProviderOptions;
-      return this.judgeProviderOptions.filter(p =>
-        p.id.toLowerCase().includes(q) || p.label.toLowerCase().includes(q)
-      );
+    get coachFilteredModels() {
+      const q = (this.coachModel || '').toLowerCase().trim();
+      return this.availableModels.filter(m => !q || m.toLowerCase().includes(q));
     },
-    get coachFilteredModelNames() {
-      const provider = (this.coachModelProvider || '').toLowerCase();
-      const q = (this.coachModelName || '').toLowerCase();
-      return this._suggestedModels
-        .filter(m => {
-          const [p, ...rest] = m.split(':');
-          if (provider && p !== provider) return false;
-          const modelPart = rest.join(':') || m;
-          return !q || modelPart.toLowerCase().includes(q);
-        })
-        .map(m => {
-          const [, ...rest] = m.split(':');
-          return rest.length ? rest.join(':') : m;
-        });
-    },
-    get coachModelOptions() {
-      const q = (this.coachModel || '').toLowerCase();
-      return this._suggestedModels.filter(m => !q || m.toLowerCase().includes(q));
-    },
-    get coachModelGrouped() {
+    get coachGroupedModels() {
       const groups = {};
-      for (const m of this.coachModelOptions) {
-        const provider = m.split(':')[0] || 'other';
+      for (const m of this.coachFilteredModels) {
+        let provider = 'other';
+        if (m.startsWith('gpt-') || m.startsWith('o3') || m.startsWith('o4')) provider = 'openai';
+        else if (m.startsWith('claude-')) provider = 'anthropic';
+        else if (m.startsWith('gemini-')) provider = 'google';
         if (!groups[provider]) groups[provider] = [];
         groups[provider].push(m);
       }
@@ -565,6 +547,14 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       const detail = await api(`/api/agents/${encodeURIComponent(name)}`);
       this.agentTools = detail.tools || [];
       this.agentOutputType = (detail.output_type && detail.output_type.type) || 'str';
+      // Collect known variables: registered metadata + union across all test case templates
+      const metaVars = detail.variables || [];
+      const tcVars = [];
+      for (const tc of this.testCases) {
+        const found = [...(tc.user_message || '').matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
+        tcVars.push(...found, ...Object.keys(tc.variable_values || {}));
+      }
+      this.agentKnownVars = [...new Set([...metaVars, ...tcVars])];
 
       const cur = this.versions.find(v => v.status === 'current');
       if (cur) {
@@ -579,7 +569,12 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.output = '';
       this.outputState = 'empty';
       this.metrics = null;
-      this.selectedTestCase = '';
+      // Auto-select first test case if one exists, otherwise Ad hoc
+      if (this.testCases.length) {
+        this.selectTestCase(this.testCases[0].name);
+      } else {
+        this.selectedTestCase = '';
+      }
       // Always load settings (provider status + coach model needed globally)
       this.loadEvalSettings();
       if (this.activeView === 'evals') {
@@ -784,9 +779,25 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         const data = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/models`);
         this.availableModels = data.all || [];
         this.modelPlaceholder = data.detected ? data.detected + ' (detected)' : 'default (auto)';
+        // Auto-select: use agent's detected model first, then first available
+        this.modelInput = data.detected || (data.all && data.all[0]) || '';
       } catch {
         this.availableModels = [];
       }
+    },
+
+    get formattedOutput() {
+      if (!this.output) return '';
+      try {
+        return JSON.stringify(JSON.parse(this.output), null, 2);
+      } catch {
+        return this.output;
+      }
+    },
+
+    get isJsonOutput() {
+      if (!this.output) return false;
+      try { JSON.parse(this.output); return true; } catch { return false; }
     },
 
     get filteredModels() {
@@ -910,11 +921,8 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         this._savedJudgeCriteria = this.judgeCriteria;
         this.loadCriteriaRows();
         this.criteriaOpenIdx = -1;
-        // Parse coach_model into provider + name split
-        const [cProvider, ...cRest] = (s.coach_model || '').split(':');
-        this.coachModelProvider = cRest.length ? cProvider : '';
-        this.coachModelName = cRest.length ? cRest.join(':') : (s.coach_model || '');
-        this.coachModel = s.coach_model || '';
+        // Coach model: use saved setting, or fall back to first available model
+        this.coachModel = s.coach_model || (this.availableModels.length ? this.availableModels[0] : '');
         this.providerStatus = await api('/api/settings/status');
       } catch { /* ignore on first load */ }
     },
@@ -959,6 +967,10 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     providerLabel(id) {
       return this._PROVIDER_LABELS[id] || (id.charAt(0).toUpperCase() + id.slice(1));
     },
+    _nextRegularProvider() {
+      const regular = this.disconnectedProviders.filter(p => p !== 'azure_foundry');
+      return regular.length ? regular[0] : (this.disconnectedProviders[0] || 'anthropic');
+    },
     detectProvider(modelStr) {
       if (!modelStr) return null;
       const s = modelStr.trim().toLowerCase();
@@ -1002,7 +1014,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       if (!Object.keys(this.providerStatus).length) {
         try { this.providerStatus = await api('/api/settings/status'); } catch {}
       }
-      this.keyModalProvider = this.disconnectedProviders.length ? this.disconnectedProviders[0] : 'anthropic';
+      this.keyModalProvider = this._nextRegularProvider();
       this.keyModalValue = '';
       this.keyModalCallback = null;
       this.keyModalOpen = true;
@@ -1022,7 +1034,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         try { this.providerStatus = await api('/api/settings/status'); } catch {}
         // Auto-select next disconnected provider if any
         if (this.disconnectedProviders.length) {
-          this.keyModalProvider = this.disconnectedProviders[0];
+          this.keyModalProvider = this._nextRegularProvider();
         }
         if (this.keyModalCallback) {
           this.keyModalOpen = false;

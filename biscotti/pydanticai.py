@@ -273,7 +273,12 @@ def _build_callable(
         system_prompt: str,
         params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        from .key_store import get_key
+
         params = params or {}
+
+        # Bridge API keys from biscotti key store into env vars
+        _bridge_api_keys(get_key)
 
         # Build model_settings from params
         model_settings: dict[str, Any] = {}
@@ -416,3 +421,30 @@ def _extract_tool_calls(result: Any) -> list[dict[str, Any]]:
                 tool_calls.append(call_info)
 
     return tool_calls
+
+
+# ---------------------------------------------------------------------------
+# API key bridging
+# ---------------------------------------------------------------------------
+
+_PROVIDER_ENV_MAP: dict[str, str] = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "cohere": "COHERE_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "xai": "XAI_API_KEY",
+    "together": "TOGETHER_API_KEY",
+}
+
+
+def _bridge_api_keys(get_key: Any) -> None:
+    """Set API keys from biscotti key store into env vars for PydanticAI."""
+    import os
+    for provider, env_var in _PROVIDER_ENV_MAP.items():
+        if not os.environ.get(env_var):
+            key = get_key(provider)
+            if key:
+                os.environ[env_var] = key
