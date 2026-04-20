@@ -481,25 +481,21 @@
 
           <!-- === TOOLS PANEL (PydanticAI agents) === -->
           <div x-show="$store.app.agentTools.length > 0" class="panel-card" x-transition>
-            <div class="field-group">
-              <div class="field-label">Tools</div>
-              <div class="tools-list">
-                <template x-for="tool in $store.app.agentTools" :key="tool.name">
-                  <div class="tool-item">
-                    <div class="tool-name" x-text="tool.name"></div>
-                    <div class="tool-desc" x-text="tool.description" x-show="tool.description"></div>
-                  </div>
-                </template>
-              </div>
+            <div class="field-label" style="margin-bottom:8px;">Tools</div>
+            <!-- Tool definitions -->
+            <div class="tools-list">
+              <template x-for="tool in $store.app.agentTools" :key="tool.name">
+                <div class="tool-item">
+                  <div class="tool-name" x-text="tool.name"></div>
+                  <div class="tool-desc" x-text="tool.description" x-show="tool.description"></div>
+                </div>
+              </template>
             </div>
-          </div>
-
-          <!-- === RESULTS CARD: Tool Calls + Output + Metrics === -->
-          <div class="panel-card panel-card-results">
-
-            <!-- Tool calls trace (shown above output, collapsed by default) -->
-            <div x-show="($store.app.metrics?.toolCalls || []).filter(tc => tc.tool_name !== 'final_result').length" class="tool-calls-trace" x-transition>
-              <div class="field-label" style="margin-bottom:6px;">Tool Calls</div>
+            <!-- Tool call trace from last run (inside same card) -->
+            <div class="tool-calls-trace"
+                 x-show="($store.app.metrics?.toolCalls || []).filter(tc => tc.tool_name !== 'final_result').length"
+                 style="display:none;">
+              <div class="tool-calls-trace-label">Calls — last run</div>
               <template x-for="(tc, idx) in ($store.app.metrics?.toolCalls || []).filter(tc => tc.tool_name !== 'final_result')" :key="idx">
                 <div class="tool-call-item" x-data="{ open: false }">
                   <button class="tool-call-header" @click="open = !open">
@@ -519,6 +515,10 @@
                 </div>
               </template>
             </div>
+          </div>
+
+          <!-- === RESULTS CARD: Output + Metrics === -->
+          <div class="panel-card panel-card-results">
 
             <!-- Output (collapsible) -->
             <div class="output-accordion">
