@@ -33,6 +33,10 @@ function typeahead(config = {}) {
     inputStyle = '',
     emptyText = 'No results',
     fixed = false,
+    // Whether to clear the query after a selection. Defaults to true for
+    // multi-select / free-search inputs (keep typing to add more). Set false
+    // for single-select search inputs so the chosen label stays visible.
+    clearOnSelect = true,
   } = config;
 
   return {
@@ -82,7 +86,9 @@ function typeahead(config = {}) {
     // --- Select a value and close ---
     _select(item) {
       onSelect(item.value);
-      this.query = '';
+      // For single-select search inputs, keep the chosen label in the input
+      // so the user can see what's selected after the dropdown closes.
+      this.query = clearOnSelect ? '' : item.label;
       this.open = false;
       this.highlightIdx = -1;
     },
@@ -127,6 +133,11 @@ function typeahead(config = {}) {
           if (fixed) {
             self._rect = e.target.getBoundingClientRect();
           }
+          // For single-select search inputs, select-all on focus so the
+          // user can type to replace the current selection.
+          if (searchable && !clearOnSelect) {
+            e.target.select();
+          }
         },
 
         '@input'() {
@@ -140,6 +151,10 @@ function typeahead(config = {}) {
         '@click'() {
           if (!searchable) {
             self.open = !self.open;
+          } else {
+            // For searchable inputs, always reopen on click so the user can
+            // pick a second item after a selection (focus never left the input).
+            self.open = true;
           }
           if (fixed && self.open) {
             self._rect = this.$el.getBoundingClientRect();
@@ -179,6 +194,13 @@ function typeahead(config = {}) {
     close() {
       this.open = false;
       this.highlightIdx = -1;
+      // For single-select search inputs, restore the selected label if the
+      // user typed a partial query and closed without selecting anything.
+      if (searchable && !clearOnSelect) {
+        const sel = selected();
+        const match = sel ? this.allItems.find(i => i.value === sel) : null;
+        this.query = match ? match.label : (sel || '');
+      }
     },
 
     // --- Bindable: dropdown container ---

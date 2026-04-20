@@ -170,6 +170,28 @@ async def execute_bulk_run(
                 )
                 await store.db.commit()
 
+                # Judge evaluation (if requested and run succeeded)
+                score: float | None = None
+                score_reasoning: str | None = None
+                if request.include_eval and response.outcome.value == "success":
+                    try:
+                        from .eval import judge_output
+                        settings = await store.get_agent_settings(request.agent_name)
+                        if settings.judge_criteria:
+                            pv_obj = await store.get_current_version(request.agent_name)
+                            eval_result = await judge_output(
+                                criteria_text=settings.judge_criteria,
+                                user_message=tc.user_message,
+                                system_prompt=pv_obj.system_prompt if pv_obj else "",
+                                agent_output=response.output,
+                                model=request.judge_model or settings.judge_model,
+                            )
+                            score = eval_result.score
+                            score_reasoning = eval_result.reasoning
+                            await store.update_run_score(response.run_id, score, score_reasoning)
+                    except Exception as judge_exc:
+                        logger.warning("Judge evaluation failed: %s", judge_exc)
+
                 completed += 1
                 await store.update_bulk_run(bulk_run_id, completed_runs=completed)
 
@@ -178,7 +200,8 @@ async def execute_bulk_run(
                     "data": {
                         "run_id": response.run_id,
                         "test_case_name": entry["test_case_name"],
-                        "model": entry["model"],
+                        "model_selected": entry["model"],
+                        "model_used": response.model_used or entry["model"],
                         "temperature": entry["temperature"],
                         "reasoning_effort": entry["reasoning_effort"],
                         "output": response.output,
@@ -187,6 +210,9 @@ async def execute_bulk_run(
                         "input_tokens": response.input_tokens,
                         "output_tokens": response.output_tokens,
                         "estimated_cost": response.estimated_cost,
+                        "tool_calls": response.tool_calls,
+                        "score": score,
+                        "score_reasoning": score_reasoning,
                     },
                 })
                 await queue.put({
@@ -281,6 +307,27 @@ async def execute_bulk_run_by_id(
                     (bulk_run_id, response.run_id),
                 )
                 await store.db.commit()
+
+                # Judge evaluation — must run before incrementing completed so
+                # the SSE poller picks up the score in the same DB read.
+                if request.include_eval and response.outcome.value == "success":
+                    try:
+                        from .eval import judge_output
+                        settings = await store.get_agent_settings(request.agent_name)
+                        if settings.judge_criteria:
+                            pv_obj = await store.get_current_version(request.agent_name)
+                            eval_result = await judge_output(
+                                criteria_text=settings.judge_criteria,
+                                user_message=tc.user_message,
+                                system_prompt=pv_obj.system_prompt if pv_obj else "",
+                                agent_output=response.output,
+                                model=request.judge_model or settings.judge_model,
+                            )
+                            await store.update_run_score(
+                                response.run_id, eval_result.score, eval_result.reasoning
+                            )
+                    except Exception as judge_exc:
+                        logger.warning("Judge evaluation failed: %s", judge_exc)
 
                 completed += 1
                 await store.update_bulk_run(bulk_run_id, completed_runs=completed)

@@ -257,17 +257,39 @@ def build_router(store: PromptStore) -> APIRouter:
         azure_config = get_azure_config()
         azure_models = [f"azure:{d}" for d in azure_config["deployments"]] if azure_config else []
 
-        # Merge: detected first, then declared, then historical, then azure, then pricing defaults
+        # Merge: detected first, then declared, then historical, then azure, then pricing defaults.
+        # Normalize + dedupe: strip the provider prefix when the bare model name is a known
+        # entry in PRICING (PydanticAI accepts both forms). "anthropic:claude-haiku-4-5" and
+        # "claude-haiku-4-5" collapse to a single bare "claude-haiku-4-5". Unknown-provider
+        # strings (e.g. "azure:my-deployment") keep their prefix so the provider is still
+        # visible to the user.
+        def _canonical(m: str) -> str:
+            if ":" in m:
+                _, rest = m.split(":", 1)
+                if rest in PRICING:
+                    return rest
+            return m
+
         seen: set[str] = set()
         merged: list[str] = []
         for m in ([detected] if detected else []) + declared + historical + azure_models + pricing_models:
-            if m not in seen:
-                seen.add(m)
-                merged.append(m)
+            canon = _canonical(m)
+            if canon not in seen:
+                seen.add(canon)
+                merged.append(canon)
+
+        # Dedupe historical too so downstream code doesn't see both forms
+        hist_seen: set[str] = set()
+        hist_canon: list[str] = []
+        for h in historical:
+            ch = _canonical(h)
+            if ch not in hist_seen:
+                hist_seen.add(ch)
+                hist_canon.append(ch)
 
         return {
-            "detected": detected,
-            "historical": historical,
+            "detected": _canonical(detected) if detected else None,
+            "historical": hist_canon,
             "all": merged,
         }
 
@@ -326,6 +348,13 @@ def build_router(store: PromptStore) -> APIRouter:
             raise HTTPException(400, "No judge criteria configured. Generate or set criteria first.")
 
         version_id = body.get("prompt_version_id") if body else None
+        model = (body.get("model") or None) if body else None
+        # Fallback: if no model sent from UI, try to detect from the agent callable
+        if not model:
+            from .runner import get_callable, detect_model_from_callable
+            callable_fn = get_callable(agent_name)
+            if callable_fn:
+                model = detect_model_from_callable(callable_fn) or None
         test_cases = await store.list_test_cases(agent_name)
         if not test_cases:
             raise HTTPException(400, "No test cases defined for this agent.")
@@ -342,6 +371,7 @@ def build_router(store: PromptStore) -> APIRouter:
                 user_message=tc.user_message,
                 variable_values=tc.variable_values,
                 test_case_name=tc.name,
+                model=model,
             )
             run_resp = await execute_run(req, store)
 
@@ -670,6 +700,19 @@ def build_router(store: PromptStore) -> APIRouter:
         bulk_run["runs"] = [r.model_dump(mode="json") for r in runs]
         return bulk_run
 
+    @router.delete(
+        "/api/agents/{agent_name}/bulk-runs/{bulk_run_id}",
+        tags=["bulk-runs"],
+    )
+    async def delete_bulk_run(agent_name: str, bulk_run_id: int) -> dict:
+        """Delete a bulk run and its associated run_logs."""
+        _require_agent(agent_name)
+        bulk_run = await store.get_bulk_run(bulk_run_id)
+        if bulk_run is None or bulk_run["agent_name"] != agent_name:
+            raise HTTPException(404, "Bulk run not found")
+        await store.delete_bulk_run(bulk_run_id)
+        return {"deleted": True}
+
     @router.get("/api/agents/{agent_name}/bulk-runs/{bulk_run_id}/stream", tags=["bulk-runs"])
     async def stream_bulk_run(agent_name: str, bulk_run_id: int):
         """SSE stream that polls bulk run progress."""
@@ -682,7 +725,23 @@ def build_router(store: PromptStore) -> APIRouter:
         if bulk_run is None or bulk_run["agent_name"] != agent_name:
             raise HTTPException(404, "Bulk run not found")
 
+        emitted_ids: set[int] = set()
         last_completed = -1
+
+        def _is_fully_done(run, include_eval: bool) -> bool:
+            """A run is 'done' only once the judge (if enabled) has also finished.
+
+            - If include_eval is False → the run is done as soon as the LLM call
+              returns (any outcome).
+            - If the outcome wasn't success, the judge is skipped, so the run is
+              done regardless of score.
+            - Otherwise (eval enabled + success) we require a score to be set.
+            """
+            if not include_eval:
+                return True
+            if run.outcome != "success":
+                return True
+            return run.score is not None
 
         async def event_stream():
             nonlocal last_completed
@@ -692,13 +751,24 @@ def build_router(store: PromptStore) -> APIRouter:
                     break
 
                 current_completed = br["completed_runs"]
+                include_eval = bool(br.get("include_eval"))
 
-                # Emit individual run_complete events for newly completed runs
-                if current_completed > last_completed:
-                    runs = await store.get_bulk_run_runs(bulk_run_id)
-                    for run in runs[max(last_completed, 0):current_completed]:
-                        yield f"event: run_complete\ndata: {json.dumps(run.model_dump(mode='json'))}\n\n"
+                # Emit run_complete only for runs that are fully done (including
+                # the judge evaluation when enabled). This keeps the UI from
+                # flashing score-less rows that then need to be re-rendered.
+                runs = await store.get_bulk_run_runs(bulk_run_id)
+                new_runs = [
+                    r for r in runs
+                    if r.id not in emitted_ids and _is_fully_done(r, include_eval)
+                ]
+                for run in new_runs:
+                    yield f"event: run_complete\ndata: {json.dumps(run.model_dump(mode='json'))}\n\n"
+                    emitted_ids.add(run.id)
 
+                # Emit a progress event any time the completed counter advances,
+                # not just when new rows appear. Handles the case where a late
+                # judge result bumps completed_runs after its row was already sent.
+                if current_completed != last_completed:
                     yield f"event: progress\ndata: {json.dumps({'completed': current_completed, 'total': br['total_runs']})}\n\n"
                     last_completed = current_completed
 

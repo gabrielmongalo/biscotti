@@ -571,6 +571,16 @@ class PromptStore:
             rows = await cur.fetchall()
         return [_row_to_run(r) for r in rows]
 
+    async def delete_bulk_run(self, bulk_run_id: int) -> None:
+        """Delete a bulk run and all its associated run_logs rows."""
+        await self.db.execute(
+            "DELETE FROM run_logs WHERE bulk_run_id = ?", (bulk_run_id,)
+        )
+        await self.db.execute(
+            "DELETE FROM bulk_runs WHERE id = ?", (bulk_run_id,)
+        )
+        await self.db.commit()
+
 
 # ---------------------------------------------------------------------------
 # Row converters

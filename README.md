@@ -172,6 +172,8 @@ Available params: `model`, `temperature`, `reasoning_effort`, `variable_values`.
 
 **Coach** — After an eval run, get improvement suggestions from a coach LLM based on which criteria failed and why.
 
+**Bulk Run** — Run a matrix of test cases × models × temperatures (× reasoning efforts) with streaming progress, optional auto-eval scoring, and CSV / TSV / XLSX export. Every run is saved to history with per-row delete.
+
 **Variables** — System prompts support `{{variable}}` placeholders. Test cases carry variable values that are interpolated at run time.
 
 ---
@@ -237,6 +239,13 @@ All endpoints are available under the mount path (e.g. `/biscotti/api/`):
 | GET | `/api/agents/{name}/evals` | List eval runs |
 | GET | `/api/agents/{name}/evals/{id}` | Get eval run details |
 | POST | `/api/agents/{name}/coach` | Get coaching suggestions |
+| POST | `/api/agents/{name}/bulk-run` | Start a new bulk run |
+| GET | `/api/agents/{name}/bulk-runs` | List bulk runs |
+| GET | `/api/agents/{name}/bulk-runs/{id}` | Get bulk run detail (with run logs) |
+| DELETE | `/api/agents/{name}/bulk-runs/{id}` | Delete bulk run and its run logs |
+| GET | `/api/agents/{name}/bulk-runs/{id}/stream` | Stream progress (SSE) |
+| GET | `/api/agents/{name}/bulk-runs/{id}/export` | Export results (csv/tsv/xlsx) |
+| POST | `/api/agents/{name}/bulk-runs/{id}/cancel` | Cancel a running bulk run |
 | GET | `/api/agents/{name}/export` | Export agent config as JSON |
 | POST | `/api/agents/{name}/import` | Import agent config |
 | GET | `/api/settings/status` | Provider auth status |

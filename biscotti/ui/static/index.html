@@ -6,11 +6,11 @@
 <title>biscotti</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=13">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
-<script src="app.js?v=15"></script>
-<script src="components.js?v=1"></script>
+<script src="app.js?v=35"></script>
+<script src="components.js?v=3"></script>
 </head>
 <body x-data x-init="$store.app.init()">
 
@@ -147,7 +147,7 @@
                   @click="$store.app.diffActive = !$store.app.diffActive"
                   title="Show changes from saved version">diff</button>
           <button class="copy-btn" @click="$store.app.copyToClipboard($store.app.prompt, $event)" title="Copy prompt">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <i data-lucide="copy"></i>
           </button>
           <span class="token-hint">~<span class="token-count" x-text="$store.app.promptTokens"></span> tokens</span>
         </div>
@@ -284,14 +284,16 @@
               <template x-for="s in $store.app.coachSuggestions.filter(s => s.status === 'pending' && s.lineEnd === line.lineIdx)" :key="s.idx">
                 <div class="review-comment" :class="{ expanded: $store.app.coachExpandedIdx === s.idx }">
                   <div class="review-comment-header" @click="$store.app.toggleReviewComment(s.idx)">
-                    <span class="coach-action-badge" :class="'badge-' + s.action" x-text="s.action.toUpperCase()"></span>
+                    <span class="coach-action-badge"
+                          :class="'badge-' + s.action"
+                          x-text="$store.app.coachActionLabel(s.action)"></span>
                     <span class="review-comment-title" x-text="s.title"></span>
                     <i data-lucide="chevron-down" class="review-comment-chevron" style="width:14px;height:14px;"></i>
                   </div>
                   <div class="review-comment-body" x-show="$store.app.coachExpandedIdx === s.idx" x-transition.duration.150ms>
                     <p class="review-comment-desc" x-text="s.description"></p>
                     <div class="review-diff" x-show="s.search_text || s.suggested_text">
-                      <div class="review-diff-del" x-show="s.search_text && s.action !== 'insert'" x-text="s.search_text"></div>
+                      <div class="review-diff-del" x-show="s.search_text && s.action !== 'insert' && s.action !== 'add' && s.action !== 'append'" x-text="s.search_text"></div>
                       <div class="review-diff-add" x-show="s.suggested_text" x-text="s.suggested_text"></div>
                     </div>
                     <div class="review-comment-actions">
@@ -343,68 +345,76 @@
         <div class="run-panel-scroll">
 
           <!-- === INPUT CARD: Test cases + Message + Variables === -->
-          <div class="panel-card">
-            <!-- Test cases (pill bar) -->
-            <div class="field-group">
-              <div class="field-label">Test Cases</div>
-              <div class="tc-pills">
-                <button class="tc-pill" :class="{ active: !$store.app.selectedTestCase }"
-                        @click="$store.app.selectTestCase('')">Ad hoc</button>
-                <template x-for="tc in $store.app.testCases" :key="tc.name">
-                  <div class="tc-pill-wrap">
-                    <button class="tc-pill" :class="{ active: $store.app.selectedTestCase === tc.name }"
-                            @click="$store.app.selectTestCase(tc.name)" x-text="tc.name"></button>
-                    <button class="tc-pill-delete" x-show="$store.app.selectedTestCase === tc.name"
-                            @click.stop="$store.app.deleteTestCase()" title="Delete test case">
-                      <i data-lucide="x" style="width:10px;height:10px;"></i>
-                    </button>
-                  </div>
-                </template>
-                <button class="tc-pill tc-pill-add" @click="$store.app.startSaveTestCase()" title="Save as test case">
-                  <i data-lucide="plus" style="width:12px;height:12px;"></i>
-                </button>
-              </div>
-              <div class="tc-inline-save" x-show="$store.app.tcSaving" x-transition.duration.150ms>
-                <input type="text" class="tc-name-input" placeholder="Test case name"
-                       x-model="$store.app.tcName"
-                       @keydown.enter="$store.app.confirmSaveTestCase()"
-                       @keydown.escape="$store.app.tcSaving = false">
-                <button class="tc-save-btn" @click="$store.app.confirmSaveTestCase()">
-                  <i data-lucide="check" style="width:14px;height:14px;"></i>
-                </button>
-                <button class="tc-cancel-btn" @click="$store.app.tcSaving = false">
-                  <i data-lucide="x" style="width:14px;height:14px;"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- User message + Variables (merged) -->
-            <div class="field-group">
-              <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
-                User Message
-                <span class="token-hint">~<span class="token-count" x-text="$store.app.msgTokens"></span> tokens</span>
-              </div>
-              <div class="textarea-wrap msg-editor-wrap">
-                <div id="msg-backdrop" x-html="highlightVars($store.app.userMessage)"></div>
-                <textarea id="msg-editor" x-model="$store.app.userMessage"
-                          placeholder="What would a user say to this agent?"
-                          @scroll="document.getElementById('msg-backdrop').scrollTop = $el.scrollTop"
-                          spellcheck="false"></textarea>
-                <button class="copy-btn copy-btn-inside" @click="$store.app.copyToClipboard($store.app.userMessage, $event)" title="Copy message">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                </button>
-              </div>
-              <!-- Variables inline below message -->
-              <div class="var-section" x-show="$store.app.variables.length">
-                <div class="var-grid">
-                  <template x-for="v in $store.app.variables" :key="v">
-                    <div class="var-row">
-                      <label class="var-label" x-text="v"></label>
-                      <input type="text" class="var-input"
-                             :value="$store.app.varValues[v] || ''"
-                             @input="$store.app.varValues[v] = $event.target.value">
+          <div class="panel-card panel-card-settings">
+            <button class="settings-toggle" :class="{ open: $store.app.tcSectionOpen }"
+                    @click="$store.app.tcSectionOpen = !$store.app.tcSectionOpen">
+              <i data-lucide="chevron-right" class="settings-chevron"></i>
+              <span>Test Cases</span>
+              <span x-show="!$store.app.tcSectionOpen" class="settings-toggle-hint"
+                    x-text="$store.app.selectedTestCase || 'Ad hoc'"></span>
+            </button>
+            <div class="settings-body" :class="{ open: $store.app.tcSectionOpen }">
+              <!-- Test cases (pill bar) -->
+              <div class="field-group" style="margin-bottom:0;">
+                <div class="tc-pills">
+                  <button class="tc-pill" :class="{ active: !$store.app.selectedTestCase }"
+                          @click="$store.app.selectTestCase('')">Ad hoc</button>
+                  <template x-for="tc in $store.app.testCases" :key="tc.name">
+                    <div class="tc-pill-wrap">
+                      <button class="tc-pill" :class="{ active: $store.app.selectedTestCase === tc.name }"
+                              @click="$store.app.selectTestCase(tc.name)" x-text="tc.name"></button>
+                      <button class="tc-pill-delete" x-show="$store.app.selectedTestCase === tc.name"
+                              @click.stop="$store.app.deleteTestCase()" title="Delete test case">
+                        <i data-lucide="x" style="width:10px;height:10px;"></i>
+                      </button>
                     </div>
                   </template>
+                  <button class="tc-pill tc-pill-add" @click="$store.app.startSaveTestCase()" title="Save as test case">
+                    <i data-lucide="plus" style="width:12px;height:12px;"></i>
+                  </button>
+                </div>
+                <div class="tc-inline-save" x-show="$store.app.tcSaving" x-transition.duration.150ms>
+                  <input type="text" class="tc-name-input" placeholder="Test case name"
+                         x-model="$store.app.tcName"
+                         @keydown.enter="$store.app.confirmSaveTestCase()"
+                         @keydown.escape="$store.app.tcSaving = false">
+                  <button class="tc-save-btn" @click="$store.app.confirmSaveTestCase()">
+                    <i data-lucide="check" style="width:14px;height:14px;"></i>
+                  </button>
+                  <button class="tc-cancel-btn" @click="$store.app.tcSaving = false">
+                    <i data-lucide="x" style="width:14px;height:14px;"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- User message + Variables -->
+              <div class="field-group">
+                <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
+                  User Message
+                  <span class="token-hint">~<span class="token-count" x-text="$store.app.msgTokens"></span> tokens</span>
+                </div>
+                <div class="textarea-wrap msg-editor-wrap">
+                  <div id="msg-backdrop" x-html="highlightVars($store.app.userMessage)"></div>
+                  <textarea id="msg-editor" x-model="$store.app.userMessage"
+                            placeholder="What would a user say to this agent?"
+                            @scroll="document.getElementById('msg-backdrop').scrollTop = $el.scrollTop"
+                            spellcheck="false"></textarea>
+                  <button class="copy-btn copy-btn-inside copy-btn-sm" @click="$store.app.copyToClipboard($store.app.userMessage, $event)" title="Copy message">
+                    <i data-lucide="copy"></i>
+                  </button>
+                </div>
+                <!-- Variables inline below message -->
+                <div class="var-section" x-show="$store.app.variables.length">
+                  <div class="var-grid">
+                    <template x-for="v in $store.app.variables" :key="v">
+                      <div class="var-row">
+                        <label class="var-label" x-text="v"></label>
+                        <input type="text" class="var-input"
+                               :value="$store.app.varValues[v] || ''"
+                               @input="$store.app.varValues[v] = $event.target.value">
+                      </div>
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>
@@ -480,40 +490,46 @@
           </div>
 
           <!-- === TOOLS PANEL (PydanticAI agents) === -->
-          <div x-show="$store.app.agentTools.length > 0" class="panel-card" x-transition>
-            <div class="field-label" style="margin-bottom:8px;">Tools</div>
-            <!-- Tool definitions -->
-            <div class="tools-list">
-              <template x-for="tool in $store.app.agentTools" :key="tool.name">
-                <div class="tool-item">
-                  <div class="tool-name" x-text="tool.name"></div>
-                  <div class="tool-desc" x-text="tool.description" x-show="tool.description"></div>
-                </div>
-              </template>
-            </div>
-            <!-- Tool call trace from last run (inside same card) -->
-            <div class="tool-calls-trace"
-                 x-show="($store.app.metrics?.toolCalls || []).filter(tc => tc.tool_name !== 'final_result').length"
-                 style="display:none;">
-              <div class="tool-calls-trace-label">Calls — last run</div>
-              <template x-for="(tc, idx) in ($store.app.metrics?.toolCalls || []).filter(tc => tc.tool_name !== 'final_result')" :key="idx">
-                <div class="tool-call-item" x-data="{ open: false }">
-                  <button class="tool-call-header" @click="open = !open">
-                    <span class="tool-call-name" x-text="tc.tool_name"></span>
-                    <span class="tool-call-chevron" :class="{ open }">&#8250;</span>
-                  </button>
-                  <div class="tool-call-body" x-show="open">
-                    <div x-show="tc.args && Object.keys(tc.args).length" class="tool-call-section">
-                      <div class="tool-call-section-label">Args</div>
-                      <pre class="tool-call-args" x-text="JSON.stringify(tc.args, null, 2)"></pre>
-                    </div>
-                    <div x-show="tc.return_value" class="tool-call-section">
-                      <div class="tool-call-section-label">Return</div>
-                      <div class="tool-call-result" x-text="tc.return_value"></div>
+          <div x-show="$store.app.agentTools.length > 0" class="panel-card panel-card-settings" x-transition>
+            <button class="settings-toggle" :class="{ open: $store.app.toolsSectionOpen }"
+                    @click="$store.app.toolsSectionOpen = !$store.app.toolsSectionOpen">
+              <i data-lucide="chevron-right" class="settings-chevron"></i>
+              <span>Tools</span>
+              <span x-show="!$store.app.toolsSectionOpen" class="settings-toggle-hint"
+                    x-text="$store.app.agentTools.length + ' registered'"></span>
+            </button>
+            <div class="settings-body" :class="{ open: $store.app.toolsSectionOpen }">
+              <div class="tools-list">
+                <template x-for="tool in $store.app.agentTools" :key="tool.name">
+                  <div class="tool-item"
+                       x-data="{
+                         open: false,
+                         _tn: tool.name,
+                         get call() {
+                           return ($store.app.metrics?.toolCalls || []).find(tc => tc.tool_name === this._tn) || null;
+                         }
+                       }">
+                    <button class="tool-item-header" @click="open = !open">
+                      <i data-lucide="chevron-right" class="tool-item-chevron" :class="{ open }"></i>
+                      <span class="tool-name" x-text="tool.name"></span>
+                      <span x-show="call" class="tool-call-badge">called</span>
+                    </button>
+                    <div class="tool-item-body" x-show="open">
+                      <div x-show="tool.description" class="tool-desc" x-text="tool.description"></div>
+                      <div x-show="call" class="tool-call-details" style="display:none;">
+                        <div x-show="call?.args && Object.keys(call?.args || {}).length" class="tool-call-section">
+                          <div class="tool-call-section-label">Args</div>
+                          <pre class="tool-call-args" x-text="call?.args ? JSON.stringify(call.args, null, 2) : ''"></pre>
+                        </div>
+                        <div x-show="call?.return_value" class="tool-call-section">
+                          <div class="tool-call-section-label">Return</div>
+                          <div class="tool-call-result" x-text="call?.return_value || ''"></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </template>
+                </template>
+              </div>
             </div>
           </div>
 
@@ -534,13 +550,19 @@
                   <span x-text="($store.app.metrics?.latency || 0) + 'ms'"></span>
                 </span>
               </button>
-              <div x-show="$store.app.outputOpen">
+              <div x-show="$store.app.outputOpen" class="output-copy-wrap">
                 <pre x-show="$store.app.isJsonOutput" id="output-box"
                      :class="$store.app.outputState + ' json'"
                      x-text="$store.app.formattedOutput"></pre>
                 <div x-show="!$store.app.isJsonOutput" id="output-box"
                      :class="$store.app.outputState"
                      x-text="$store.app.output || 'Run a test to see the agent\'s response here.'"></div>
+                <button class="copy-btn copy-btn-inside"
+                        x-show="$store.app.output"
+                        @click="$store.app.copyToClipboard($store.app.isJsonOutput ? $store.app.formattedOutput : $store.app.output, $event)"
+                        title="Copy output">
+                  <i data-lucide="copy"></i>
+                </button>
               </div>
             </div>
 
@@ -678,20 +700,36 @@
 
   <!-- ========== EVALS VIEW ========== -->
   <div class="view" x-show="$store.app.activeView === 'evals'">
+    <div class="evals-view-layout">
     <div class="evals-view">
 
       <!-- Page header -->
       <div class="evals-page-header">
         <span class="evals-page-title">Evals</span>
-        <div x-show="$store.app.evalHistory.length">
-          <select class="eval-history-select-inline"
-                  @change="if ($event.target.value) $store.app.loadEvalRun($event.target.value)">
-            <template x-for="h in $store.app.evalHistory" :key="h.id">
-              <option :value="h.id"
-                      :selected="$store.app.evalResult?.id === h.id"
-                      x-text="formatDate(h.created_at) + ' -- v' + (h.prompt_version || '?')"></option>
+        <div x-show="$store.app.evalHistory.length"
+             class="typeahead-wrap eval-history-wrap"
+             x-data="typeahead({
+               items: () => $store.app.evalHistory.map(h => ({
+                 key: String(h.id),
+                 label: formatDate(h.created_at) + ' — v' + (h.prompt_version || '?'),
+                 value: String(h.id),
+               })),
+               selected: () => String($store.app.evalResult?.id || ''),
+               onSelect: (id) => $store.app.loadEvalRun(Number(id)),
+               searchable: false,
+             })"
+             @click.outside="close()"
+             >
+          <input class="model-input eval-history-input" x-bind="input">
+          <div class="typeahead-dropdown eval-history-dropdown" :class="{ open }">
+            <template x-for="(item, idx) in filtered" :key="item.key">
+              <div class="typeahead-item"
+                   :class="{ highlighted: idx === highlightIdx, 'typeahead-item--selected': item.value === String($store.app.evalResult?.id) }"
+                   @mousedown.prevent="_select(item)"
+                   @mouseenter="highlightIdx = idx"
+                   x-text="item.label"></div>
             </template>
-          </select>
+          </div>
         </div>
       </div>
 
@@ -899,7 +937,12 @@
               </div>
               <div class="tc-pills" x-show="$store.app.testCases.length" style="margin-top:4px;">
                 <template x-for="tc in $store.app.testCases" :key="tc.name">
-                  <span class="tc-pill" style="cursor:default" x-text="tc.name"></span>
+                  <div class="tc-pill-wrap">
+                    <span class="tc-pill" x-text="tc.name"></span>
+                    <button class="tc-pill-delete" @click.stop="$store.app.deleteTestCaseByName(tc.name)" title="Delete test case">
+                      <i data-lucide="x" style="width:10px;height:10px;"></i>
+                    </button>
+                  </div>
                 </template>
               </div>
               <div x-show="!$store.app.testCases.length"
@@ -943,18 +986,20 @@
         </div>
       </div>
 
-      <!-- Sticky run button -->
-      <div class="eval-run-sticky">
-        <button class="btn btn-primary eval-run-btn"
-                @click="$store.app.runEval()"
-                :disabled="$store.app.evalRunning || !$store.app.testCases.length">
-          <span x-show="$store.app.evalRunning" style="display:inline-flex;align-items:center;gap:6px;">
-            <span class="spinner"></span> Running Eval...
-          </span>
-          <span x-show="!$store.app.evalRunning" x-text="'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
-        </button>
-      </div>
+    </div><!-- /evals-view -->
+
+    <!-- Run button — outside scroll container so content never hides behind it -->
+    <div class="eval-run-footer">
+      <button class="btn btn-primary eval-run-btn"
+              @click="$store.app.runEval()"
+              :disabled="$store.app.evalRunning || !$store.app.testCases.length">
+        <span x-show="$store.app.evalRunning" style="display:inline-flex;align-items:center;gap:6px;">
+          <span class="spinner"></span> Running Eval...
+        </span>
+        <span x-show="!$store.app.evalRunning" x-text="'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
+      </button>
     </div>
+    </div><!-- /evals-view-layout -->
   </div>
 
   <!-- ========== ALL AGENTS VIEW ========== -->
@@ -1002,7 +1047,7 @@
                 :class="{ active: $store.app.bulkSubView === 'new' }"
                 role="tab"
                 :aria-selected="$store.app.bulkSubView === 'new'"
-                @click="$store.app.bulkSubView = 'new'">New Run</button>
+                @click="$store.app.startFreshBulkRun()">New Run</button>
         <button class="bulk-pill"
                 :class="{ active: $store.app.bulkSubView === 'history' }"
                 role="tab"
@@ -1045,6 +1090,7 @@
               <!-- Step 2: Variants -->
               <div class="bulk-section-gap bulk-config-section">
                 <div class="bulk-step-header"><span class="bulk-step-num">2</span>Variants</div>
+                <div class="bulk-variant-panel">
 
                 <!-- Models (full width) -->
                 <div class="bulk-variant-block">
@@ -1061,7 +1107,11 @@
                     <input class="model-input" x-bind="input">
                     <div class="typeahead-dropdown" :class="{ open }">
                       <template x-for="(item, idx) in filtered" :key="item.key">
-                        <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
+                        <div class="typeahead-item"
+                             :class="{ highlighted: idx === highlightIdx }"
+                             @mousedown.prevent="_select(item)"
+                             @mouseenter="highlightIdx = idx"
+                             x-text="item.label"></div>
                       </template>
                       <div x-bind="empty"
                            x-text="$store.app.availableModels.length === $store.app.bulkSelectedModels.length ? 'All models selected' : 'No matching models'"></div>
@@ -1076,13 +1126,12 @@
                         </button>
                       </span>
                     </template>
-                    <div x-show="$store.app.bulkSelectedModels.length === 0" class="bulk-variant-empty">No models added yet</div>
                   </div>
                 </div>
 
                 <!-- Temperatures + Reasoning Effort (side by side — both compact parameters) -->
                 <div class="bulk-variant-params">
-                  <div class="bulk-variant-block bulk-variant-block--sep">
+                  <div class="bulk-variant-block">
                     <div class="bulk-label">Temperatures</div>
                     <div class="bulk-temp-add">
                       <input type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*"
@@ -1103,7 +1152,7 @@
                     </div>
                   </div>
 
-                  <div class="bulk-variant-block bulk-variant-block--nosep">
+                  <div class="bulk-variant-block">
                     <div class="bulk-label">Reasoning Effort</div>
                     <div class="bulk-checks">
                       <template x-for="re in ['low', 'medium', 'high']" :key="re">
@@ -1119,51 +1168,46 @@
                   </div>
                 </div>
 
+                </div><!-- end .bulk-variant-panel -->
               </div>
 
-            <!-- Options (collapsible) -->
-            <div class="bulk-section-gap">
-              <button class="settings-toggle" @click="$store.app.bulkAdvancedOpen = !$store.app.bulkAdvancedOpen">
-                <svg width="10" height="6" viewBox="0 0 10 6" fill="none"
-                     :style="$store.app.bulkAdvancedOpen ? '' : 'transform:rotate(-90deg)'">
-                  <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span class="bulk-step-num bulk-step-num--inline">3</span> Options
-              </button>
-              <div class="settings-body" :class="{ open: $store.app.bulkAdvancedOpen }">
-                <div class="bulk-advanced-panel">
-                  <div class="bulk-advanced-row">
-                    <label class="bulk-check-item">
-                      <input type="checkbox"
-                             :checked="$store.app.bulkIncludeEval"
-                             @change="$store.app.bulkIncludeEval = $event.target.checked">
-                      <span>Auto-Evaluate with Judge Model</span>
-                    </label>
-                    <div x-show="$store.app.bulkIncludeEval" class="bulk-judge-reveal">
-                      <div class="typeahead-wrap bulk-judge-wrap"
-                           x-data="typeahead({
-                             items: () => $store.app.availableModels,
-                             selected: () => $store.app.bulkJudgeModel,
-                             onSelect: (m) => { $store.app.bulkJudgeModel = m; },
-                             placeholder: 'Select model...',
-                             searchable: false,
-                             inputClass: 'model-input bulk-judge-input',
-                           })"
-                           @click.outside="close()">
-                        <input class="model-input" x-bind="input">
-                        <div class="typeahead-dropdown" :class="{ open }">
-                          <template x-for="(item, idx) in filtered" :key="item.key">
-                            <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
-                          </template>
-                        </div>
-                      </div>
+            <!-- Step 3: Options -->
+            <div class="bulk-config-section">
+              <div class="bulk-step-header"><span class="bulk-step-num">3</span>Options</div>
+              <div class="bulk-advanced-panel">
+                <div class="bulk-advanced-row">
+                  <label class="bulk-check-item">
+                    <input type="checkbox"
+                           :checked="$store.app.bulkIncludeEval"
+                           @change="$store.app.bulkIncludeEval = $event.target.checked">
+                    <span>Auto-Evaluate with Judge Model</span>
+                  </label>
+                </div>
+                <div class="bulk-advanced-row bulk-advanced-row--stack" x-show="$store.app.bulkIncludeEval">
+                  <span class="bulk-label bulk-label--inline">Judge Model</span>
+                  <div class="typeahead-wrap bulk-judge-wrap"
+                       x-data="typeahead({
+                         items: () => $store.app.availableModels,
+                         selected: () => $store.app.bulkJudgeModel,
+                         onSelect: (m) => { $store.app.bulkJudgeModel = m; },
+                         placeholder: 'Search models...',
+                         searchable: true,
+                         clearOnSelect: false,
+                         inputClass: 'model-input bulk-judge-input',
+                       })"
+                       @click.outside="close()">
+                    <input class="model-input" x-bind="input">
+                    <div class="typeahead-dropdown" :class="{ open }">
+                      <template x-for="(item, idx) in filtered" :key="item.key">
+                        <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
+                      </template>
                     </div>
                   </div>
-                  <div class="bulk-advanced-row">
-                    <span class="bulk-label bulk-label--inline">Concurrency</span>
-                    <input type="number" class="bulk-concurrency-input" min="1" max="20"
-                           x-model.number="$store.app.bulkConcurrency">
-                  </div>
+                </div>
+                <div class="bulk-advanced-row">
+                  <span class="bulk-label bulk-label--inline">Concurrency</span>
+                  <input type="number" class="bulk-concurrency-input" min="1" max="20"
+                         x-model.number="$store.app.bulkConcurrency">
                 </div>
               </div>
             </div>
@@ -1196,17 +1240,88 @@
           </div>
         </div>
 
-        <!-- Progress bar -->
-        <div class="bulk-progress" x-show="$store.app.bulkRunning || $store.app.bulkResults.length > 0">
-          <div class="bulk-progress-bar" role="progressbar"
-               :aria-valuenow="$store.app.bulkProgressPercent"
-               aria-valuemin="0" aria-valuemax="100">
-            <div class="bulk-progress-fill"
-                 :style="'width:' + $store.app.bulkProgressPercent + '%'"></div>
+        <!-- Progress (live run only) -->
+        <div class="bulk-run-status" x-show="$store.app.bulkRunning || $store.app.bulkResults.length > 0" x-transition>
+          <div class="bulk-run-status-row">
+            <span class="bulk-run-status-label" x-text="$store.app.bulkRunning ? 'Running…' : 'Complete'"></span>
+            <span class="bulk-run-status-count"
+                  x-text="$store.app.bulkCompleted + ' / ' + $store.app.bulkTotalRuns"></span>
           </div>
-          <span class="bulk-progress-text"
-                x-text="$store.app.bulkCompleted + ' / ' + $store.app.bulkTotalRuns + ($store.app.bulkRunning ? ' running...' : ' complete')"></span>
+          <div class="bulk-progress-track">
+            <div class="bulk-progress-fill" :style="'width:' + $store.app.bulkProgressPercent + '%'"></div>
+          </div>
         </div>
+
+      </div><!-- end new-run sub-view -->
+
+      <!-- ======================== DETAIL SUB-VIEW ======================== -->
+      <div x-show="$store.app.bulkSubView === 'detail'" x-cloak>
+        <div class="bulk-detail-card" x-show="$store.app.bulkViewedRun">
+
+          <!-- Header row: date + status + Run Again -->
+          <div class="bulk-detail-top">
+            <div class="bulk-detail-title-row">
+              <button class="btn btn-ghost btn-sm bulk-detail-back"
+                      @click="$store.app.bulkSubView = 'history'">
+                <i data-lucide="arrow-left" style="width:13px;height:13px;"></i>
+                History
+              </button>
+              <span class="bulk-detail-date mono"
+                    x-text="formatDate($store.app.bulkViewedRun?.created_at)"></span>
+              <span class="bulk-history-status"
+                    :class="'status-' + $store.app.bulkViewedRun?.status"
+                    x-text="$store.app.bulkViewedRun?.status"></span>
+            </div>
+            <button class="btn btn-primary btn-sm" @click="$store.app.rerunBulkRun()">
+              Run Again
+            </button>
+          </div>
+
+          <!-- Config rows -->
+          <div class="bulk-detail-config">
+            <div class="bulk-detail-row">
+              <span class="bulk-label">Test Cases</span>
+              <div class="bulk-detail-chips">
+                <template x-for="tc in ($store.app.bulkViewedRun?.test_cases || [])" :key="tc">
+                  <span class="bulk-chip" x-text="tc"></span>
+                </template>
+              </div>
+            </div>
+            <div class="bulk-detail-row" x-show="($store.app.bulkViewedRun?.config_matrix?.models || []).length">
+              <span class="bulk-label">Models</span>
+              <div class="bulk-detail-chips">
+                <template x-for="m in ($store.app.bulkViewedRun?.config_matrix?.models || [])" :key="m">
+                  <span class="bulk-chip mono" x-text="m"></span>
+                </template>
+              </div>
+            </div>
+            <div class="bulk-detail-row" x-show="($store.app.bulkViewedRun?.config_matrix?.temperatures || []).length">
+              <span class="bulk-label">Temperatures</span>
+              <div class="bulk-detail-chips">
+                <template x-for="t in ($store.app.bulkViewedRun?.config_matrix?.temperatures || [])" :key="t">
+                  <span class="bulk-chip" x-text="'T=' + t"></span>
+                </template>
+              </div>
+            </div>
+            <div class="bulk-detail-row" x-show="($store.app.bulkViewedRun?.config_matrix?.reasoning_efforts || []).length">
+              <span class="bulk-label">Reasoning Effort</span>
+              <div class="bulk-detail-chips">
+                <template x-for="re in ($store.app.bulkViewedRun?.config_matrix?.reasoning_efforts || [])" :key="re">
+                  <span class="bulk-chip" x-text="re"></span>
+                </template>
+              </div>
+            </div>
+            <div class="bulk-detail-row" x-show="$store.app.bulkViewedRun?.include_eval">
+              <span class="bulk-label">Judge</span>
+              <span class="bulk-chip mono" x-text="$store.app.bulkViewedRun?.judge_model || 'enabled'"></span>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- end detail sub-view -->
+
+      <!-- Error banner + Results (shared: new run and detail view) -->
+      <div x-show="$store.app.bulkSubView === 'new' || $store.app.bulkSubView === 'detail'">
 
         <!-- Error banner -->
         <div class="bulk-error-banner"
@@ -1215,16 +1330,15 @@
           <span x-text="$store.app.bulkErrorCount + ' of ' + $store.app.bulkTotalRuns + ' runs failed'"></span>
         </div>
 
-        <!-- Results table -->
-        <div class="bulk-results" x-show="$store.app.bulkResults.length > 0">
+        <!-- Results -->
+        <div x-show="$store.app.bulkResults.length > 0">
           <div class="bulk-results-header">
             <span class="bulk-results-title"
-                  x-text="'Results (' + $store.app.bulkResults.length + ')'"></span>
+                  x-text="$store.app.bulkResultGroups.length + ' test case' + ($store.app.bulkResultGroups.length !== 1 ? 's' : '') + ' · ' + $store.app.bulkResults.length + ' runs'"></span>
             <div class="bulk-export-split" @click.outside="$store.app.bulkExportOpen = false">
               <button class="btn btn-ghost btn-sm" @click="$store.app.exportBulkRun('csv')">Export CSV</button>
               <button class="btn btn-ghost btn-sm bulk-export-chevron"
-                      @click="$store.app.bulkExportOpen = !$store.app.bulkExportOpen"
-                      aria-label="More export options">
+                      @click="$store.app.bulkExportOpen = !$store.app.bulkExportOpen">
                 <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
               <div class="bulk-export-menu" x-show="$store.app.bulkExportOpen">
@@ -1234,64 +1348,147 @@
             </div>
           </div>
 
-          <div class="bulk-table-wrap">
-            <table class="bulk-table">
-              <thead>
-                <tr>
-                  <th class="bulk-sortable" @click="$store.app.bulkSort('test_case')">
-                    Test Case <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'test_case' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
-                  </th>
-                  <th class="bulk-sortable" @click="$store.app.bulkSort('model')">
-                    Model <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'model' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
-                  </th>
-                  <th class="bulk-sortable" @click="$store.app.bulkSort('temperature')">
-                    Temp <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'temperature' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
-                  </th>
-                  <th class="bulk-sortable" @click="$store.app.bulkSort('reasoning_effort')">
-                    RE <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'reasoning_effort' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
-                  </th>
-                  <th class="bulk-sortable" @click="$store.app.bulkSort('latency')">
-                    Latency <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'latency' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
-                  </th>
-                  <th class="bulk-sortable" @click="$store.app.bulkSort('input_tokens')">
-                    In Tokens <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'input_tokens' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
-                  </th>
-                  <th class="bulk-sortable" @click="$store.app.bulkSort('output_tokens')">
-                    Out Tokens <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'output_tokens' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
-                  </th>
-                  <th class="bulk-sortable" @click="$store.app.bulkSort('cost')">
-                    Cost <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'cost' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
-                  </th>
-                  <th class="bulk-sortable" x-show="$store.app.bulkIncludeEval" @click="$store.app.bulkSort('score')">
-                    Score <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'score' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
-                  </th>
-                  <th class="bulk-sortable" @click="$store.app.bulkSort('outcome')">
-                    Outcome <span class="bulk-sort-icon" x-text="$store.app.bulkSortCol === 'outcome' ? ($store.app.bulkSortDir === 'asc' ? '&#9650;' : '&#9660;') : ''"></span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <template x-for="row in $store.app.bulkSortedResults" :key="row.id">
-                  <tr>
-                    <td x-text="row.test_case"></td>
-                    <td class="mono" x-text="row.model"></td>
-                    <td class="mono" x-text="row.temperature?.toFixed(1) ?? '--'"></td>
-                    <td x-text="row.reasoning_effort || '--'"></td>
-                    <td class="mono" x-text="row.latency ? row.latency.toFixed(1) + 's' : '--'"></td>
-                    <td class="mono" x-text="row.input_tokens?.toLocaleString() ?? '--'"></td>
-                    <td class="mono" x-text="row.output_tokens?.toLocaleString() ?? '--'"></td>
-                    <td class="mono" x-text="row.cost != null ? formatCost(row.cost) : '--'"></td>
-                    <td x-show="$store.app.bulkIncludeEval"
-                        :style="row.score != null ? 'color:' + scoreColor(row.score) : ''"
-                        x-text="row.score != null ? row.score.toFixed(1) : '--'"></td>
-                    <td>
-                      <span :class="{ 'eval-pass': row.outcome === 'pass', 'eval-fail': row.outcome === 'fail', 'eval-error': row.outcome === 'error' }"
-                            x-text="row.outcome || '--'"></span>
-                    </td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
+          <!-- Results grouped by test case -->
+          <div class="bulk-result-list">
+            <template x-for="group in $store.app.bulkResultGroups" :key="group.tcName">
+              <div class="bulk-group">
+
+                <!-- Group header: test case name + run count -->
+                <div class="bulk-group-header">
+                  <span class="bulk-group-tc" x-text="group.tcName"></span>
+                  <span class="bulk-group-count"
+                        x-text="group.rows.length + ' run' + (group.rows.length !== 1 ? 's' : '')"></span>
+                </div>
+
+                <!-- Variant rows (one per model/param combo) -->
+                <div class="bulk-group-rows">
+                  <template x-for="row in group.rows" :key="row.run_id || row.id">
+                    <div class="bulk-result-card" x-data="{ open: false }"
+                         :class="{ 'brc-success': row.outcome === 'success', 'brc-error': row.outcome === 'error' }">
+
+                      <!-- Summary row -->
+                      <button class="bulk-result-header" @click="open = !open">
+                        <!-- Left: model name -->
+                        <div class="bulk-result-main">
+                          <span class="bulk-result-model" x-text="row.model_used || row.model_selected || '—'"></span>
+                        </div>
+                        <!-- Middle: metric chips -->
+                        <div class="bulk-result-metrics">
+                          <span class="brm-chip" x-show="row.temperature != null"
+                                x-text="'T=' + row.temperature?.toFixed(1)"></span>
+                          <span class="brm-chip" x-show="row.reasoning_effort"
+                                x-text="row.reasoning_effort"></span>
+                          <span class="brm-chip" x-show="row.latency_ms"
+                                x-text="(row.latency_ms / 1000).toFixed(1) + 's'"></span>
+                          <span class="brm-chip" x-show="row.estimated_cost != null"
+                                x-text="'$' + (row.estimated_cost || 0).toFixed(4)"></span>
+                          <span class="brm-chip brm-score" x-show="row.score != null"
+                                :style="'color:' + scoreColor(row.score) + '; border-color:' + scoreColor(row.score) + '55; background:' + scoreColor(row.score) + '18'"
+                                x-text="row.score?.toFixed(1) + ' / 5'"></span>
+                        </div>
+                        <!-- Right: outcome badge + chevron -->
+                        <div class="bulk-result-right">
+                          <span class="bulk-result-badge"
+                                :class="{ 'brb-success': row.outcome === 'success', 'brb-error': row.outcome === 'error' }"
+                                x-text="row.outcome || '—'"></span>
+                          <i data-lucide="chevron-right" class="brc-chevron" :class="{ open }"></i>
+                        </div>
+                      </button>
+
+                      <!-- Expandable detail -->
+                      <div class="bulk-result-body" x-show="open" x-transition.duration.100ms>
+
+                        <!-- Output -->
+                        <div class="brd-section" x-show="row.output">
+                          <div class="brd-section-header">
+                            <div class="brd-label">Output</div>
+                            <button class="copy-btn copy-btn-sm"
+                                    @click.stop="$store.app.copyToClipboard(row.output, $event)"
+                                    title="Copy output">
+                              <i data-lucide="copy"></i>
+                            </button>
+                          </div>
+                          <pre class="brd-output" x-text="row.output"></pre>
+                        </div>
+
+                        <!-- Tool calls -->
+                        <div class="brd-section" x-show="(row.tool_calls || []).filter(tc => tc.tool_name !== 'final_result').length">
+                          <div class="brd-label">Tool Calls</div>
+                          <template x-for="(tc, ti) in (row.tool_calls || []).filter(tc => tc.tool_name !== 'final_result')" :key="ti">
+                            <div class="brd-tool" x-data="{ tcOpen: false }">
+                              <button class="brd-tool-header" @click="tcOpen = !tcOpen">
+                                <span class="brd-tool-name" x-text="tc.tool_name"></span>
+                                <i data-lucide="chevron-right" style="width:11px;height:11px;color:var(--muted);transition:transform .15s;"
+                                   :style="tcOpen ? 'transform:rotate(90deg)' : ''"></i>
+                              </button>
+                              <div class="brd-tool-body" x-show="tcOpen">
+                                <div x-show="tc.args && Object.keys(tc.args || {}).length" class="brd-subsection">
+                                  <div class="brd-section-header">
+                                    <div class="brd-sublabel">Args</div>
+                                    <button class="copy-btn copy-btn-sm"
+                                            @click.stop="$store.app.copyToClipboard(JSON.stringify(tc.args, null, 2), $event)"
+                                            title="Copy args">
+                                      <i data-lucide="copy"></i>
+                                    </button>
+                                  </div>
+                                  <pre class="brd-code" x-text="JSON.stringify(tc.args, null, 2)"></pre>
+                                </div>
+                                <div x-show="tc.return_value" class="brd-subsection">
+                                  <div class="brd-section-header">
+                                    <div class="brd-sublabel">Return</div>
+                                    <button class="copy-btn copy-btn-sm"
+                                            @click.stop="$store.app.copyToClipboard(typeof tc.return_value === 'string' ? tc.return_value : JSON.stringify(tc.return_value, null, 2), $event)"
+                                            title="Copy return value">
+                                      <i data-lucide="copy"></i>
+                                    </button>
+                                  </div>
+                                  <div class="brd-code" x-text="tc.return_value"></div>
+                                </div>
+                              </div>
+                            </div>
+                          </template>
+                        </div>
+
+                        <!-- Judge score + reasoning -->
+                        <div class="brd-section brd-judge-section" x-show="row.score != null">
+                          <div class="brd-judge-header">
+                            <span class="brd-label" style="margin:0">Judge Score</span>
+                            <span class="brd-score-badge"
+                                  :style="'background:' + scoreColor(row.score) + '22; color:' + scoreColor(row.score) + '; border-color:' + scoreColor(row.score) + '55'"
+                                  x-text="(row.score?.toFixed(1) || '—') + ' / 5'"></span>
+                            <button class="copy-btn copy-btn-sm"
+                                    style="margin-left:auto"
+                                    x-show="row.score_reasoning"
+                                    @click.stop="$store.app.copyToClipboard(row.score_reasoning, $event)"
+                                    title="Copy reasoning">
+                              <i data-lucide="copy"></i>
+                            </button>
+                          </div>
+                          <div class="brd-reasoning" x-show="row.score_reasoning" x-text="row.score_reasoning"></div>
+                        </div>
+                        <!-- No judge score — prompt to enable -->
+                        <div class="brd-section brd-no-score" x-show="row.score == null && row.outcome === 'success'">
+                          <span>No judge score — enable "Auto-Evaluate" in Options before running.</span>
+                        </div>
+
+                        <!-- Tokens + cost -->
+                        <div class="brd-section brd-meta-row">
+                          <span x-show="row.input_tokens" x-text="'In: ' + (row.input_tokens || 0).toLocaleString() + ' tokens'"></span>
+                          <span x-show="row.output_tokens" x-text="'Out: ' + (row.output_tokens || 0).toLocaleString() + ' tokens'"></span>
+                          <span x-show="row.latency_ms" x-text="(row.latency_ms / 1000).toFixed(2) + 's'"></span>
+                          <span x-show="row.estimated_cost != null" x-text="'$' + (row.estimated_cost || 0).toFixed(5) + ' est. cost'"></span>
+                        </div>
+
+                        <!-- Error message -->
+                        <div class="brd-section brd-error-msg" x-show="row.error_message" x-text="row.error_message"></div>
+
+                      </div>
+                    </div>
+                  </template>
+                </div>
+
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -1303,7 +1500,12 @@
         </div>
         <div class="bulk-history-list" x-show="$store.app.bulkHistory.length > 0">
           <template x-for="run in $store.app.bulkHistory" :key="run.id">
-            <div class="bulk-history-row">
+            <div class="bulk-history-row"
+                 role="button"
+                 tabindex="0"
+                 @click="$store.app.viewBulkRun(run.id)"
+                 @keydown.enter.prevent="$store.app.viewBulkRun(run.id)"
+                 @keydown.space.prevent="$store.app.viewBulkRun(run.id)">
               <span class="bulk-history-date mono" x-text="formatDate(run.created_at)"></span>
               <span class="bulk-history-config"
                     x-text="$store.app.formatBulkConfig(run)"></span>
@@ -1311,8 +1513,13 @@
                     :class="'status-' + run.status"
                     x-text="run.status"></span>
               <div class="bulk-history-actions">
-                <button class="btn btn-ghost btn-sm" @click="$store.app.viewBulkRun(run.id)">View</button>
-                <button class="btn btn-ghost btn-sm" @click="$store.app.exportBulkRun('csv', run.id)">Export</button>
+                <button class="btn btn-ghost btn-sm"
+                        @click.stop="$store.app.exportBulkRun('csv', run.id)">Export</button>
+                <button class="btn btn-ghost btn-sm bulk-history-delete"
+                        title="Delete this bulk run"
+                        @click.stop="$store.app.deleteBulkRun(run.id)">
+                  <i data-lucide="trash-2"></i>
+                </button>
               </div>
             </div>
           </template>

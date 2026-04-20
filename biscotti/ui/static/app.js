@@ -125,6 +125,10 @@ document.addEventListener('alpine:init', () => {
     runHistory: [],
     runHistoryOpen: false,
 
+    // --- Section collapse state ---
+    tcSectionOpen: true,
+    toolsSectionOpen: true,
+
     // --- Model settings ---
     settingsOpen: false,
     modelInput: '',
@@ -231,6 +235,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     bulkCompleted: 0,
     bulkTotalRuns: 0,
     bulkCurrentId: null,
+    bulkViewedRun: null,
     bulkHistory: [],
     bulkSortCol: null,
     bulkSortAsc: true,
@@ -933,6 +938,12 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         this._savedJudgeCriteria = this.judgeCriteria;
         this.loadCriteriaRows();
         this.criteriaOpenIdx = -1;
+        // Pre-wire bulk run judge settings from agent config
+        if (this.judgeCriteria) {
+          this.bulkIncludeEval = true;
+          this.bulkJudgeModel = this.judgeModel || '';
+          this.bulkAdvancedOpen = true;
+        }
         // Coach model: use saved setting, or fall back to first available model
         this.coachModel = s.coach_model || (this.availableModels.length ? this.availableModels[0] : '');
         this.providerStatus = await api('/api/settings/status');
@@ -1002,8 +1013,29 @@ Always provide a complete revised_prompt with all suggestions applied.`,
 
     // --- API Key Modal ---
     extractProvider(modelStr) {
+      // Returns the lowercase provider ID (e.g. "anthropic") used as the key in
+      // providerStatus / _PROVIDER_LABELS. Handles both the prefixed form
+      // ("anthropic:claude-haiku-4-5") and the bare canonical form
+      // ("claude-haiku-4-5") — model names are now stored without the prefix
+      // after the de-duplication canonicalization in router.py, so the bare
+      // form is the common case.
       if (!modelStr) return '';
-      return modelStr.split(':')[0] || '';
+      const s = modelStr.trim().toLowerCase();
+      if (s.includes(':')) {
+        return s.split(':')[0] || '';
+      }
+      // Bare model name → infer from well-known prefixes
+      if (s.startsWith('claude-')) return 'anthropic';
+      if (s.startsWith('gpt-') || s.startsWith('o1') || s.startsWith('o3') ||
+          s.startsWith('o4') || s === 'chatgpt-4o-latest') return 'openai';
+      if (s.startsWith('gemini-')) return 'gemini';
+      if (s.startsWith('mistral-') || s.startsWith('mixtral-')) return 'mistral';
+      if (s.startsWith('deepseek-') || s === 'deepseek-chat' || s === 'deepseek-reasoner') return 'deepseek';
+      if (s.startsWith('command-')) return 'cohere';
+      if (s.startsWith('grok-')) return 'xai';
+      // Ambiguous (llama/qwen/phi could be groq, together, or ollama) →
+      // return empty so requireKey falls through to showing the picker.
+      return '';
     },
 
     async requireKey(provider, callback) {
@@ -1193,6 +1225,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         await this.saveEvalSettings(true);
         const result = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/eval`, 'POST', {
           prompt_version_id: this.currentVersionId || null,
+          model: this.modelInput || null,
         });
         this.evalResult = result;
         this._evalConfigOpen = false;
@@ -1407,26 +1440,66 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       setTimeout(() => lucide.createIcons(), 50);
     },
 
+    coachActionLabel(action) {
+      // Map canonical action IDs to friendly user-facing labels.
+      const a = (action || '').toLowerCase();
+      const labels = {
+        'insert': 'ADD',
+        'add': 'ADD',
+        'append': 'ADD',
+        'replace': 'REPLACE',
+        'update': 'REPLACE',
+        'edit': 'REPLACE',
+        'delete': 'REMOVE',
+        'remove': 'REMOVE',
+      };
+      return labels[a] || a.toUpperCase();
+    },
+
     acceptSuggestion(idx) {
       const s = this.coachSuggestions[idx];
       if (!s || s.status !== 'pending') return;
-      if (s.action === 'delete' && s.search_text) {
-        this.prompt = this.prompt.replace(s.search_text, '');
-      } else if (s.action === 'replace' && s.search_text && s.suggested_text) {
-        this.prompt = this.prompt.replace(s.search_text, s.suggested_text);
-      } else if (s.action === 'insert' && s.suggested_text) {
+      // Normalize action synonyms — LLMs often return 'add'/'remove' instead
+      // of the schema's 'insert'/'delete'.
+      const action = (s.action || '').toLowerCase();
+      const isInsert = action === 'insert' || action === 'add' || action === 'append';
+      const isDelete = action === 'delete' || action === 'remove';
+      const isReplace = action === 'replace' || action === 'update' || action === 'edit';
+
+      let applied = false;
+      if (isDelete && s.search_text) {
+        if (this.prompt.includes(s.search_text)) {
+          this.prompt = this.prompt.replace(s.search_text, '');
+          applied = true;
+        }
+      } else if (isReplace && s.search_text && s.suggested_text) {
+        if (this.prompt.includes(s.search_text)) {
+          this.prompt = this.prompt.replace(s.search_text, s.suggested_text);
+          applied = true;
+        }
+      } else if (isInsert && s.suggested_text) {
         if (s.search_text) {
           const pos = this.prompt.indexOf(s.search_text);
           if (pos >= 0) {
             const end = pos + s.search_text.length;
             this.prompt = this.prompt.slice(0, end) + '\n' + s.suggested_text + this.prompt.slice(end);
           } else {
+            // Search anchor not found → append to end so the suggestion still lands
             this.prompt += '\n' + s.suggested_text;
           }
         } else {
           this.prompt += '\n' + s.suggested_text;
         }
+        applied = true;
       }
+
+      if (!applied) {
+        // Couldn't apply — leave status pending and surface an error instead of
+        // silently marking accepted (which is what used to hide the bug).
+        showToast(`Couldn't apply suggestion "${s.title || s.action}" — text not found in prompt`, 'error');
+        return;
+      }
+
       s.status = 'accepted';
       this.isDirty = this.prompt !== this.originalPrompt;
       this.recalcLinePositions();
@@ -1624,6 +1697,21 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       });
     },
 
+    // Group results by test case name, preserving insertion order.
+    get bulkResultGroups() {
+      const groups = [];
+      const indexMap = new Map();
+      for (const row of this.bulkResults) {
+        const key = row.test_case_name || 'Ad hoc';
+        if (!indexMap.has(key)) {
+          indexMap.set(key, groups.length);
+          groups.push({ tcName: key, rows: [] });
+        }
+        groups[indexMap.get(key)].rows.push(row);
+      }
+      return groups;
+    },
+
     bulkToggleAllTests(checked) {
       if (checked) {
         this.bulkSelectedTests = this.testCases.map(tc => tc.name);
@@ -1695,6 +1783,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.bulkCompleted = 0;
       this.bulkSubView = 'new';
       this.bulkExportOpen = false;
+      this.bulkConfigCollapsed = true; // hide config form to make room for results
 
       const temps = this.bulkSelectedTemps;
       const res = this.bulkReasoningEfforts;
@@ -1723,6 +1812,8 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         es.addEventListener('run_complete', (e) => {
           const result = JSON.parse(e.data);
           this.bulkResults.push(result);
+          // Render lucide icons (copy buttons, chevrons) on the newly-added row
+          setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
         });
 
         es.addEventListener('progress', (e) => {
@@ -1730,10 +1821,17 @@ Always provide a complete revised_prompt with all suggestions applied.`,
           this.bulkCompleted = d.completed;
         });
 
-        es.addEventListener('done', () => {
+        es.addEventListener('done', async () => {
           this.bulkRunning = false;
           es.close();
           this._bulkEventSource = null;
+          // Re-fetch from DB to pick up any scores the SSE race missed
+          // (judge writes score before incrementing completed_runs, but
+          // concurrent tasks can cause the slice ordering to be wrong)
+          try {
+            const fresh = await api(`/api/agents/${encodeURIComponent(agent)}/bulk-runs/${this.bulkCurrentId}`);
+            this.bulkResults = fresh.runs || this.bulkResults;
+          } catch { /* keep SSE results if re-fetch fails */ }
           this.loadBulkHistory();
           showToast('Bulk run complete', 'info');
         });
@@ -1770,6 +1868,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       try {
         const data = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/bulk-runs`);
         this.bulkHistory = data;
+        setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
       } catch (err) {
         console.warn('Failed to load bulk history:', err);
       }
@@ -1788,13 +1887,13 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     async viewBulkRun(id) {
       if (!this.currentAgent) return;
       try {
-        const data = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/bulk-run/${id}`);
+        const data = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/bulk-runs/${id}`);
         this.bulkCurrentId = id;
+        this.bulkViewedRun = data;
         this.bulkResults = data.runs || [];
         this.bulkTotalRuns = data.total_runs || this.bulkResults.length;
         this.bulkCompleted = this.bulkResults.length;
-        this.bulkSubView = 'new';
-        this.bulkConfigExpanded = false;
+        this.bulkSubView = 'detail';
         this.bulkRunning = false;
         setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
       } catch (err) {
@@ -1802,10 +1901,64 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       }
     },
 
+    async deleteBulkRun(id) {
+      if (!this.currentAgent) return;
+      const ok = await this.showConfirm('Delete this bulk run permanently? This will also remove all its run logs.', true);
+      if (!ok) return;
+      try {
+        await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/bulk-runs/${id}`, 'DELETE');
+        this.bulkHistory = this.bulkHistory.filter(r => r.id !== id);
+        // If the deleted run is currently being viewed, return to history list
+        if (this.bulkCurrentId === id) {
+          this.bulkCurrentId = null;
+          this.bulkViewedRun = null;
+          this.bulkResults = [];
+          this.bulkSubView = 'history';
+        }
+        showToast('Bulk run deleted', 'success');
+      } catch (err) {
+        showToast('Delete failed: ' + err.message, 'error');
+      }
+    },
+
+    startFreshBulkRun() {
+      // Clear previous results and return to a fully-expanded New Run form
+      this.bulkResults = [];
+      this.bulkCompleted = 0;
+      this.bulkTotalRuns = 0;
+      this.bulkRunning = false;
+      this.bulkViewedRun = null;
+      this.bulkSubView = 'new';
+      this.bulkConfigCollapsed = false;
+      if (this._bulkEventSource) {
+        this._bulkEventSource.close();
+        this._bulkEventSource = null;
+      }
+    },
+
+    rerunBulkRun() {
+      const run = this.bulkViewedRun;
+      if (!run) return;
+      const cm = run.config_matrix || {};
+      this.bulkSelectedTests = [...(run.test_cases || [])];
+      this.bulkSelectedModels = [...(cm.models || [])];
+      this.bulkSelectedTemps = [...(cm.temperatures || [])];
+      this.bulkReasoningEfforts = [...(cm.reasoning_efforts || [])];
+      this.bulkIncludeEval = run.include_eval || false;
+      this.bulkJudgeModel = run.judge_model || '';
+      this.bulkResults = [];
+      this.bulkCompleted = 0;
+      this.bulkTotalRuns = 0;
+      this.bulkRunning = false;
+      this.bulkSubView = 'new';
+      this.bulkConfigExpanded = false;
+      this.bulkViewedRun = null;
+    },
+
     exportBulkRun(format, id) {
       const bulkId = id || this.bulkCurrentId;
       if (!bulkId || !this.currentAgent) return;
-      const url = BASE + `/api/agents/${encodeURIComponent(this.currentAgent)}/bulk-run/${bulkId}/export?format=${format}`;
+      const url = BASE + `/api/agents/${encodeURIComponent(this.currentAgent)}/bulk-runs/${bulkId}/export?format=${format}`;
       window.open(url, '_blank');
       this.bulkExportOpen = false;
     },

@@ -794,6 +794,7 @@ a:hover { color: var(--accent-hover); }
       <a href="#variables" class="sidebar-link" data-section="variables">Variables</a>
       <a href="#eval-system" class="sidebar-link" data-section="eval-system">Eval System</a>
       <a href="#coaching" class="sidebar-link" data-section="coaching">Coaching</a>
+      <a href="#bulk-runs" class="sidebar-link" data-section="bulk-runs">Bulk Runs</a>
     </div>
 
     <div class="sidebar-group">
@@ -1039,6 +1040,28 @@ Always respond in {{language}}."""</span>,
           <li>Specific prompt edits to improve scores</li>
         </ul>
         <p>Configure the coach model separately from the judge model in the API Keys panel. A coach model must be set before coaching will work. Both use the same <code>provider:model-name</code> format and require an <a href="#api-keys">API key</a> for the selected provider.</p>
+      </section>
+
+      <section class="doc-section" id="bulk-runs">
+        <h2><a href="#bulk-runs" class="anchor-link">#</a>Bulk Runs</h2>
+        <p>Bulk Run executes a matrix of configurations in one click: pick N <a href="#test-cases">test cases</a>, M models, T temperatures, and (optionally) a list of reasoning effort levels. biscotti runs every combination, streams progress as rows complete, and (optionally) auto-scores each output with the same judge used in the <a href="#eval-system">Eval System</a>.</p>
+        <p>Open the <strong>Bulk Run</strong> tab in the playground to configure and launch a run.</p>
+        <h3>What you configure</h3>
+        <ul>
+          <li><strong>Test cases</strong> -- one or more saved <a href="#test-cases">test cases</a> (multi-select).</li>
+          <li><strong>Models</strong> -- any connected models, e.g. <code>anthropic:claude-sonnet-4-6</code>, <code>openai:gpt-4o</code>, <code>gemini:gemini-2.5-pro</code>, or <code>azure:my-deploy</code>.</li>
+          <li><strong>Temperatures</strong> -- one or more floats in <code>[0.0, 2.0]</code>. Each value expands the matrix.</li>
+          <li><strong>Reasoning efforts</strong> -- optional list of <code>low</code> / <code>medium</code> / <code>high</code> for models that support it.</li>
+          <li><strong>Include eval</strong> -- when checked, each output is scored by the selected <a href="#eval-system">judge model</a> using the agent's saved criteria.</li>
+          <li><strong>Concurrency</strong> -- how many runs execute in parallel (default 3).</li>
+        </ul>
+        <p>Total runs = <code>|test cases| &times; |models| &times; |temperatures| &times; max(1, |reasoning efforts|)</code>.</p>
+        <h3>Live progress</h3>
+        <p>As the matrix runs, rows stream in via Server-Sent Events on <code>/api/agents/{name}/bulk-runs/{id}/stream</code>. Each row shows the model, temperature, test case name, latency, token counts, estimated cost, and -- when eval is on -- the judge score.</p>
+        <h3>History</h3>
+        <p>Every bulk run is persisted. The <strong>History</strong> sub-tab lists all past runs for the current agent. Click anywhere on a row to open it, or use the trash icon on the right to delete a run and its associated run logs. Use <strong>Export</strong> to download the full result grid as CSV, TSV, or XLSX for deeper analysis in a spreadsheet.</p>
+        <h3>Cancel</h3>
+        <p>A running bulk can be cancelled from the UI. In-flight requests finish but no new ones are dispatched, and the run is marked <code>cancelled</code>.</p>
       </section>
 
       <!-- ============================================================
@@ -1313,6 +1336,13 @@ azure:my-embedding-deploy</pre>
               <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/evals</td><td>List eval runs</td></tr>
               <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/evals/{id}</td><td>Get eval details</td></tr>
               <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/coach</td><td>Get coaching suggestions</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/bulk-run</td><td>Start a new bulk run</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/bulk-runs</td><td>List bulk runs</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/bulk-runs/{id}</td><td>Get bulk run detail (with run logs)</td></tr>
+              <tr><td class="method method-delete">DELETE</td><td class="path">/api/agents/{name}/bulk-runs/{id}</td><td>Delete bulk run and its run logs</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/bulk-runs/{id}/stream</td><td>Stream progress (SSE)</td></tr>
+              <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/bulk-runs/{id}/export</td><td>Export results (csv/tsv/xlsx)</td></tr>
+              <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/bulk-runs/{id}/cancel</td><td>Cancel a running bulk run</td></tr>
               <tr><td class="method method-get">GET</td><td class="path">/api/agents/{name}/export</td><td>Export agent config</td></tr>
               <tr><td class="method method-post">POST</td><td class="path">/api/agents/{name}/import</td><td>Import agent config</td></tr>
               <tr><td class="method method-get">GET</td><td class="path">/api/settings/status</td><td>Provider auth status</td></tr>
@@ -1340,6 +1370,10 @@ azure:my-embedding-deploy</pre>
         <p>Execution record with fields: <code>id</code>, <code>agent_name</code>, <code>prompt_version</code>, <code>user_message</code>, <code>output</code>, <code>outcome</code>, <code>input_tokens</code>, <code>output_tokens</code>, <code>latency_ms</code>, <code>model_used</code>, <code>estimated_cost</code>, <code>score</code>, <code>score_reasoning</code>, <code>created_at</code>.</p>
         <h3>EvalRun</h3>
         <p>Batch eval with fields: <code>id</code>, <code>agent_name</code>, <code>prompt_version</code>, <code>judge_model</code>, <code>test_case_count</code>, <code>avg_score</code>, <code>min_score</code>, <code>max_score</code>, <code>pass_count</code>, <code>fail_count</code>, <code>case_details</code>, <code>created_at</code>.</p>
+        <h3>BulkRunSummary</h3>
+        <p><a href="#bulk-runs">Bulk run</a> metadata with fields: <code>id</code>, <code>agent_name</code>, <code>config_matrix</code> (models / temperatures / reasoning_efforts), <code>test_cases</code>, <code>include_eval</code>, <code>judge_model</code>, <code>concurrency</code>, <code>total_runs</code>, <code>completed_runs</code>, <code>status</code> (running / completed / cancelled / error), <code>created_at</code>.</p>
+        <h3>BulkRunDetail</h3>
+        <p>Extends <code>BulkRunSummary</code> with a <code>runs</code> array of <code>RunLog</code> rows -- one per matrix cell that has completed.</p>
       </section>
 
       <section class="doc-section" id="api-keys">
@@ -1585,6 +1619,7 @@ app.<span class="fn">include_router</span>(bi.router, <span class="par">prefix</
     'variables': 'Core Concepts',
     'eval-system': 'Core Concepts',
     'coaching': 'Core Concepts',
+    'bulk-runs': 'Core Concepts',
     'pydanticai': 'Integrations',
     'anthropic-sdk': 'Integrations',
     'openai-sdk': 'Integrations',

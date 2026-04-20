@@ -12,31 +12,35 @@ from typing import Sequence
 from .models import RunLog
 
 
+# Short scannable metrics come first, then long text columns (Output, Judge
+# Reasoning) last — keeps the first screen of the spreadsheet readable.
 _HEADERS_BASE = [
-    "Test Case", "Model", "Temperature", "Reasoning Effort",
-    "Input Tokens", "Output Tokens", "Latency (ms)", "Estimated Cost", "Outcome",
+    "Test Case", "Model", "Temperature", "Reasoning Effort", "Outcome",
+    "Latency (ms)", "Input Tokens", "Output Tokens", "Estimated Cost",
+    "Output", "Error Message",
 ]
 
-_HEADERS_WITH_SCORE = [
-    "Test Case", "Model", "Temperature", "Reasoning Effort",
-    "Input Tokens", "Output Tokens", "Latency (ms)", "Estimated Cost", "Score", "Outcome",
-]
+_HEADERS_WITH_SCORE = _HEADERS_BASE + ["Score", "Judge Reasoning"]
 
 
 def _run_to_row(run: RunLog, include_score: bool) -> list:
+    outcome_val = run.outcome.value if hasattr(run.outcome, "value") else str(run.outcome)
     row = [
         run.test_case_name or "",
         run.model_used,
         run.temperature if run.temperature is not None else "",
         run.reasoning_effort or "",
+        outcome_val,
+        run.latency_ms,
         run.input_tokens,
         run.output_tokens,
-        run.latency_ms,
         f"{run.estimated_cost:.6f}" if run.estimated_cost is not None else "",
+        run.output or "",
+        run.error_message or "",
     ]
     if include_score:
         row.append(run.score if run.score is not None else "")
-    row.append(run.outcome.value if hasattr(run.outcome, "value") else str(run.outcome))
+        row.append(run.score_reasoning or "")
     return row
 
 

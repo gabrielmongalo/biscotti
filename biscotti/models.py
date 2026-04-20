@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +226,30 @@ class CoachSuggestion(BaseModel):
     location_hint: str = ""
     suggested_text: str = ""
     search_text: str = ""
+
+    @field_validator("action", mode="before")
+    @classmethod
+    def _normalize_action(cls, v):
+        """LLMs frequently return 'add'/'remove'/'update' instead of the
+        canonical 'insert'/'delete'/'replace'. Normalize here so downstream
+        consumers (frontend accept handler, etc.) only ever see the canonical
+        three values.
+        """
+        if not isinstance(v, str):
+            return v
+        s = v.strip().lower()
+        synonyms = {
+            "add": "insert",
+            "append": "insert",
+            "insert": "insert",
+            "remove": "delete",
+            "delete": "delete",
+            "replace": "replace",
+            "update": "replace",
+            "edit": "replace",
+            "modify": "replace",
+        }
+        return synonyms.get(s, s)
 
 
 class CoachResponse(BaseModel):

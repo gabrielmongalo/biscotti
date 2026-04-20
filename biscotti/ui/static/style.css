@@ -679,9 +679,17 @@
     transition: color var(--transition);
     display: inline-flex;
     align-items: center;
+    justify-content: center;
   }
   .copy-btn:hover { color: var(--text2); }
   .copy-btn.copied { color: var(--green); }
+  /* Lucide replaces <i data-lucide="copy"> with an <svg>, so size the svg
+     directly (the i[data-lucide] selector stops matching after createIcons).
+     Matches the 14px default size of the old inline SVG; 12px dense variant. */
+  .copy-btn svg,
+  .copy-btn i[data-lucide] { width: 14px; height: 14px; stroke-width: 2; }
+  .copy-btn.copy-btn-sm svg,
+  .copy-btn.copy-btn-sm i[data-lucide] { width: 12px; height: 12px; }
 
   .textarea-wrap {
     position: relative;
@@ -692,9 +700,25 @@
     right: 8px;
     opacity: 0;
     transition: opacity var(--transition), color var(--transition);
+    z-index: 2;
   }
   .textarea-wrap:hover .copy-btn-inside,
+  .copy-btn-inside:focus-visible,
   .copy-btn-inside.copied { opacity: 1; }
+
+  /* Hover-reveal copy button sitting inside an output pre/div. The parent
+     must be .output-copy-wrap (position:relative) and the output block
+     itself needs a little right padding so copy doesn't overlap text. */
+  .output-copy-wrap {
+    position: relative;
+  }
+  .output-copy-wrap > .copy-btn-inside {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+  }
+  .output-copy-wrap > .copy-btn-inside:hover {
+    background: var(--surface2);
+  }
 
   /* ================================================================
      RIGHT PANEL — test, history, versions
@@ -934,6 +958,13 @@
     width: 100%;
   }
   .settings-toggle:hover { color: var(--text); }
+  .settings-toggle-hint {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
   .settings-chevron {
     width: 14px;
     height: 14px;
@@ -2691,12 +2722,17 @@
     border-radius: var(--radius);
     margin-bottom: 4px;
   }
-  .eval-run-sticky {
-    position: sticky;
-    bottom: 0;
-    padding: 10px 0 4px;
+  .evals-view-layout {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+  .eval-run-footer {
+    flex-shrink: 0;
+    padding: 10px 20px 14px;
     background: var(--bg);
-    margin-top: auto;
+    border-top: 1px solid var(--border);
   }
   .eval-run-btn {
     width: 100%;
@@ -2754,6 +2790,22 @@
   .eval-history-select-inline:focus {
     border-color: var(--accent-border);
     box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  .eval-history-wrap {
+    position: relative;
+  }
+  .eval-history-input {
+    width: 220px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .eval-history-dropdown {
+    right: 0;
+    left: auto;
+    min-width: 240px;
+  }
+  .typeahead-item--selected {
+    color: var(--accent);
   }
 
   /* Eval config section */
@@ -3414,21 +3466,49 @@
 .bulk-pill:hover { border-color: var(--accent); color: var(--text); }
 .bulk-pill.active { border-color: var(--accent); color: var(--accent); background: var(--surface); }
 
-/* Config layout — linear stack */
-.bulk-config { display: flex; flex-direction: column; max-width: 520px; }
-.bulk-config-section { display: flex; flex-direction: column; gap: 8px; }
+/* Config layout — 3-column grid on wide viewports, stacks on narrow.
+   Capped width so inputs don't stretch absurdly on very wide monitors. */
+.bulk-config {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  align-items: stretch; /* columns share bottom edge when panels fill */
+  max-width: 1200px;
+}
+@media (max-width: 1000px) { .bulk-config { grid-template-columns: 1fr; } }
+.bulk-config-section { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 
-/* Temperatures + Reasoning Effort side by side within Variants */
+/* Shared panel look used by each column's content container */
+.bulk-variant-panel {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1; /* equalize column heights */
+}
+.bulk-tc-list, .bulk-advanced-panel { flex: 1; } /* match panel heights */
+
+/* In column layout, the section-gap divider (margin/border-top) is meaningless */
+.bulk-config > .bulk-section-gap {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* Temperatures + Reasoning Effort side-by-side inside the Variants panel.
+   The horizontal rule spans both columns so the two labels start at the
+   same Y and stay aligned. */
 .bulk-variant-params {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 24px;
+  gap: 0 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border2);
 }
-@media (max-width: 600px) { .bulk-variant-params { grid-template-columns: 1fr; } }
-.bulk-variant-block--nosep {
-  border-top: none;
-  padding-top: 0;
-}
+@media (max-width: 500px) { .bulk-variant-params { grid-template-columns: 1fr; } }
 
 /* Step headers */
 .bulk-step-header {
@@ -3448,14 +3528,6 @@
 
 /* Variant blocks within the right column */
 .bulk-variant-block { display: flex; flex-direction: column; gap: 6px; }
-.bulk-variant-block--sep {
-  padding-top: 12px;
-  border-top: 1px solid var(--border2);
-}
-.bulk-variant-empty {
-  font-size: 12px; color: var(--muted); padding: 4px 2px;
-  font-style: italic;
-}
 
 /* Labels */
 .bulk-label {
@@ -3527,6 +3599,13 @@
   align-items: center;
   gap: 12px;
 }
+/* Stacked variant — label above control, control spans full panel width */
+.bulk-advanced-row--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.bulk-advanced-row--stack .bulk-judge-wrap { width: 100%; }
 .bulk-checks { display: flex; gap: 12px; }
 .bulk-check-item { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
 
@@ -3591,10 +3670,10 @@
 
 /* Summary bar */
 .bulk-summary-bar {
-  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-  max-width: 520px;
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  max-width: 1200px;
   background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px;
-  margin: 12px 0; font-size: 13px;
+  margin: 16px 0; font-size: 13px;
 }
 .bulk-summary-warning { color: var(--amber); font-size: 12px; }
 
@@ -3602,10 +3681,33 @@
 .bulk-actions { margin-bottom: 12px; }
 
 /* Progress */
-.bulk-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-.bulk-progress-bar { flex: 1; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+.bulk-run-status {
+  margin-bottom: 14px;
+}
+.bulk-run-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.bulk-run-status-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+}
+.bulk-run-status-count {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--mono);
+  color: var(--accent);
+}
+.bulk-progress-track {
+  height: 3px;
+  background: var(--surface2);
+  border-radius: 2px;
+  overflow: hidden;
+}
 .bulk-progress-fill { height: 100%; background: var(--accent); transition: width 0.3s ease; }
-.bulk-progress-text { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
 
 /* Error banner */
 .bulk-error-banner {
@@ -3614,8 +3716,8 @@
 }
 
 /* Results header + export */
-.bulk-results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.bulk-results-title { font-size: 14px; font-weight: 500; }
+.bulk-results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.bulk-results-title { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
 .bulk-export-split { display: flex; align-items: center; }
 .bulk-export-chevron { padding: 4px 6px !important; }
 .bulk-export-dropdown { position: relative; }
@@ -3631,7 +3733,248 @@
 }
 .bulk-export-menu button:hover, .bulk-export-menu button:focus { background: var(--surface2); outline: none; }
 
-/* Results table */
+/* Result groups + cards */
+.bulk-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Group container */
+.bulk-group {
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.bulk-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border2);
+}
+.bulk-group-tc {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text1);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bulk-group-count {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.bulk-group-rows { display: flex; flex-direction: column; }
+
+/* Cards inside a group — merged into a borderless stack */
+.bulk-result-card {
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+  overflow: hidden;
+  border-left-width: 3px;
+}
+.bulk-group-rows .bulk-result-card {
+  border-radius: 0;
+  border-left: 3px solid var(--border2);
+  border-right: none;
+  border-bottom: none;
+  border-top: 1px solid var(--border2);
+}
+.bulk-group-rows .bulk-result-card:first-child { border-top: none; }
+.bulk-result-card.brc-success { border-left-color: var(--green, #4ade80); }
+.bulk-result-card.brc-error   { border-left-color: var(--red, #f87171); }
+.bulk-result-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--sans);
+  color: var(--text);
+}
+.bulk-result-header:hover { background: var(--surface2); }
+.bulk-result-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+.bulk-result-tc {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.bulk-result-model {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--accent);
+  font-weight: 500;
+}
+/* Inside a group, model is the primary row label */
+.bulk-group-rows .bulk-result-model {
+  font-size: 12.5px;
+}
+.bulk-result-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+.brm-chip {
+  font-size: 11px;
+  font-family: var(--mono);
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text-secondary);
+}
+.brm-score { font-weight: 600; background: transparent; border-color: transparent; }
+.bulk-result-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.bulk-result-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 3px;
+  text-transform: capitalize;
+}
+.brb-success { background: var(--green-dim, rgba(74,222,128,.12)); color: var(--green, #4ade80); }
+.brb-error   { background: var(--red-dim);   color: var(--red); }
+.brc-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  transition: transform var(--transition);
+  flex-shrink: 0;
+}
+.brc-chevron.open { transform: rotate(90deg); }
+.bulk-result-body {
+  border-top: 1px solid var(--border2);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.brd-section { display: flex; flex-direction: column; gap: 4px; }
+.brd-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+/* Label + inline action buttons (copy, etc.) on a single row above the
+   output block. Keeps the existing label typography and leaves the button
+   right-aligned. */
+.brd-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.brd-section-header .copy-btn { margin: -2px 0; }
+.brd-output {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.brd-tool {
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.brd-tool-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  background: var(--surface2);
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  color: var(--text);
+}
+.brd-tool-header:hover { background: var(--accent-dim); }
+.brd-tool-name { font-family: var(--mono); font-size: 11.5px; color: var(--accent); font-weight: 500; }
+.brd-tool-body { padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; }
+.brd-subsection { display: flex; flex-direction: column; gap: 3px; }
+.brd-sublabel { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.brd-code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+.brd-reasoning { font-size: 12px; color: var(--text2); line-height: 1.6; }
+.brd-judge-section { gap: 8px !important; }
+.brd-judge-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brd-score-badge {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--mono);
+  padding: 2px 10px;
+  border-radius: 20px;
+  border: 1px solid;
+  letter-spacing: 0.02em;
+}
+.brd-meta-row {
+  flex-direction: row !important;
+  gap: 12px !important;
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--muted);
+  padding-top: 4px;
+  border-top: 1px solid var(--border2);
+}
+.brd-error-msg {
+  font-size: 12px;
+  color: var(--red);
+  font-family: var(--mono);
+  background: var(--red-dim);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+.brd-no-score {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Results table (kept for CSV export compat, hidden in UI) */
 .bulk-table-wrap { overflow-x: auto; }
 .bulk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .bulk-table th {
@@ -3660,10 +4003,76 @@
 .bulk-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px; }
 .bulk-empty a { color: var(--accent); }
 
+/* Detail view */
+.bulk-detail-card {
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bulk-detail-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.bulk-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bulk-detail-back {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.bulk-detail-date {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.bulk-detail-config {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border2);
+  padding-top: 10px;
+}
+.bulk-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.bulk-detail-row .bulk-label {
+  min-width: 110px;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+.bulk-detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.bulk-chip.mono { font-family: var(--mono); font-size: 11px; }
+
 /* History */
 .bulk-history-row {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px;
   border-bottom: 1px solid var(--border2); font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.bulk-history-row:hover { background: var(--surface2); }
+.bulk-history-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--surface2);
 }
 .bulk-history-date { color: var(--text-muted); min-width: 140px; }
 .bulk-history-config { flex: 1; color: var(--text-secondary); }
@@ -3672,7 +4081,15 @@
 .status-running { background: var(--accent-dim); color: var(--accent); }
 .status-cancelled { background: var(--surface2); color: var(--text-muted); }
 .status-error { background: var(--red-dim); color: var(--red); }
-.bulk-history-actions { display: flex; gap: 6px; }
+.bulk-history-actions { display: flex; gap: 6px; align-items: center; }
+.bulk-history-delete {
+  padding: 4px 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+}
+.bulk-history-delete svg,
+.bulk-history-delete i[data-lucide] { width: 14px; height: 14px; stroke-width: 2; }
+.bulk-history-delete:hover { color: var(--red); background: var(--red-dim); }
 
 /* ================================================================
    Tools panel (PydanticAI agent metadata)
@@ -3680,23 +4097,71 @@
 .tools-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 .tool-item {
-  padding: 6px 8px;
   border-radius: 4px;
   background: var(--surface2);
   border: 1px solid var(--border2);
+  overflow: hidden;
 }
+.tool-item-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-family: var(--sans);
+}
+.tool-item-header:hover { background: var(--accent-dim); }
+.tool-item-chevron {
+  width: 12px;
+  height: 12px;
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: transform var(--transition);
+}
+.tool-item-chevron.open { transform: rotate(90deg); }
 .tool-name {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--accent);
   font-weight: 500;
 }
+.tool-call-badge {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.tool-item-body {
+  border-top: 1px solid var(--border2);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .tool-desc {
   font-size: 11px;
   color: var(--muted);
+}
+.tool-call-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border2);
   margin-top: 2px;
 }
 
