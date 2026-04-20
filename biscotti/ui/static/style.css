@@ -1220,6 +1220,42 @@
   }
 
   /* Metrics bar (horizontal) */
+  /* ---- Output accordion ---- */
+  .output-accordion {
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .output-accordion-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+  }
+  .output-accordion-header:hover {
+    background: var(--surface3, var(--surface2));
+  }
+  .output-header-metrics {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: var(--mono);
+  }
+  #output-box {
+    border: none;
+    border-top: 1px solid var(--border2);
+    border-radius: 0;
+  }
+
   .metrics-bar {
     display: flex;
     align-items: center;

@@ -494,20 +494,12 @@
             </div>
           </div>
 
-          <!-- === RESULTS CARD: Output + Metrics === -->
+          <!-- === RESULTS CARD: Tool Calls + Output + Metrics === -->
           <div class="panel-card panel-card-results">
-            <div class="field-group">
-              <div class="field-label">Output</div>
-              <pre x-show="$store.app.isJsonOutput" id="output-box"
-                   :class="$store.app.outputState + ' json'"
-                   x-text="$store.app.formattedOutput"></pre>
-              <div x-show="!$store.app.isJsonOutput" id="output-box"
-                   :class="$store.app.outputState"
-                   x-text="$store.app.output || 'Run a test to see the agent\'s response here.'"></div>
-            </div>
-            <!-- Tool calls trace -->
+
+            <!-- Tool calls trace (shown above output, collapsed by default) -->
             <div x-show="($store.app.metrics?.toolCalls || []).filter(tc => tc.tool_name !== 'final_result').length" class="tool-calls-trace" x-transition>
-              <div class="field-label">Tool Calls</div>
+              <div class="field-label" style="margin-bottom:6px;">Tool Calls</div>
               <template x-for="(tc, idx) in ($store.app.metrics?.toolCalls || []).filter(tc => tc.tool_name !== 'final_result')" :key="idx">
                 <div class="tool-call-item" x-data="{ open: false }">
                   <button class="tool-call-header" @click="open = !open">
@@ -527,6 +519,32 @@
                 </div>
               </template>
             </div>
+
+            <!-- Output (collapsible) -->
+            <div class="output-accordion">
+              <button class="output-accordion-header" @click="$store.app.outputOpen = !$store.app.outputOpen">
+                <span class="accordion-chevron" :class="{ open: $store.app.outputOpen }">&#9654;</span>
+                <span class="field-label" style="margin:0;">Output</span>
+                <!-- metrics summary shown in header when collapsed -->
+                <span x-show="!$store.app.outputOpen && $store.app.metrics" class="output-header-metrics">
+                  <span x-text="$store.app.metrics?.model || ''"></span>
+                  <span class="metric-sep">·</span>
+                  <span x-text="'$' + ($store.app.metrics?.cost || 0).toFixed(4)"></span>
+                  <span class="metric-sep">·</span>
+                  <span x-text="($store.app.metrics?.latency || 0) + 'ms'"></span>
+                </span>
+              </button>
+              <div x-show="$store.app.outputOpen">
+                <pre x-show="$store.app.isJsonOutput" id="output-box"
+                     :class="$store.app.outputState + ' json'"
+                     x-text="$store.app.formattedOutput"></pre>
+                <div x-show="!$store.app.isJsonOutput" id="output-box"
+                     :class="$store.app.outputState"
+                     x-text="$store.app.output || 'Run a test to see the agent\'s response here.'"></div>
+              </div>
+            </div>
+
+            <!-- Metrics bar (always visible below output) -->
             <div class="metrics-bar" x-show="$store.app.metrics" x-transition>
               <span class="metric-item"><span class="metric-label">Latency</span> <span class="metric-value" x-text="($store.app.metrics?.latency || 0) + 'ms'"></span></span>
               <span class="metric-sep">|</span>

@@ -120,6 +120,7 @@ document.addEventListener('alpine:init', () => {
     _runTimer: null,
     output: '',
     outputState: 'empty', // 'empty' | 'success' | 'error'
+    outputOpen: true,
     metrics: null,
     runHistory: [],
     runHistoryOpen: false,
@@ -849,6 +850,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this._runTimer = setInterval(() => { this.runElapsed += 0.1; }, 100);
       this.output = '';
       this.outputState = 'empty';
+      this.outputOpen = true;
       this.metrics = null;
 
       try {
