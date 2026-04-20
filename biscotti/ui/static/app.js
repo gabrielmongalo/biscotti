@@ -110,6 +110,7 @@ document.addEventListener('alpine:init', () => {
     agentTools: [],
     agentOutputType: 'str',
     agentKnownVars: [],
+    agentDefaultMessage: '',
 
     // --- Test run ---
     userMessage: '',
@@ -204,6 +205,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     keyModalValue: '',
     keyModalCallback: null,
     keyModalProviderDropdownOpen: false,
+    keyModalAddingProvider: false,
 
     // Azure Foundry
     azureEndpoint: '',
@@ -547,6 +549,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       const detail = await api(`/api/agents/${encodeURIComponent(name)}`);
       this.agentTools = detail.tools || [];
       this.agentOutputType = (detail.output_type && detail.output_type.type) || 'str';
+      this.agentDefaultMessage = detail.default_message || '';
       // Collect known variables: registered metadata + union across all test case templates
       const metaVars = detail.variables || [];
       const tcVars = [];
@@ -570,10 +573,11 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.outputState = 'empty';
       this.metrics = null;
       // Auto-select first test case if one exists, otherwise Ad hoc
+      // Note: agentDefaultMessage and agentKnownVars must be set before this call
       if (this.testCases.length) {
         this.selectTestCase(this.testCases[0].name);
       } else {
-        this.selectedTestCase = '';
+        this.selectTestCase('');
       }
       // Always load settings (provider status + coach model needed globally)
       this.loadEvalSettings();
@@ -719,6 +723,12 @@ Always provide a complete revised_prompt with all suggestions applied.`,
           this.variables.forEach(v => { vals[v] = (tc.variable_values || {})[v] || ''; });
           this.varValues = vals;
         }
+      } else {
+        // Ad hoc: seed with the agent's registered default message template
+        this.userMessage = this.agentDefaultMessage;
+        const vals = {};
+        this.variables.forEach(v => { vals[v] = ''; });
+        this.varValues = vals;
       }
     },
 
@@ -1006,6 +1016,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.keyModalProvider = provider;
       this.keyModalValue = '';
       this.keyModalCallback = callback;
+      this.keyModalAddingProvider = true;  // auto-open form when a specific key is required
       this.keyModalOpen = true;
     },
 
@@ -1017,6 +1028,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.keyModalProvider = this._nextRegularProvider();
       this.keyModalValue = '';
       this.keyModalCallback = null;
+      this.keyModalAddingProvider = false;
       this.keyModalOpen = true;
       await this.loadAzureConfig();
     },
@@ -1032,6 +1044,9 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         await this.loadEvalSettings();
         // Refresh provider status so connected list updates
         try { this.providerStatus = await api('/api/settings/status'); } catch {}
+        // Collapse the add-provider form after saving
+        this.keyModalAddingProvider = false;
+        this.keyModalProviderDropdownOpen = false;
         // Auto-select next disconnected provider if any
         if (this.disconnectedProviders.length) {
           this.keyModalProvider = this._nextRegularProvider();
@@ -1051,6 +1066,8 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.keyModalOpen = false;
       this.keyModalCallback = null;
       this.keyModalValue = '';
+      this.keyModalAddingProvider = false;
+      this.keyModalProviderDropdownOpen = false;
     },
 
     addAzureDeployment() {

@@ -1333,25 +1333,29 @@
       Connect your <span x-text="$store.app.providerLabel($store.app.keyModalProvider)" style="font-weight:600;color:var(--text);"></span> API key to use this feature.
     </p>
 
-    <!-- Connected providers -->
-    <div x-show="$store.app.connectedProviders.length" class="key-modal-connected">
+    <!-- Connected providers + add button -->
+    <div class="key-modal-connected" x-show="!$store.app.keyModalCallback">
       <div class="field-label" style="margin-bottom:6px;">Connected</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
         <template x-for="p in $store.app.connectedProviders" :key="p">
           <span class="provider-pill">
             <span class="provider-pill-dot"></span>
-            <span x-text="p.charAt(0).toUpperCase() + p.slice(1)"></span>
+            <span x-text="$store.app.providerLabel(p)"></span>
             <button class="provider-pill-x" @click="$store.app.disconnectProvider(p)" title="Disconnect">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </span>
         </template>
+        <!-- + button to add another provider -->
+        <button x-show="$store.app.disconnectedProviders.length && !$store.app.keyModalAddingProvider"
+                class="provider-add-btn"
+                @click="$store.app.keyModalAddingProvider = true"
+                title="Add provider">+</button>
       </div>
     </div>
 
-    <!-- Add key form -->
-    <div x-show="$store.app.disconnectedProviders.length" class="key-modal-form">
-      <div class="field-label" style="margin-bottom:6px;">Add Provider</div>
+    <!-- Collapsible add-provider form -->
+    <div x-show="$store.app.keyModalAddingProvider" class="key-modal-form">
       <!-- Provider dropdown (outside scroll wrapper so it doesn't clip) -->
       <div class="key-modal-form-row">
         <div class="provider-select-wrap" @click.outside="$store.app.keyModalProviderDropdownOpen = false">
@@ -1374,7 +1378,7 @@
     <!-- Scrollable form content -->
     <div id="key-modal-scroll">
       <!-- Standard API key input (non-Azure providers) -->
-      <div x-show="$store.app.disconnectedProviders.length && $store.app.keyModalProvider !== 'azure_foundry'" class="key-modal-form-row">
+      <div x-show="$store.app.keyModalAddingProvider && $store.app.keyModalProvider !== 'azure_foundry'" class="key-modal-form-row">
         <input type="password" class="key-input" style="flex:1;"
                x-model="$store.app.keyModalValue"
                placeholder="Paste API key..."
@@ -1384,7 +1388,7 @@
       </div>
 
       <!-- Azure Foundry form (shown when Azure Foundry selected) -->
-      <div x-show="$store.app.disconnectedProviders.length && $store.app.keyModalProvider === 'azure_foundry'" style="display:flex;flex-direction:column;">
+      <div x-show="$store.app.keyModalAddingProvider && $store.app.keyModalProvider === 'azure_foundry'" style="display:flex;flex-direction:column;">
         <div>
           <div class="field-label" style="margin-bottom:6px;">Endpoint</div>
           <input type="text" class="key-input" style="width:100%;"
@@ -1430,8 +1434,8 @@
       </div>
 
       <!-- All connected message -->
-      <div x-show="!$store.app.disconnectedProviders.length && $store.app.connectedProviders.length"
-           style="font-size:12px;color:var(--muted);padding:4px 0;">
+      <div x-show="!$store.app.disconnectedProviders.length"
+           style="font-size:12px;color:var(--text-secondary);padding:4px 0;">
         All providers connected.
       </div>
     </div>

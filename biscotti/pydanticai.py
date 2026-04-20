@@ -36,6 +36,7 @@ def register(
     name: str,
     description: str = "",
     variables: list[str] | None = None,
+    default_message: str = "",
     tags: list[str] | None = None,
 ) -> AgentMeta:
     """Register a PydanticAI Agent with biscotti.
@@ -75,6 +76,7 @@ def register(
         description=description or name,
         variables=resolved_vars,
         default_system_prompt=system_prompt,
+        default_message=default_message,
         tags=tags or [],
         models=[model_name] if model_name else [],
     )

@@ -114,6 +114,7 @@ def build_router(store: PromptStore) -> APIRouter:
             "name": meta.name,
             "description": meta.description,
             "variables": meta.variables,
+            "default_message": meta.default_message,
             "tags": meta.tags,
             "default_system_prompt": meta.default_system_prompt,
             "current_version": live.version if live else None,

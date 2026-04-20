@@ -45,6 +45,7 @@ class AgentMeta(BaseModel):
     description: str = ""
     variables: list[str] = Field(default_factory=list)
     default_system_prompt: str = ""
+    default_message: str = ""
     tags: list[str] = Field(default_factory=list)
     models: list[str] = Field(default_factory=list)
 
