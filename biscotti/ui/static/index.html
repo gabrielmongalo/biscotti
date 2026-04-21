@@ -165,6 +165,7 @@ a:hover { color: var(--accent-hover); }
   color: var(--text);
   letter-spacing: 0.02em;
   transition: color 0.2s ease;
+  white-space: nowrap;
 }
 
 .nav-links a:hover { color: var(--accent); }
@@ -215,6 +216,7 @@ a:hover { color: var(--accent-hover); }
 
 .hero-copy {
   text-align: left;
+  min-width: 0;
 }
 
 .hero h1 {
@@ -253,6 +255,7 @@ a:hover { color: var(--accent-hover); }
 
 .hero-code {
   position: relative;
+  min-width: 0;
 }
 
 .hero-code .code-block {
@@ -644,6 +647,7 @@ a:hover { color: var(--accent-hover); }
     grid-template-columns: 1fr;
     gap: 24px;
   }
+  .nav-links { gap: 14px; }
   .nav-links a.hide-mobile { display: none; }
   .code-body pre { font-size: 12px; }
   .cta-actions { flex-direction: column; }
