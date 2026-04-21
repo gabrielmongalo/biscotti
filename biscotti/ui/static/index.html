@@ -1,1695 +1,917 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
+<script>document.documentElement.setAttribute('data-theme',localStorage.getItem('biscotti-theme')||'dark')</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>biscotti</title>
+<title>biscotti -- The prompt eval studio for AI agents</title>
+<meta name="description" content="Iterate on system prompts with real test cases, track every version, and score quality with AI judges.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=13">
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
-<script src="app.js?v=35"></script>
-<script src="components.js?v=3"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+/* ================================================================
+   CSS Variables -- unified with main app tokens
+   ================================================================ */
+:root {
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Menlo', monospace;
+}
+
+[data-theme="dark"] {
+  --bg: #16181d;
+  --bg-alt: #1a1d23;
+  --surface: #1e2128;
+  --border: rgba(200,210,230,0.08);
+  --border-hover: rgba(200,210,230,0.16);
+  --text: #e2e4e9;
+  --text-muted: #b0b4be;
+  --text-dim: #6b7080;
+  --accent: #c9a06c;
+  --accent-hover: #d4af7f;
+  --accent-dim: rgba(201,160,108,0.10);
+  --accent-border: rgba(201,160,108,0.25);
+  --accent-contrast: #16181d;
+
+  --code-keyword: #b48ead;
+  --code-string: #a3be8c;
+  --code-function: #88c0d0;
+  --code-comment: #616e88;
+  --code-decorator: #d08770;
+  --code-class: #ebcb8b;
+  --code-param: #d8dee9;
+  --code-operator: #81a1c1;
+  --code-shell: #a3be8c;
+}
+
+[data-theme="light"] {
+  --bg: #f5f4f1;
+  --bg-alt: #efeee9;
+  --surface: #ffffff;
+  --border: rgba(0,0,0,0.06);
+  --border-hover: rgba(0,0,0,0.12);
+  --text: #1c1917;
+  --text-muted: #57534e;
+  --text-dim: #a8a29e;
+  --accent: #a17a45;
+  --accent-hover: #8b6935;
+  --accent-dim: rgba(161,122,69,0.08);
+  --accent-border: rgba(161,122,69,0.20);
+  --accent-contrast: #ffffff;
+
+  --code-keyword: #7c3aed;
+  --code-string: #16a34a;
+  --code-function: #0891b2;
+  --code-comment: #a8a29e;
+  --code-decorator: #ea580c;
+  --code-class: #ca8a04;
+  --code-param: #44403c;
+  --code-operator: #2563eb;
+  --code-shell: #16a34a;
+}
+
+/* ================================================================
+   Reset & Base
+   ================================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+a { color: var(--accent); text-decoration: none; transition: color 0.2s ease; }
+a:hover { color: var(--accent-hover); }
+
+/* ================================================================
+   Layout
+   ================================================================ */
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ================================================================
+   Nav -- blur backdrop, scroll-aware border
+   ================================================================ */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 0 24px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.3s ease;
+}
+
+.nav.scrolled {
+  border-bottom-color: var(--border);
+}
+
+.nav-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.nav-brand:hover { color: var(--text); }
+
+.nav-brand-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.nav-links a {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  transition: color 0.2s ease;
+}
+
+.nav-links a:hover { color: var(--accent); }
+
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.theme-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* Show sun in dark mode, moon in light mode */
+[data-theme="dark"] .icon-moon { display: none; }
+[data-theme="dark"] .icon-sun { display: block; }
+[data-theme="light"] .icon-sun { display: none; }
+[data-theme="light"] .icon-moon { display: block; }
+
+/* ================================================================
+   Hero -- split layout, code on the right
+   ================================================================ */
+.hero {
+  padding: 120px 24px 80px;
+}
+
+.hero-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.hero-copy {
+  text-align: left;
+}
+
+.hero h1 {
+  font-size: clamp(40px, 5vw, 56px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.hero h1 .accent-dot {
+  color: var(--accent);
+}
+
+.hero .tagline {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.hero .subtext {
+  font-size: 15px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-code {
+  position: relative;
+}
+
+.hero-code .code-block {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+[data-theme="light"] .hero-code .code-block {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+}
+
+/* ================================================================
+   Buttons -- primary, ghost, tertiary with all states
+   ================================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-contrast);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border-hover);
+}
+
+.btn-ghost:hover {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+
+.btn-ghost svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ================================================================
+   Code blocks -- elevated surface for depth
+   ================================================================ */
+.code-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.code-header .lang {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.code-header .copy-btn {
+  position: relative;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.code-header .copy-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-muted);
+}
+
+.code-header .copy-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.code-header .copy-btn.copied {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+.code-body {
+  padding: 16px 18px;
+  overflow-x: auto;
+}
+
+.code-body pre {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre;
+  tab-size: 4;
+}
+
+/* Syntax highlighting */
+.kw { color: var(--code-keyword); }
+.str { color: var(--code-string); }
+.fn { color: var(--code-function); }
+.cm { color: var(--code-comment); font-style: italic; }
+.dec { color: var(--code-decorator); }
+.cls { color: var(--code-class); }
+.par { color: var(--code-param); }
+.op { color: var(--code-operator); }
+.sh { color: var(--code-shell); }
+
+/* ================================================================
+   Feature Strip -- single row, 3 items, alt background
+   ================================================================ */
+.features {
+  background: var(--bg-alt);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 64px 24px;
+}
+
+.features-strip {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.feature-item {
+  text-align: left;
+}
+
+.feature-item:hover h3 {
+  color: var(--text);
+}
+
+.feature-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.feature-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.feature-item h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--text);
+  transition: color 0.2s ease;
+}
+
+.feature-item p {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* ================================================================
+   Quick Start -- numbered steps
+   ================================================================ */
+.quickstart {
+  padding: 64px 24px 80px;
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.section-title {
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--text);
+  margin-bottom: 48px;
+}
+
+.quickstart-content {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.step {
+  margin-bottom: 32px;
+}
+
+.step:last-child {
+  margin-bottom: 0;
+}
+
+.step-label {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.claude-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.claude-badge strong {
+  color: var(--text);
+}
+
+.claude-logo {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   Closing CTA Bar
+   ================================================================ */
+.cta-bar {
+  background: var(--bg-alt);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.cta-bar h2 {
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text);
+  margin-bottom: 24px;
+}
+
+.cta-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cta-install {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cta-install code {
+  color: var(--text);
+}
+
+.cta-install .copy-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: color 0.15s ease;
+  display: flex;
+  align-items: center;
+}
+
+.cta-install .copy-btn:hover {
+  color: var(--text-muted);
+}
+
+.cta-install .copy-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cta-install .copy-btn.copied {
+  color: var(--accent);
+}
+
+/* ================================================================
+   Footer
+   ================================================================ */
+.footer {
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.footer p {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.footer a { color: var(--text-muted); }
+.footer a:hover { color: var(--text); }
+.footer .sep { margin: 0 8px; opacity: .4; }
+
+/* ================================================================
+   Responsive
+   ================================================================ */
+@media (max-width: 768px) {
+  .hero { padding: 96px 20px 48px; }
+  .hero-inner {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .hero-copy { text-align: center; }
+  .hero h1 { font-size: 36px; }
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .btn { width: 100%; justify-content: center; }
+  .features-strip {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .nav-links a.hide-mobile { display: none; }
+  .code-body pre { font-size: 12px; }
+  .cta-actions { flex-direction: column; }
+  .cta-install { width: 100%; justify-content: center; }
+}
+
+/* ================================================================
+   Reduced motion
+   ================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+  html { scroll-behavior: auto; }
+}
+</style>
 </head>
-<body x-data x-init="$store.app.init()">
+<body>
 
-<!-- ============================================================
-     SIDEBAR
-     ============================================================ -->
-<div id="sidebar" :class="{ collapsed: $store.app.sidebarCollapsed }">
-  <div id="sidebar-header">
-    <div class="logo-icon" @click="if($store.app.sidebarCollapsed) $store.app.sidebarCollapsed = false" :style="$store.app.sidebarCollapsed ? 'cursor:pointer' : ''">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16181d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-    </div>
-    <span class="logo">biscotti</span><span class="logo-beta">beta</span>
-    <button class="sidebar-collapse-btn" @click="$store.app.sidebarCollapsed = !$store.app.sidebarCollapsed" title="Toggle sidebar">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-    </button>
-  </div>
-  <div class="agent-selector">
-    <button class="agent-selector-trigger" @click="$store.app._agentDropdownOpen = !$store.app._agentDropdownOpen">
-      <span class="agent-selector-name" x-text="$store.app.currentAgent || 'Select agent'"></span>
-      <i data-lucide="chevron-down" :style="$store.app._agentDropdownOpen ? 'transform:rotate(180deg)' : ''"></i>
-    </button>
-    <div class="agent-selector-dropdown" x-show="$store.app._agentDropdownOpen" x-transition @click.outside="$store.app._agentDropdownOpen = false">
-      <template x-for="agent in $store.app.agents" :key="agent.name">
-        <button class="agent-selector-item"
-                :class="{ active: $store.app.currentAgent === agent.name }"
-                @click="$store.app.selectAgent(agent.name); $store.app._agentDropdownOpen = false; if($store.app.activeView === 'agents') $store.app.switchView('playground')">
-          <span class="agent-selector-item-name" x-text="agent.name"></span>
-          <span class="agent-selector-item-desc" x-text="agent.description"></span>
-        </button>
-      </template>
-    </div>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-label">Views</div>
-    <div class="sidebar-nav">
-      <button class="nav-item"
-              :class="{ active: $store.app.activeView === 'agents' }"
-              @click="$store.app.switchView('agents')">
-        <i data-lucide="layout-grid"></i>
-        <span class="nav-label">All Agents</span>
-      </button>
-      <button class="nav-item"
-              :class="{ active: $store.app.activeView === 'playground' }"
-              @click="$store.app.switchView('playground')">
-        <i data-lucide="play-circle"></i>
-        <span class="nav-label">Playground</span>
-      </button>
-      <button class="nav-item"
-              :class="{ active: $store.app.activeView === 'versions' }"
-              @click="$store.app.switchView('versions')">
-        <i data-lucide="git-branch"></i>
-        <span class="nav-label">Versions</span>
-      </button>
-      <button class="nav-item"
-              :class="{ active: $store.app.activeView === 'evals' }"
-              @click="$store.app.switchView('evals')">
-        <i data-lucide="bar-chart-2"></i>
-        <span class="nav-label">Evals</span>
-      </button>
-      <button class="nav-item"
-              :class="{ active: $store.app.activeView === 'bulk' }"
-              @click="$store.app.switchView('bulk')">
-        <i data-lucide="layers"></i>
-        <span class="nav-label">Bulk Run</span>
-      </button>
-    </div>
-  </div>
-
-  <div id="sidebar-footer">
-    <button class="nav-item" @click="$store.app.openKeyManager()" title="API Keys">
-      <i data-lucide="key-round"></i>
-      <span class="nav-label">API Keys</span>
-    </button>
-    <a class="nav-item" href="/biscotti/docs" target="_blank" title="Docs">
-      <i data-lucide="book-open"></i>
-      <span class="nav-label">Docs</span>
+<!-- NAV -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <span class="nav-brand-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color:var(--accent-contrast)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </span>
+      biscotti
     </a>
-    <span class="sidebar-version">v0.10-beta</span>
-  </div>
-</div>
-
-<!-- ============================================================
-     MAIN CONTENT
-     ============================================================ -->
-<div id="content" x-show="$store.app.currentAgent">
-  <!-- Toolbar -->
-  <div id="toolbar">
-    <span id="toolbar-title" x-text="$store.app.currentAgent"></span>
-    <span id="unsaved-indicator" x-show="$store.app.isDirty" style="display:none">
-      <span class="unsaved-dot"></span>Unsaved
-    </span>
-    <button class="toolbar-version" x-show="$store.app.currentVersion && $store.app.activeView === 'playground'"
-            @click="$store.app.switchView('versions')"
-            :title="'View all versions'">
-      <span x-text="'v' + ($store.app.currentVersion?.version || '')"></span>
-      <span class="toolbar-version-status"
-            :class="'badge-' + ($store.app.currentVersion?.status || 'draft')"
-            x-text="$store.app.currentVersion?.status"></span>
-    </button>
-    <span class="output-type-badge" x-show="$store.app.agentOutputType !== 'str'"
-          x-text="'Output: ' + $store.app.agentOutputType"></span>
-    <span class="toolbar-view-label" x-show="$store.app.activeView !== 'playground'"
-          x-text="$store.app.activeView === 'versions' ? 'Versions' : $store.app.activeView === 'agents' ? 'All Agents' : $store.app.activeView === 'bulk' ? 'Bulk Run' : 'Evals'"></span>
-    <button class="theme-toggle" @click="$store.app.toggleTheme()" :title="$store.app.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
-      <span x-show="$store.app.theme === 'dark'">&#9788;</span>
-      <span x-show="$store.app.theme === 'light'">&#9790;</span>
-    </button>
-  </div>
-
-  <!-- ========== PLAYGROUND VIEW ========== -->
-  <div class="view" x-show="$store.app.activeView === 'playground'">
-
-
-  <div id="panels">
-    <!-- Left: Prompt editor -->
-    <div id="editor-panel">
-      <div class="panel-header">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="panel-label">System Prompt</span>
-          <button class="coach-btn"
-                  @click="$store.app.coachPanelOpen = !$store.app.coachPanelOpen"
-                  :class="{ active: $store.app.coachPanelOpen }"
-                  :disabled="$store.app.coachLoading"
-                  title="Get AI coaching suggestions">
-            <i data-lucide="sparkles" style="width:12px;height:12px;"></i>
-            Coach
-          </button>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button class="diff-toggle"
-                  x-show="$store.app.isDirty"
-                  :class="{ active: $store.app.diffActive }"
-                  @click="$store.app.diffActive = !$store.app.diffActive"
-                  title="Show changes from saved version">diff</button>
-          <button class="copy-btn" @click="$store.app.copyToClipboard($store.app.prompt, $event)" title="Copy prompt">
-            <i data-lucide="copy"></i>
-          </button>
-          <span class="token-hint">~<span class="token-count" x-text="$store.app.promptTokens"></span> tokens</span>
-        </div>
-      </div>
-
-      <!-- Coach Panel (model selector + analyze button) -->
-      <div class="coach-panel" x-show="$store.app.coachPanelOpen && !$store.app.coachReviewMode" x-transition.duration.150ms>
-        <div style="padding:10px 16px;display:flex;align-items:center;gap:8px;">
-          <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Coach Model</span>
-          <div class="typeahead-wrap" style="flex:1;max-width:300px;"
-               x-data="typeahead({
-                 items: () => $store.app.coachFilteredModels,
-                 onSelect: (m) => { $store.app.selectCoachModel(m); },
-                 placeholder: 'Select a model...',
-                 searchable: true,
-                 inputStyle: 'width:100%;font-size:12px',
-               })"
-               @click.outside="close()"
-               x-effect="query = $store.app.coachModel">
-            <input class="model-input" x-bind="input"
-                   @input="$store.app.coachModel = query">
-            <div class="typeahead-dropdown" :class="{ open }">
-              <template x-if="!$store.app.coachFilteredModels.length">
-                <div class="typeahead-empty">No matching models</div>
-              </template>
-              <template x-for="provider in ['anthropic', 'openai', 'google', 'other']" :key="provider">
-                <template x-if="$store.app.coachGroupedModels[provider]">
-                  <div>
-                    <div class="typeahead-group" x-text="provider"></div>
-                    <template x-for="m in $store.app.coachGroupedModels[provider]" :key="m">
-                      <div class="typeahead-item"
-                           :class="{ highlighted: $store.app.coachFilteredModels.indexOf(m) === highlightIdx }"
-                           @mousedown.prevent="_select({ key: m, label: m, value: m })"
-                           @mouseenter="highlightIdx = $store.app.coachFilteredModels.indexOf(m)"
-                           x-text="m"></div>
-                    </template>
-                  </div>
-                </template>
-              </template>
-            </div>
-          </div>
-          <button class="btn btn-primary btn-sm"
-                  @click="$store.app.runCoach()"
-                  :disabled="!$store.app.coachModel || $store.app.coachLoading"
-                  style="font-size:12px;padding:6px 14px;">
-            <span x-show="$store.app.coachLoading" style="display:inline-flex;align-items:center;gap:4px;">
-              <span class="spinner" style="width:11px;height:11px;"></span> Analyzing...
-            </span>
-            <span x-show="!$store.app.coachLoading">Analyze Prompt</span>
-          </button>
-          <span x-show="$store.app.coachError && !$store.app.coachLoading" style="font-size:11px;color:var(--red);" x-text="$store.app.coachError"></span>
-        </div>
-        <!-- Coach system prompt (collapsible) -->
-        <div class="coach-prompt-section">
-          <button class="coach-prompt-toggle" @click="$store.app.coachPromptEditorOpen = !$store.app.coachPromptEditorOpen">
-            <i data-lucide="chevron-right" style="width:11px;height:11px;" class="coach-prompt-chevron"
-               :style="$store.app.coachPromptEditorOpen ? 'transform:rotate(90deg)' : ''"></i>
-            <span>Coach Instructions</span>
-            <span class="coach-prompt-badge" x-show="$store.app.coachCustomPrompt"
-                  x-text="'Custom'" style="font-size:9px;padding:1px 5px;border-radius:3px;background:var(--accent-dim);color:var(--accent);font-weight:600;"></span>
-          </button>
-          <div x-show="$store.app.coachPromptEditorOpen" x-transition.duration.150ms>
-            <div style="padding:0 16px 12px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                <span style="font-size:10px;color:var(--muted);" x-text="$store.app.coachCustomPrompt ? 'Custom prompt active' : 'Using default prompt'"></span>
-                <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;"
-                        x-show="$store.app.coachCustomPrompt"
-                        @click="$store.app.coachCustomPrompt = ''; showToast('Reset to default', 'success')">
-                  Reset to Default
-                </button>
-              </div>
-              <textarea class="coach-prompt-textarea"
-                        :placeholder="$store.app.coachDefaultPrompt"
-                        x-model="$store.app.coachCustomPrompt"
-                        @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,200)+'px'"></textarea>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Coach Review Bar (shown in review mode) -->
-      <div class="coach-review-bar" x-show="$store.app.coachReviewMode" x-transition.duration.150ms>
-        <div class="review-bar-left">
-          <i data-lucide="message-square-text" style="width:14px;height:14px;"></i>
-          <span><strong x-text="$store.app.pendingSuggestions.length"></strong> suggestions remaining</span>
-        </div>
-        <div class="review-bar-actions">
-          <button class="btn btn-sm btn-ghost" @click="$store.app.acceptAllSuggestions()">Accept All</button>
-          <button class="btn btn-sm btn-ghost" @click="$store.app.dismissAllSuggestions()">Dismiss All</button>
-          <button class="btn btn-sm btn-ghost" @click="$store.app.rerunCoach()"
-                  :disabled="$store.app.coachLoading"
-                  title="Re-analyze with current prompt">
-            <i data-lucide="refresh-cw" style="width:12px;height:12px;"></i> Re-run
-          </button>
-          <button class="btn btn-sm btn-ghost" @click="$store.app.exitReviewMode()">Exit Review</button>
-        </div>
-      </div>
-
-      <!-- Normal editor (hidden in review mode) -->
-      <div class="editor-wrap" x-show="!$store.app.coachReviewMode">
-        <textarea id="prompt-editor"
-                  x-model="$store.app.prompt"
-                  @input="$store.app.onPromptInput()"
-                  placeholder="Write your system prompt here...&#10;&#10;Use {{variable_name}} for dynamic values."
-                  spellcheck="false"></textarea>
-        <div id="prompt-backdrop" x-html="highlightVars($store.app.prompt)"></div>
-        <div id="diff-overlay" :class="{ visible: $store.app.diffActive }">
-          <template x-for="(line, i) in $store.app.diffLines" :key="i">
-            <div class="diff-line" :class="line.type" x-text="line.text || '\u00a0'"></div>
-          </template>
-        </div>
-      </div>
-
-      <!-- Review mode editor (rendered lines with inline comments) -->
-      <div class="editor-wrap review-mode-wrap" x-show="$store.app.coachReviewMode">
-        <div class="review-prompt" x-ref="reviewPrompt">
-          <template x-for="line in $store.app.reviewLines" :key="line.lineIdx">
-            <div>
-              <div class="review-line"
-                   :class="{
-                     'rl-delete': line.action === 'delete',
-                     'rl-replace': line.action === 'replace',
-                     'rl-insert': line.action === 'insert'
-                   }"
-                   @click="line.suggestionIdx >= 0 && $store.app.toggleReviewComment(line.suggestionIdx)">
-                <span class="review-line-num" x-text="line.num"></span>
-                <span class="review-line-text" x-text="line.text || '\u00a0'"></span>
-                <span class="review-line-marker" x-show="line.badgeCount > 0">
-                  <i data-lucide="message-square" style="width:12px;height:12px;"></i>
-                  <span class="review-badge-count" x-show="line.badgeCount > 1" x-text="line.badgeCount"></span>
-                </span>
-              </div>
-              <!-- Inline comment card (appears after last line of match) -->
-              <template x-for="s in $store.app.coachSuggestions.filter(s => s.status === 'pending' && s.lineEnd === line.lineIdx)" :key="s.idx">
-                <div class="review-comment" :class="{ expanded: $store.app.coachExpandedIdx === s.idx }">
-                  <div class="review-comment-header" @click="$store.app.toggleReviewComment(s.idx)">
-                    <span class="coach-action-badge"
-                          :class="'badge-' + s.action"
-                          x-text="$store.app.coachActionLabel(s.action)"></span>
-                    <span class="review-comment-title" x-text="s.title"></span>
-                    <i data-lucide="chevron-down" class="review-comment-chevron" style="width:14px;height:14px;"></i>
-                  </div>
-                  <div class="review-comment-body" x-show="$store.app.coachExpandedIdx === s.idx" x-transition.duration.150ms>
-                    <p class="review-comment-desc" x-text="s.description"></p>
-                    <div class="review-diff" x-show="s.search_text || s.suggested_text">
-                      <div class="review-diff-del" x-show="s.search_text && s.action !== 'insert' && s.action !== 'add' && s.action !== 'append'" x-text="s.search_text"></div>
-                      <div class="review-diff-add" x-show="s.suggested_text" x-text="s.suggested_text"></div>
-                    </div>
-                    <div class="review-comment-actions">
-                      <button class="btn btn-sm review-accept" @click.stop="$store.app.acceptSuggestion(s.idx)">
-                        <i data-lucide="check" style="width:12px;height:12px;"></i> Accept
-                      </button>
-                      <button class="btn btn-sm review-dismiss" @click.stop="$store.app.dismissSuggestion(s.idx)">
-                        <i data-lucide="x" style="width:12px;height:12px;"></i> Dismiss
-                      </button>
-                      <button class="btn btn-sm review-rerun" @click.stop="$store.app.rerunSuggestion(s.idx)"
-                              :disabled="$store.app.coachLoading"
-                              title="Get a new suggestion for this section">
-                        <i data-lucide="refresh-cw" style="width:11px;height:11px;"></i>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </template>
-        </div>
-      </div>
-
-      <!-- Inline save action bar -->
-      <div class="editor-action-bar" x-show="$store.app.isDirty" x-transition>
-        <div class="editor-dirty-indicator">
-          <span class="dirty-dot"></span> Unsaved changes
-        </div>
-        <div class="editor-actions">
-          <button class="btn btn-sm btn-ghost" @click="$store.app.discardChanges()">Discard</button>
-          <template x-if="$store.app._savingInline">
-            <input type="text" class="save-notes-input" placeholder="Version notes (optional)..."
-                   x-model="$store.app.saveNotes"
-                   @keydown.enter="$store.app.confirmSaveVersion()"
-                   @keydown.escape="$store.app._savingInline = false">
-          </template>
-          <button class="btn btn-sm btn-primary"
-                  @click="$store.app._savingInline ? $store.app.confirmSaveVersion() : ($store.app._savingInline = true)"
-                  x-text="$store.app._savingInline ? 'Confirm Save' : 'Save Version'">
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel-resize-handle" id="panel-resize-handle"></div>
-
-    <!-- Right: Test Runner -->
-    <div id="right-panel">
-        <div class="run-panel-scroll">
-
-          <!-- === INPUT CARD: Test cases + Message + Variables === -->
-          <div class="panel-card panel-card-settings">
-            <button class="settings-toggle" :class="{ open: $store.app.tcSectionOpen }"
-                    @click="$store.app.tcSectionOpen = !$store.app.tcSectionOpen">
-              <i data-lucide="chevron-right" class="settings-chevron"></i>
-              <span>Test Cases</span>
-              <span x-show="!$store.app.tcSectionOpen" class="settings-toggle-hint"
-                    x-text="$store.app.selectedTestCase || 'Ad hoc'"></span>
-            </button>
-            <div class="settings-body" :class="{ open: $store.app.tcSectionOpen }">
-              <!-- Test cases (pill bar) -->
-              <div class="field-group" style="margin-bottom:0;">
-                <div class="tc-pills">
-                  <button class="tc-pill" :class="{ active: !$store.app.selectedTestCase }"
-                          @click="$store.app.selectTestCase('')">Ad hoc</button>
-                  <template x-for="tc in $store.app.testCases" :key="tc.name">
-                    <div class="tc-pill-wrap">
-                      <button class="tc-pill" :class="{ active: $store.app.selectedTestCase === tc.name }"
-                              @click="$store.app.selectTestCase(tc.name)" x-text="tc.name"></button>
-                      <button class="tc-pill-delete" x-show="$store.app.selectedTestCase === tc.name"
-                              @click.stop="$store.app.deleteTestCase()" title="Delete test case">
-                        <i data-lucide="x" style="width:10px;height:10px;"></i>
-                      </button>
-                    </div>
-                  </template>
-                  <button class="tc-pill tc-pill-add" @click="$store.app.startSaveTestCase()" title="Save as test case">
-                    <i data-lucide="plus" style="width:12px;height:12px;"></i>
-                  </button>
-                </div>
-                <div class="tc-inline-save" x-show="$store.app.tcSaving" x-transition.duration.150ms>
-                  <input type="text" class="tc-name-input" placeholder="Test case name"
-                         x-model="$store.app.tcName"
-                         @keydown.enter="$store.app.confirmSaveTestCase()"
-                         @keydown.escape="$store.app.tcSaving = false">
-                  <button class="tc-save-btn" @click="$store.app.confirmSaveTestCase()">
-                    <i data-lucide="check" style="width:14px;height:14px;"></i>
-                  </button>
-                  <button class="tc-cancel-btn" @click="$store.app.tcSaving = false">
-                    <i data-lucide="x" style="width:14px;height:14px;"></i>
-                  </button>
-                </div>
-              </div>
-
-              <!-- User message + Variables -->
-              <div class="field-group">
-                <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
-                  User Message
-                  <span class="token-hint">~<span class="token-count" x-text="$store.app.msgTokens"></span> tokens</span>
-                </div>
-                <div class="textarea-wrap msg-editor-wrap">
-                  <div id="msg-backdrop" x-html="highlightVars($store.app.userMessage)"></div>
-                  <textarea id="msg-editor" x-model="$store.app.userMessage"
-                            placeholder="What would a user say to this agent?"
-                            @scroll="document.getElementById('msg-backdrop').scrollTop = $el.scrollTop"
-                            spellcheck="false"></textarea>
-                  <button class="copy-btn copy-btn-inside copy-btn-sm" @click="$store.app.copyToClipboard($store.app.userMessage, $event)" title="Copy message">
-                    <i data-lucide="copy"></i>
-                  </button>
-                </div>
-                <!-- Variables inline below message -->
-                <div class="var-section" x-show="$store.app.variables.length">
-                  <div class="var-grid">
-                    <template x-for="v in $store.app.variables" :key="v">
-                      <div class="var-row">
-                        <label class="var-label" x-text="v"></label>
-                        <input type="text" class="var-input"
-                               :value="$store.app.varValues[v] || ''"
-                               @input="$store.app.varValues[v] = $event.target.value">
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- === SETTINGS CARD === -->
-          <div class="panel-card panel-card-settings">
-            <button class="settings-toggle" :class="{ open: $store.app.settingsOpen }" @click="$store.app.settingsOpen = !$store.app.settingsOpen">
-              <i data-lucide="chevron-right" class="settings-chevron"></i>
-              <span>Model Settings</span>
-            </button>
-            <div class="settings-body" :class="{ open: $store.app.settingsOpen }">
-              <div class="settings-field">
-                <span class="settings-label">Model</span>
-                <div class="typeahead-wrap"
-                     x-data="typeahead({
-                       items: () => $store.app.filteredModels,
-                       onSelect: (m) => { $store.app.selectModel(m); },
-                       placeholder: $store.app.modelPlaceholder,
-                       searchable: true,
-                       inputStyle: 'width:100%',
-                     })"
-                     @click.outside="close()"
-                     x-effect="query = $store.app.modelInput">
-                  <input class="model-input" x-bind="input"
-                         @input="$store.app.modelInput = query">
-                  <div class="typeahead-dropdown" :class="{ open }">
-                    <template x-if="!$store.app.filteredModels.length">
-                      <div class="typeahead-empty">No matching models</div>
-                    </template>
-                    <template x-for="provider in ['anthropic', 'openai', 'google', 'other']" :key="provider">
-                      <template x-if="$store.app.groupedModels[provider]">
-                        <div>
-                          <div class="typeahead-group" x-text="provider"></div>
-                          <template x-for="m in $store.app.groupedModels[provider]" :key="m">
-                            <div class="typeahead-item"
-                                 :class="{ highlighted: $store.app.filteredModels.indexOf(m) === highlightIdx }"
-                                 @mousedown.prevent="_select({ key: m, label: m, value: m })"
-                                 @mouseenter="highlightIdx = $store.app.filteredModels.indexOf(m)"
-                                 x-text="m"></div>
-                          </template>
-                        </div>
-                      </template>
-                    </template>
-                  </div>
-                </div>
-              </div>
-              <div class="settings-row-split">
-                <div class="settings-field" style="flex:1;">
-                  <span class="settings-label">Temperature</span>
-                  <div class="temp-wrap" style="width:100%;">
-                    <input type="number" class="model-input" x-model.number="$store.app.temperature"
-                           min="0" max="2" step="0.1" placeholder="0-2" style="width:100%;padding-right:22px;">
-                    <div class="temp-arrows">
-                      <button @click="$store.app.stepTemp(0.1)" tabindex="-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l-6 6h12z"/></svg></button>
-                      <button @click="$store.app.stepTemp(-0.1)" tabindex="-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l6-6H6z"/></svg></button>
-                    </div>
-                  </div>
-                </div>
-                <div class="settings-field" style="flex:2;">
-                  <span class="settings-label">Reasoning Effort</span>
-                  <div class="effort-toggle">
-                    <template x-for="opt in [null, 'low', 'medium', 'high']" :key="String(opt)">
-                      <button class="effort-btn"
-                              :class="{ active: $store.app.reasoningEffort === opt, 'none-btn': opt === null }"
-                              @click="$store.app.setEffort(opt)"
-                              x-text="opt ? opt.charAt(0).toUpperCase() + opt.slice(1) : 'None'"></button>
-                    </template>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- === TOOLS PANEL (PydanticAI agents) === -->
-          <div x-show="$store.app.agentTools.length > 0" class="panel-card panel-card-settings" x-transition>
-            <button class="settings-toggle" :class="{ open: $store.app.toolsSectionOpen }"
-                    @click="$store.app.toolsSectionOpen = !$store.app.toolsSectionOpen">
-              <i data-lucide="chevron-right" class="settings-chevron"></i>
-              <span>Tools</span>
-              <span x-show="!$store.app.toolsSectionOpen" class="settings-toggle-hint"
-                    x-text="$store.app.agentTools.length + ' registered'"></span>
-            </button>
-            <div class="settings-body" :class="{ open: $store.app.toolsSectionOpen }">
-              <div class="tools-list">
-                <template x-for="tool in $store.app.agentTools" :key="tool.name">
-                  <div class="tool-item"
-                       x-data="{
-                         open: false,
-                         _tn: tool.name,
-                         get call() {
-                           return ($store.app.metrics?.toolCalls || []).find(tc => tc.tool_name === this._tn) || null;
-                         }
-                       }">
-                    <button class="tool-item-header" @click="open = !open">
-                      <i data-lucide="chevron-right" class="tool-item-chevron" :class="{ open }"></i>
-                      <span class="tool-name" x-text="tool.name"></span>
-                      <span x-show="call" class="tool-call-badge">called</span>
-                    </button>
-                    <div class="tool-item-body" x-show="open">
-                      <div x-show="tool.description" class="tool-desc" x-text="tool.description"></div>
-                      <div x-show="call" class="tool-call-details" style="display:none;">
-                        <div x-show="call?.args && Object.keys(call?.args || {}).length" class="tool-call-section">
-                          <div class="tool-call-section-label">Args</div>
-                          <pre class="tool-call-args" x-text="call?.args ? JSON.stringify(call.args, null, 2) : ''"></pre>
-                        </div>
-                        <div x-show="call?.return_value" class="tool-call-section">
-                          <div class="tool-call-section-label">Return</div>
-                          <div class="tool-call-result" x-text="call?.return_value || ''"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </div>
-          </div>
-
-          <!-- === RESULTS CARD: Output + Metrics === -->
-          <div class="panel-card panel-card-results">
-
-            <!-- Output (collapsible) -->
-            <div class="output-accordion">
-              <button class="output-accordion-header" @click="$store.app.outputOpen = !$store.app.outputOpen">
-                <span class="accordion-chevron" :class="{ open: $store.app.outputOpen }">&#9654;</span>
-                <span class="field-label" style="margin:0;">Output</span>
-                <!-- metrics summary shown in header when collapsed -->
-                <span x-show="!$store.app.outputOpen && $store.app.metrics" class="output-header-metrics">
-                  <span x-text="$store.app.metrics?.model || ''"></span>
-                  <span class="metric-sep">·</span>
-                  <span x-text="'$' + ($store.app.metrics?.cost || 0).toFixed(4)"></span>
-                  <span class="metric-sep">·</span>
-                  <span x-text="($store.app.metrics?.latency || 0) + 'ms'"></span>
-                </span>
-              </button>
-              <div x-show="$store.app.outputOpen" class="output-copy-wrap">
-                <pre x-show="$store.app.isJsonOutput" id="output-box"
-                     :class="$store.app.outputState + ' json'"
-                     x-text="$store.app.formattedOutput"></pre>
-                <div x-show="!$store.app.isJsonOutput" id="output-box"
-                     :class="$store.app.outputState"
-                     x-text="$store.app.output || 'Run a test to see the agent\'s response here.'"></div>
-                <button class="copy-btn copy-btn-inside"
-                        x-show="$store.app.output"
-                        @click="$store.app.copyToClipboard($store.app.isJsonOutput ? $store.app.formattedOutput : $store.app.output, $event)"
-                        title="Copy output">
-                  <i data-lucide="copy"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Metrics bar (always visible below output) -->
-            <div class="metrics-bar" x-show="$store.app.metrics" x-transition>
-              <span class="metric-item"><span class="metric-label">Latency</span> <span class="metric-value" x-text="($store.app.metrics?.latency || 0) + 'ms'"></span></span>
-              <span class="metric-sep">|</span>
-              <span class="metric-item"><span class="metric-label">Tokens</span> <span class="metric-value" x-text="$store.app.metrics?.totalTokens || 0"></span></span>
-              <span class="metric-sep">|</span>
-              <span class="metric-item"><span class="metric-label">Model</span> <span class="metric-value" x-text="$store.app.metrics?.model || '\u2014'"></span></span>
-              <span class="metric-sep">|</span>
-              <span class="metric-item"><span class="metric-label">Cost</span> <span class="metric-value" x-text="'$' + ($store.app.metrics?.cost || 0).toFixed(4)"></span></span>
-            </div>
-          </div>
-
-          <!-- Promote version (only when not dirty) -->
-          <div style="display:flex;gap:8px;" x-show="!$store.app.isDirty && $store.app.currentVersionId && $store.app.currentVersion?.status !== 'current'">
-            <button class="btn btn-promote" style="flex:1;"
-                    @click="$store.app.promoteVersion()">Set as Current</button>
-          </div>
-
-          <!-- Run History -->
-          <div class="run-history" x-show="$store.app.runHistory.length">
-            <button class="run-history-toggle" @click="$store.app.runHistoryOpen = !$store.app.runHistoryOpen">
-              <span class="accordion-chevron" :class="{ open: $store.app.runHistoryOpen }">&#9654;</span>
-              <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);">Run History</span>
-              <span style="font-size:11px;color:var(--muted);margin-left:auto;" x-text="$store.app.runHistory.length + ' runs'"></span>
-            </button>
-            <div x-show="$store.app.runHistoryOpen" x-transition.duration.150ms>
-              <template x-for="run in $store.app.runHistory" :key="run.run_id">
-                <div class="run-history-row">
-                  <span class="run-history-time" x-text="new Date(run.created_at).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'})"></span>
-                  <span class="run-history-tc" x-text="run.test_case_name || 'Ad hoc'"></span>
-                  <span class="run-history-latency" x-text="run.latency_ms ? run.latency_ms + 'ms' : ''"></span>
-                  <span class="run-history-tokens" x-text="(run.input_tokens||0) + (run.output_tokens||0) ? ((run.input_tokens||0)+(run.output_tokens||0)).toLocaleString() + ' tok' : ''"></span>
-                  <span class="run-history-score" x-show="run.score != null"
-                        :style="'color:' + scoreColor(run.score || 0)"
-                        x-text="run.score?.toFixed(1)"></span>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
-
-        <!-- Sticky Run button (outside scroll area) -->
-        <div class="run-btn-dock">
-          <button id="run-btn" :class="{ running: $store.app.running }" @click="$store.app.runTest()" :disabled="$store.app.running">
-            <template x-if="!$store.app.running">
-              <span><i data-lucide="play" style="width:14px;height:14px;"></i> Run Test <kbd class="kbd-hint">Cmd+Enter</kbd></span>
-            </template>
-            <template x-if="$store.app.running">
-              <span style="display:inline-flex;align-items:center;gap:6px;"><span class="spinner"></span> Running... <span style="font-family:var(--mono);font-size:12px;opacity:0.7;" x-text="$store.app.runElapsed.toFixed(1) + 's'"></span></span>
-            </template>
-          </button>
-        </div>
-    </div>
-  </div>
-  </div><!-- /playground view -->
-
-  <!-- ========== VERSIONS VIEW ========== -->
-  <div class="view" x-show="$store.app.activeView === 'versions'">
-    <div class="versions-view">
-      <div class="versions-header">
-        <h2 class="versions-title">Version History</h2>
-        <span class="versions-count" x-text="$store.app.versions.length + ' versions'"></span>
-      </div>
-
-      <!-- Empty state -->
-      <template x-if="!$store.app.versions.length">
-        <div class="empty-state">
-          <div class="empty-icon"><i data-lucide="git-branch" style="width:48px;height:48px;"></i></div>
-          <div class="empty-title">No versions yet</div>
-          <div>Save your first prompt version from the Playground.</div>
-        </div>
-      </template>
-
-      <!-- Version timeline -->
-      <div class="vt-timeline">
-        <template x-for="v in $store.app.versions" :key="v.id">
-          <div class="vt-card" @click="$store.app._expandedVersion = ($store.app._expandedVersion === v.id ? null : v.id)">
-            <div class="vt-dot" :class="{ current: v.status === 'current' }"></div>
-            <div class="vt-body">
-              <div class="vt-row-top">
-                <span class="vt-version" x-text="'v' + v.version"></span>
-                <span class="vt-status" :class="'status-' + v.status" x-text="v.status"></span>
-                <span class="vt-time" x-text="formatDate(v.created_at)"></span>
-                <div class="vt-actions">
-                  <button class="btn btn-ghost btn-sm" x-show="v.status !== 'current'"
-                          @click.stop="$store.app.promoteVersion(v.id)" title="Set as current">Promote</button>
-                  <button class="btn btn-ghost btn-sm" @click.stop="$store.app.startCompare(v)" title="Compare with current">Compare</button>
-                  <button class="vt-delete-btn" @click.stop="$store.app.deleteVersion(v.id)" title="Delete version">
-                    <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
-                  </button>
-                </div>
-              </div>
-              <div class="vt-notes" x-show="v.notes" x-text="v.notes"></div>
-              <div class="vt-prompt-preview"
-                   :class="{ expanded: $store.app._expandedVersion === v.id }"
-                   x-text="v.system_prompt"></div>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <!-- Compare overlay -->
-      <div class="vt-compare" x-show="$store.app.compareTarget" x-transition.opacity.duration.150ms style="display:none;">
-        <div class="vt-compare-header">
-          <h3>Compare Versions</h3>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <button class="btn btn-primary btn-sm"
-                    x-show="$store.app.compareTarget && $store.app.compareTarget.status !== 'current'"
-                    @click="$store.app.promoteVersion($store.app.compareTarget.id)">Promote This Version</button>
-            <button class="btn btn-ghost btn-sm" @click="$store.app.compareTarget = null">Close Compare</button>
-          </div>
-        </div>
-        <div class="vt-compare-columns">
-          <div class="vt-compare-col">
-            <div class="vt-compare-label">
-              <span x-text="'v' + ($store.app.compareTarget?.version || '')"></span>
-              <span class="vt-status" :class="'status-' + ($store.app.compareTarget?.status || 'draft')" x-text="$store.app.compareTarget?.status"></span>
-            </div>
-            <pre class="vt-compare-prompt" x-text="$store.app.compareTarget?.system_prompt || ''"></pre>
-          </div>
-          <div class="vt-compare-col">
-            <div class="vt-compare-label">
-              <span x-text="'v' + ($store.app.currentVersion?.version || '')"></span>
-              <span class="vt-status status-current">current</span>
-            </div>
-            <pre class="vt-compare-prompt" x-text="$store.app.currentVersion?.system_prompt || ''"></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========== EVALS VIEW ========== -->
-  <div class="view" x-show="$store.app.activeView === 'evals'">
-    <div class="evals-view-layout">
-    <div class="evals-view">
-
-      <!-- Page header -->
-      <div class="evals-page-header">
-        <span class="evals-page-title">Evals</span>
-        <div x-show="$store.app.evalHistory.length"
-             class="typeahead-wrap eval-history-wrap"
-             x-data="typeahead({
-               items: () => $store.app.evalHistory.map(h => ({
-                 key: String(h.id),
-                 label: formatDate(h.created_at) + ' — v' + (h.prompt_version || '?'),
-                 value: String(h.id),
-               })),
-               selected: () => String($store.app.evalResult?.id || ''),
-               onSelect: (id) => $store.app.loadEvalRun(Number(id)),
-               searchable: false,
-             })"
-             @click.outside="close()"
-             >
-          <input class="model-input eval-history-input" x-bind="input">
-          <div class="typeahead-dropdown eval-history-dropdown" :class="{ open }">
-            <template x-for="(item, idx) in filtered" :key="item.key">
-              <div class="typeahead-item"
-                   :class="{ highlighted: idx === highlightIdx, 'typeahead-item--selected': item.value === String($store.app.evalResult?.id) }"
-                   @mousedown.prevent="_select(item)"
-                   @mouseenter="highlightIdx = idx"
-                   x-text="item.label"></div>
-            </template>
-          </div>
-        </div>
-      </div>
-
-      <!-- Results zone (hero) -->
-      <div class="eval-results-zone">
-        <!-- Stats row — bonded to results -->
-        <div class="eval-stats-row" x-show="$store.app.evalResult">
-          <div class="eval-summary-stat">
-            <span class="eval-summary-label">Avg</span>
-            <span class="eval-summary-value"
-                  :class="{ good: $store.app.evalResult?.avg_score >= 3.5, warn: $store.app.evalResult?.avg_score < 3 }"
-                  x-text="($store.app.evalResult?.avg_score || 0).toFixed(1)"></span>
-          </div>
-          <span class="eval-summary-sep"></span>
-          <div class="eval-summary-stat">
-            <span class="eval-summary-label">Pass</span>
-            <span class="eval-summary-value"
-                  x-text="($store.app.evalResult?.case_details?.filter(c => c.score >= 3).length || 0) + '/' + ($store.app.evalResult?.case_details?.length || 0)"></span>
-          </div>
-          <span class="eval-summary-sep"></span>
-          <div class="eval-summary-stat">
-            <span class="eval-summary-label">Best</span>
-            <span class="eval-summary-value good"
-                  x-text="$store.app.evalResult?.case_details?.length ? Math.max(...$store.app.evalResult.case_details.map(c => c.score)).toFixed(1) : '--'"></span>
-          </div>
-          <span class="eval-summary-sep"></span>
-          <div class="eval-summary-stat">
-            <span class="eval-summary-label">Worst</span>
-            <span class="eval-summary-value"
-                  :class="{ warn: $store.app.evalResult?.case_details?.length && Math.min(...$store.app.evalResult.case_details.map(c => c.score)) < 3 }"
-                  x-text="$store.app.evalResult?.case_details?.length ? Math.min(...$store.app.evalResult.case_details.map(c => c.score)).toFixed(1) : '--'"></span>
-          </div>
-        </div>
-
-        <!-- Empty state -->
-        <div class="empty-state" x-show="!$store.app.evalResult && !$store.app.evalHistory.length && !$store.app.evalRunning">
-          <div class="empty-icon"><i data-lucide="bar-chart-2" style="width:48px;height:48px;"></i></div>
-          <div class="empty-title">No results yet</div>
-          <div>Configure criteria and test cases below, then run an eval.</div>
-        </div>
-
-        <!-- Result rows -->
-        <div class="eval-results-table" x-show="$store.app.evalResult?.case_details?.length">
-          <template x-for="(cd, ci) in ($store.app.evalResult?.case_details || [])" :key="ci">
-            <div class="eval-result-row"
-                 :class="{ passed: cd.score >= 3.5, borderline: cd.score >= 2.5 && cd.score < 3.5, failed: cd.score < 2.5 }">
-              <div class="eval-result-header" @click="$store.app._expandedEvalCase = ($store.app._expandedEvalCase === ci ? null : ci)">
-                <span class="eval-result-indicator"></span>
-                <span class="eval-result-name" x-text="cd.test_case || cd.test_case_name || 'Case ' + (ci + 1)"></span>
-                <span class="eval-result-criteria-summary">
-                  <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
-                    <span class="eval-cr-dot" :class="cr.passed ? 'dot-pass' : 'dot-fail'" :title="cr.criterion"></span>
-                  </template>
-                </span>
-                <span class="eval-result-score" :style="'color:' + scoreColor(cd.score)" x-text="cd.score != null ? cd.score.toFixed(1) : 'ERR'"></span>
-                <i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--muted);flex-shrink:0;"
-                   :style="$store.app._expandedEvalCase === ci ? 'transform:rotate(180deg)' : ''"></i>
-              </div>
-              <div class="eval-result-detail" x-show="$store.app._expandedEvalCase === ci" x-transition.duration.150ms>
-                <div class="eval-result-error" x-show="cd.error" x-text="cd.error"></div>
-                <template x-for="(cr, cri) in (cd.criteria_results || [])" :key="cri">
-                  <div class="eval-cr-row" :class="cr.passed ? 'cr-passed' : 'cr-failed'">
-                    <span class="eval-cr-icon" x-text="cr.passed ? '✓' : '✗'"></span>
-                    <span class="eval-cr-name" x-text="cr.criterion"></span>
-                    <div class="eval-cr-note" x-show="cr.note" x-text="cr.note"></div>
-                  </div>
-                </template>
-                <div class="eval-reasoning" x-show="cd.reasoning">
-                  <div class="eval-reasoning-label">Judge Reasoning</div>
-                  <div class="eval-reasoning-text" x-text="cd.reasoning"></div>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
-      </div>
-
-      <!-- Configuration (collapsible) -->
-      <div class="eval-config-section">
-        <button class="settings-toggle" @click="$store.app._evalConfigOpen = !$store.app._evalConfigOpen"
-                :class="{ open: $store.app._evalConfigOpen }">
-          <i data-lucide="chevron-right" style="width:12px;height:12px;"
-             :style="$store.app._evalConfigOpen ? 'transform:rotate(90deg)' : ''"></i>
-          Configuration
-        </button>
-        <div class="settings-body" :class="{ open: $store.app._evalConfigOpen }">
-          <div class="eval-content">
-            <!-- Judge Model (split provider combobox + model name combobox) -->
-            <div>
-              <div class="field-label">Judge Model</div>
-              <div class="split-model-wrap">
-                <!-- Provider combobox -->
-                <div class="typeahead-wrap split-model-provider"
-                     x-data="typeahead({
-                       items: () => $store.app.judgeFilteredProviders.map(p => ({ key: p.id, label: p.label, value: p.id })),
-                       onSelect: (id) => { $store.app.selectJudgeProvider(id); },
-                       placeholder: 'Provider',
-                       searchable: true,
-                       inputStyle: 'font-size:12px',
-                       fixed: true,
-                     })"
-                     @click.outside="close()"
-                     x-effect="query = $store.app.judgeModelProvider">
-                  <input class="model-input" x-bind="input"
-                         @input="$store.app.judgeModelProvider = query; $store.app.syncJudgeModel()"
-                         @blur="$store.app.syncJudgeModel()">
-                  <div class="typeahead-dropdown fixed-dropdown" :class="{ open }"
-                       :style="_rect ? 'top:'+(_rect.bottom+4)+'px;left:'+_rect.left+'px;width:'+_rect.width+'px;' : ''">
-                    <template x-for="(item, idx) in filtered" :key="item.key">
-                      <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
-                    </template>
-                  </div>
-                </div>
-                <!-- Model name combobox -->
-                <div class="typeahead-wrap split-model-name"
-                     x-data="typeahead({
-                       items: () => $store.app.judgeFilteredModelNames,
-                       onSelect: (m) => { $store.app.selectJudgeModelName(m); },
-                       placeholder: 'Model name',
-                       searchable: true,
-                       inputStyle: 'font-size:12px',
-                     })"
-                     @click.outside="close()"
-                     x-effect="query = $store.app.judgeModelName">
-                  <input class="model-input" x-bind="input"
-                         @input="$store.app.judgeModelName = query; $store.app.syncJudgeModel()"
-                         @blur="$store.app.syncJudgeModel()">
-                  <div class="typeahead-dropdown" :class="{ open }">
-                    <template x-for="(item, idx) in filtered" :key="item.key">
-                      <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
-                    </template>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Criteria (structured editor) -->
-            <div>
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                <div class="field-label" style="margin-bottom:0;">Criteria</div>
-              </div>
-              <div class="criteria-structured" x-show="$store.app.criteriaRows.length">
-                <template x-for="(c, i) in $store.app.criteriaRows" :key="i">
-                  <div class="criterion-row">
-                    <div class="criterion-header" @click="$store.app.toggleCriterion(i)">
-                      <i data-lucide="chevron-right" style="width:14px;height:14px;transition:transform .15s;"
-                         :style="$store.app.criteriaOpenIdx === i ? 'transform:rotate(90deg)' : ''"></i>
-                      <span class="criterion-name" x-text="c.name || 'Untitled criterion'"></span>
-                      <span class="criterion-weight" x-show="c.weight !== ''" x-text="parseFloat(c.weight).toFixed(1) + 'x'"></span>
-                    </div>
-                    <div class="criterion-edit" x-show="$store.app.criteriaOpenIdx === i" x-transition.duration.150ms>
-                      <div class="criterion-edit-row">
-                        <label class="criterion-edit-label">Name</label>
-                        <input type="text" class="criterion-edit-input" x-model="c.name" placeholder="Criterion name">
-                      </div>
-                      <div class="criterion-edit-row" style="align-items:flex-start;">
-                        <label class="criterion-edit-label" style="padding-top:6px;">Description</label>
-                        <textarea class="criterion-edit-input criterion-edit-textarea" x-model="c.description"
-                                  placeholder="What should the judge evaluate?" rows="3"></textarea>
-                      </div>
-                      <div class="criterion-edit-row">
-                        <label class="criterion-edit-label">Weight</label>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                          <input type="number" class="criterion-edit-input" style="width:80px;"
-                                 min="0" max="1" step="0.1" x-model="c.weight" placeholder="1.0">
-                          <span style="color:var(--muted);font-size:11px;">0 – 1, optional</span>
-                          <button class="btn-icon-danger" style="margin-left:auto;"
-                                  @click.stop="$store.app.removeCriterion(i)" title="Delete criterion">
-                            <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-              </div>
-              <div x-show="!$store.app.criteriaRows.length"
-                   style="color:var(--muted);font-size:12px;padding:10px 0;">
-                No criteria defined. Add one below or generate from your prompt.
-              </div>
-              <div class="criteria-actions">
-                <button class="btn btn-ghost btn-sm"
-                        @click="$store.app.addCriterion()">
-                  <i data-lucide="plus" style="width:12px;height:12px;"></i> Add Criterion
-                </button>
-                <button class="btn btn-ghost btn-sm" @click="$store.app.generateJudge()"
-                        :disabled="$store.app.evalGenerating">
-                  <span x-show="$store.app.evalGenerating" style="display:inline-flex;align-items:center;gap:4px;">
-                    <span class="spinner" style="width:11px;height:11px;"></span> Generating...
-                  </span>
-                  <span x-show="!$store.app.evalGenerating">Generate from Prompt</span>
-                </button>
-                <button class="btn btn-primary btn-sm criteria-save-btn"
-                        :class="{ dirty: $store.app.evalSettingsDirty }"
-                        :disabled="!$store.app.evalSettingsDirty"
-                        @click="$store.app.saveCriteria()">Save Settings</button>
-              </div>
-            </div>
-
-            <!-- Test cases as pills -->
-            <div>
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                <div class="field-label" style="margin-bottom:0;">Test Cases</div>
-                <span class="eval-tc-count" x-text="$store.app.testCases.length + ' cases'"></span>
-              </div>
-              <div class="tc-pills" x-show="$store.app.testCases.length" style="margin-top:4px;">
-                <template x-for="tc in $store.app.testCases" :key="tc.name">
-                  <div class="tc-pill-wrap">
-                    <span class="tc-pill" x-text="tc.name"></span>
-                    <button class="tc-pill-delete" @click.stop="$store.app.deleteTestCaseByName(tc.name)" title="Delete test case">
-                      <i data-lucide="x" style="width:10px;height:10px;"></i>
-                    </button>
-                  </div>
-                </template>
-              </div>
-              <div x-show="!$store.app.testCases.length"
-                   style="color:var(--muted);font-size:12px;padding:4px 0;">
-                No test cases yet. Add some from the Playground.
-              </div>
-              <!-- Inline add test case -->
-              <button class="btn btn-ghost btn-sm" style="margin-top:8px;"
-                      x-show="!$store.app.evalAddTcOpen"
-                      @click="$store.app.evalAddTcOpen = true">
-                <i data-lucide="plus" style="width:12px;height:12px;"></i> Add Test Case
-              </button>
-              <div class="eval-add-tc" x-show="$store.app.evalAddTcOpen" x-transition.duration.150ms>
-                <input type="text" class="model-input" placeholder="Name" x-model="$store.app.evalAddTcName"
-                       style="font-size:12px;">
-                <textarea class="msg-input" placeholder="User message" x-model="$store.app.evalAddTcMsg"
-                          style="min-height:50px;font-size:12px;"></textarea>
-                <template x-if="$store.app.variables.length > 0">
-                  <div class="eval-add-tc-vars">
-                    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Variables</div>
-                    <div class="var-grid">
-                      <template x-for="v in $store.app.variables" :key="v">
-                        <div class="var-row">
-                          <label class="var-label" x-text="v"></label>
-                          <input type="text" class="var-input"
-                                 :value="$store.app.evalAddTcVars[v] || ''"
-                                 @input="$store.app.evalAddTcVars[v] = $event.target.value">
-                        </div>
-                      </template>
-                    </div>
-                  </div>
-                </template>
-                <div style="display:flex;gap:6px;">
-                  <button class="btn btn-primary btn-sm" @click="$store.app.saveEvalTestCase()">Add</button>
-                  <button class="btn btn-ghost btn-sm" @click="$store.app.evalAddTcOpen = false">Cancel</button>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /evals-view -->
-
-    <!-- Run button — outside scroll container so content never hides behind it -->
-    <div class="eval-run-footer">
-      <button class="btn btn-primary eval-run-btn"
-              @click="$store.app.runEval()"
-              :disabled="$store.app.evalRunning || !$store.app.testCases.length">
-        <span x-show="$store.app.evalRunning" style="display:inline-flex;align-items:center;gap:6px;">
-          <span class="spinner"></span> Running Eval...
-        </span>
-        <span x-show="!$store.app.evalRunning" x-text="'Run Eval (' + $store.app.testCases.length + ' cases)'"></span>
+    <div class="nav-links">
+      <a href="#features" class="hide-mobile">Features</a>
+      <a href="#quickstart" class="hide-mobile">Quick Start</a>
+      <a href="/docs">Docs</a>
+      <a href="/app.html">Live Demo</a>
+      <a href="https://github.com/gabrielmongalo/biscotti" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-3px;margin-right:4px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub
+      </a>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       </button>
     </div>
-    </div><!-- /evals-view-layout -->
   </div>
+</nav>
 
-  <!-- ========== ALL AGENTS VIEW ========== -->
-  <div class="view" x-show="$store.app.activeView === 'agents'">
-    <div class="agents-view">
-      <div class="agents-header">
-        <h2>Agents</h2>
-        <span class="agents-count" x-text="$store.app.agents.length + ' agents'"></span>
-        <div class="agents-search">
-          <i data-lucide="search"></i>
-          <input type="text" placeholder="Search agents..."
-            x-model="$store.app._agentSearch"
-            @input="setTimeout(() => lucide.createIcons(), 0)">
-        </div>
+<!-- HERO SPLIT -->
+<section class="hero" id="hero">
+  <div class="hero-inner">
+    <div class="hero-copy">
+      <h1>Ship prompts like you ship code<span class="accent-dot">.</span></h1>
+      <p class="tagline">Version, test, and score system prompts in the browser. No code changes needed.</p>
+      <p class="subtext">
+        The eval studio for AI agents. Decorate your agent function, mount the UI, and iterate on prompts with real test cases and AI judges.
+      </p>
+      <div class="hero-actions">
+        <a href="#quickstart" class="btn btn-primary">Get Started</a>
+        <a href="/app.html" class="btn btn-ghost">Try Live Demo</a>
+        <a href="https://github.com/gabrielmongalo/biscotti" target="_blank" rel="noopener" class="btn btn-ghost">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
       </div>
-      <div class="agents-grid">
-        <template x-for="agent in $store.app.agents.filter(a => !$store.app._agentSearch || a.name.toLowerCase().includes($store.app._agentSearch.toLowerCase()) || (a.tags || []).some(t => t.toLowerCase().includes($store.app._agentSearch.toLowerCase())))" :key="agent.name">
-          <button class="agent-card"
-                  :class="{ active: $store.app.currentAgent === agent.name }"
-                  @click="$store.app.selectAgent(agent.name); $store.app.switchView('playground')">
-            <span class="agent-card-name" x-text="agent.name"></span>
-            <span class="agent-card-stats" x-text="(agent.test_case_count || 0) + ' tests · ' + (agent.version_count || 0) + ' versions'"></span>
-            <template x-if="agent.tags && agent.tags.length > 0">
-              <div class="agent-card-tags">
-                <template x-for="tag in agent.tags" :key="tag">
-                  <span class="agent-card-tag" x-text="tag"></span>
-                </template>
-              </div>
-            </template>
-          </button>
-        </template>
+    </div>
+    <div class="hero-code">
+      <div class="code-block">
+        <div class="code-header">
+          <span class="lang">app.py</span>
+          <button class="copy-btn" data-code="from biscotti import Biscotti, biscotti
+
+@biscotti(name=&quot;my agent&quot;, default_system_prompt=&quot;You are helpful.&quot;)
+async def my_agent(user_message: str, system_prompt: str) -> str:
+    # Your existing agent code
+    ...
+
+bi = Biscotti()
+app.mount(&quot;/biscotti&quot;, bi.app)">Copy</button>
+        </div>
+        <div class="code-body">
+<pre><span class="kw">from</span> <span class="cls">biscotti</span> <span class="kw">import</span> Biscotti, biscotti
+
+<span class="dec">@biscotti</span>(<span class="par">name</span><span class="op">=</span><span class="str">"my agent"</span>, <span class="par">default_system_prompt</span><span class="op">=</span><span class="str">"You are helpful."</span>)
+<span class="kw">async def</span> <span class="fn">my_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">str</span>:
+    <span class="cm"># Your existing agent code</span>
+    ...
+
+bi <span class="op">=</span> <span class="cls">Biscotti</span>()
+app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)</pre>
+        </div>
       </div>
     </div>
   </div>
+</section>
 
-  <!-- ============================================================
-       BULK RUN VIEW
-       ============================================================ -->
-  <div class="view" x-show="$store.app.activeView === 'bulk'">
-    <div class="bulk-view">
+<!-- FEATURE STRIP -->
+<section class="features" id="features">
+  <div class="features-strip">
 
-      <!-- Sub-navigation pills -->
-      <div class="bulk-sub-nav" role="tablist">
-        <button class="bulk-pill"
-                :class="{ active: $store.app.bulkSubView === 'new' }"
-                role="tab"
-                :aria-selected="$store.app.bulkSubView === 'new'"
-                @click="$store.app.startFreshBulkRun()">New Run</button>
-        <button class="bulk-pill"
-                :class="{ active: $store.app.bulkSubView === 'history' }"
-                role="tab"
-                :aria-selected="$store.app.bulkSubView === 'history'"
-                @click="$store.app.bulkSubView = 'history'; $store.app.loadBulkHistory()">History</button>
+    <div class="feature-item">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
       </div>
+      <h3>Version Every Change</h3>
+      <p>Save iterations with notes, compare side-by-side, and roll back when needed.</p>
+    </div>
 
-      <!-- ======================== NEW RUN SUB-VIEW ======================== -->
-      <div x-show="$store.app.bulkSubView === 'new'">
+    <div class="feature-item">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h3>Run Real Test Cases</h3>
+      <p>Define test inputs, run them against your live agent, and see the impact.</p>
+    </div>
 
-        <!-- Config panel (expandable when running) -->
-        <div x-show="!$store.app.bulkConfigCollapsed">
-          <div class="bulk-config">
+    <div class="feature-item">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+      </div>
+      <h3>Score with AI Judges</h3>
+      <p>Auto-generate criteria, batch-evaluate, and track scores across versions.</p>
+    </div>
 
-              <!-- Step 1: Test Cases -->
-              <div class="bulk-config-section">
-                <div class="bulk-step-header"><span class="bulk-step-num">1</span>Test Cases</div>
-                <div class="bulk-tc-list">
-                  <label class="bulk-tc-select-all">
-                    <input type="checkbox"
-                           :checked="$store.app.bulkSelectedTests.length === $store.app.testCases.length && $store.app.testCases.length > 0"
-                           @change="$store.app.bulkToggleAllTests($event.target.checked)">
-                    <span>Select All</span>
-                  </label>
-                  <template x-for="tc in $store.app.testCases" :key="tc.id">
-                    <label class="bulk-tc-item">
-                      <input type="checkbox"
-                             :value="tc.id"
-                             :checked="$store.app.bulkSelectedTests.includes(tc.name)"
-                             @change="$store.app.bulkToggleTest(tc.name)">
-                      <span x-text="tc.name"></span>
-                    </label>
-                  </template>
-                  <div x-show="$store.app.testCases.length === 0" class="bulk-empty">
-                    No test cases. Add some in the Playground.
-                  </div>
-                </div>
-              </div>
+  </div>
+</section>
 
-              <!-- Step 2: Variants -->
-              <div class="bulk-section-gap bulk-config-section">
-                <div class="bulk-step-header"><span class="bulk-step-num">2</span>Variants</div>
-                <div class="bulk-variant-panel">
+<!-- QUICK START -->
+<section class="quickstart" id="quickstart">
+  <div class="container">
+    <p class="section-label">For Developers</p>
+    <h2 class="section-title">Add to your project in 60 seconds</h2>
 
-                <!-- Models (full width) -->
-                <div class="bulk-variant-block">
-                  <div class="bulk-label">Models</div>
-                  <div class="typeahead-wrap"
-                       x-data="typeahead({
-                         items: () => $store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m)),
-                         onSelect: (m) => { $store.app.bulkSelectedModels.push(m); },
-                         placeholder: 'Search models...',
-                         searchable: true,
-                         inputClass: 'model-input bulk-model-trigger',
-                       })"
-                       @click.outside="close()">
-                    <input class="model-input" x-bind="input">
-                    <div class="typeahead-dropdown" :class="{ open }">
-                      <template x-for="(item, idx) in filtered" :key="item.key">
-                        <div class="typeahead-item"
-                             :class="{ highlighted: idx === highlightIdx }"
-                             @mousedown.prevent="_select(item)"
-                             @mouseenter="highlightIdx = idx"
-                             x-text="item.label"></div>
-                      </template>
-                      <div x-bind="empty"
-                           x-text="$store.app.availableModels.length === $store.app.bulkSelectedModels.length ? 'All models selected' : 'No matching models'"></div>
-                    </div>
-                  </div>
-                  <div class="bulk-chip-container">
-                    <template x-for="model in $store.app.bulkSelectedModels" :key="model">
-                      <span class="bulk-chip">
-                        <span x-text="model"></span>
-                        <button class="bulk-chip-x" @click="$store.app.bulkRemoveModel(model)" aria-label="Remove model">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                      </span>
-                    </template>
-                  </div>
-                </div>
+    <div class="quickstart-content">
 
-                <!-- Temperatures + Reasoning Effort (side by side — both compact parameters) -->
-                <div class="bulk-variant-params">
-                  <div class="bulk-variant-block">
-                    <div class="bulk-label">Temperatures</div>
-                    <div class="bulk-temp-add">
-                      <input type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*"
-                             placeholder="0.7"
-                             x-model="$store.app.bulkTempInput"
-                             @keydown.enter="$store.app.bulkAddTemp()">
-                      <button class="btn btn-ghost btn-sm" @click="$store.app.bulkAddTemp()">Add</button>
-                    </div>
-                    <div class="bulk-chip-container">
-                      <template x-for="temp in $store.app.bulkSelectedTemps" :key="temp">
-                        <span class="bulk-chip">
-                          <span x-text="temp.toFixed(1)"></span>
-                          <button class="bulk-chip-x" @click="$store.app.bulkRemoveTemp(temp)" aria-label="Remove temperature">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                          </button>
-                        </span>
-                      </template>
-                    </div>
-                  </div>
-
-                  <div class="bulk-variant-block">
-                    <div class="bulk-label">Reasoning Effort</div>
-                    <div class="bulk-checks">
-                      <template x-for="re in ['low', 'medium', 'high']" :key="re">
-                        <label class="bulk-check-item">
-                          <input type="checkbox"
-                                 :value="re"
-                                 :checked="$store.app.bulkReasoningEfforts.includes(re)"
-                                 @change="$store.app.bulkToggleReasoningEffort(re)">
-                          <span x-text="re.charAt(0).toUpperCase() + re.slice(1)"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </div>
-                </div>
-
-                </div><!-- end .bulk-variant-panel -->
-              </div>
-
-            <!-- Step 3: Options -->
-            <div class="bulk-config-section">
-              <div class="bulk-step-header"><span class="bulk-step-num">3</span>Options</div>
-              <div class="bulk-advanced-panel">
-                <div class="bulk-advanced-row">
-                  <label class="bulk-check-item">
-                    <input type="checkbox"
-                           :checked="$store.app.bulkIncludeEval"
-                           @change="$store.app.bulkIncludeEval = $event.target.checked">
-                    <span>Auto-Evaluate with Judge Model</span>
-                  </label>
-                </div>
-                <div class="bulk-advanced-row bulk-advanced-row--stack" x-show="$store.app.bulkIncludeEval">
-                  <span class="bulk-label bulk-label--inline">Judge Model</span>
-                  <div class="typeahead-wrap bulk-judge-wrap"
-                       x-data="typeahead({
-                         items: () => $store.app.availableModels,
-                         selected: () => $store.app.bulkJudgeModel,
-                         onSelect: (m) => { $store.app.bulkJudgeModel = m; },
-                         placeholder: 'Search models...',
-                         searchable: true,
-                         clearOnSelect: false,
-                         inputClass: 'model-input bulk-judge-input',
-                       })"
-                       @click.outside="close()">
-                    <input class="model-input" x-bind="input">
-                    <div class="typeahead-dropdown" :class="{ open }">
-                      <template x-for="(item, idx) in filtered" :key="item.key">
-                        <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
-                      </template>
-                    </div>
-                  </div>
-                </div>
-                <div class="bulk-advanced-row">
-                  <span class="bulk-label bulk-label--inline">Concurrency</span>
-                  <input type="number" class="bulk-concurrency-input" min="1" max="20"
-                         x-model.number="$store.app.bulkConcurrency">
-                </div>
-              </div>
-            </div>
+      <div class="step">
+        <p class="step-label"><span class="step-number">1</span> Install</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">terminal</span>
+            <button class="copy-btn" data-code="uv add biscotti">Copy</button>
           </div>
-        </div>
-
-        <!-- Collapsed config header (shown when running) -->
-        <div class="bulk-config-collapsed" x-show="$store.app.bulkConfigCollapsed"
-             @click="$store.app.bulkConfigCollapsed = false">
-          <span class="bulk-config-summary"
-                x-text="$store.app.bulkSelectedTests.length + ' tests x ' + $store.app.bulkSelectedModels.length + ' models x ' + $store.app.bulkSelectedTemps.length + ' temps'"></span>
-          <span class="bulk-label bulk-label--hint">Click to expand</span>
-        </div>
-
-        <!-- Summary bar + action -->
-        <div class="bulk-summary-bar">
-          <span x-html="$store.app.bulkSummaryText"></span>
-          <div class="bulk-action-right">
-            <button class="btn btn-primary"
-                    :disabled="!$store.app.bulkCanStart"
-                    @click="$store.app.startBulkRun()"
-                    x-show="!$store.app.bulkRunning">
-              Start Bulk Run
-            </button>
-            <button class="btn btn-ghost"
-                    x-show="$store.app.bulkRunning"
-                    @click="$store.app.cancelBulkRun()">
-              Cancel
-            </button>
-          </div>
-        </div>
-
-        <!-- Progress (live run only) -->
-        <div class="bulk-run-status" x-show="$store.app.bulkRunning || $store.app.bulkResults.length > 0" x-transition>
-          <div class="bulk-run-status-row">
-            <span class="bulk-run-status-label" x-text="$store.app.bulkRunning ? 'Running…' : 'Complete'"></span>
-            <span class="bulk-run-status-count"
-                  x-text="$store.app.bulkCompleted + ' / ' + $store.app.bulkTotalRuns"></span>
-          </div>
-          <div class="bulk-progress-track">
-            <div class="bulk-progress-fill" :style="'width:' + $store.app.bulkProgressPercent + '%'"></div>
-          </div>
-        </div>
-
-      </div><!-- end new-run sub-view -->
-
-      <!-- ======================== DETAIL SUB-VIEW ======================== -->
-      <div x-show="$store.app.bulkSubView === 'detail'" x-cloak>
-        <div class="bulk-detail-card" x-show="$store.app.bulkViewedRun">
-
-          <!-- Header row: date + status + Run Again -->
-          <div class="bulk-detail-top">
-            <div class="bulk-detail-title-row">
-              <button class="btn btn-ghost btn-sm bulk-detail-back"
-                      @click="$store.app.bulkSubView = 'history'">
-                <i data-lucide="arrow-left" style="width:13px;height:13px;"></i>
-                History
-              </button>
-              <span class="bulk-detail-date mono"
-                    x-text="formatDate($store.app.bulkViewedRun?.created_at)"></span>
-              <span class="bulk-history-status"
-                    :class="'status-' + $store.app.bulkViewedRun?.status"
-                    x-text="$store.app.bulkViewedRun?.status"></span>
-            </div>
-            <button class="btn btn-primary btn-sm" @click="$store.app.rerunBulkRun()">
-              Run Again
-            </button>
-          </div>
-
-          <!-- Config rows -->
-          <div class="bulk-detail-config">
-            <div class="bulk-detail-row">
-              <span class="bulk-label">Test Cases</span>
-              <div class="bulk-detail-chips">
-                <template x-for="tc in ($store.app.bulkViewedRun?.test_cases || [])" :key="tc">
-                  <span class="bulk-chip" x-text="tc"></span>
-                </template>
-              </div>
-            </div>
-            <div class="bulk-detail-row" x-show="($store.app.bulkViewedRun?.config_matrix?.models || []).length">
-              <span class="bulk-label">Models</span>
-              <div class="bulk-detail-chips">
-                <template x-for="m in ($store.app.bulkViewedRun?.config_matrix?.models || [])" :key="m">
-                  <span class="bulk-chip mono" x-text="m"></span>
-                </template>
-              </div>
-            </div>
-            <div class="bulk-detail-row" x-show="($store.app.bulkViewedRun?.config_matrix?.temperatures || []).length">
-              <span class="bulk-label">Temperatures</span>
-              <div class="bulk-detail-chips">
-                <template x-for="t in ($store.app.bulkViewedRun?.config_matrix?.temperatures || [])" :key="t">
-                  <span class="bulk-chip" x-text="'T=' + t"></span>
-                </template>
-              </div>
-            </div>
-            <div class="bulk-detail-row" x-show="($store.app.bulkViewedRun?.config_matrix?.reasoning_efforts || []).length">
-              <span class="bulk-label">Reasoning Effort</span>
-              <div class="bulk-detail-chips">
-                <template x-for="re in ($store.app.bulkViewedRun?.config_matrix?.reasoning_efforts || [])" :key="re">
-                  <span class="bulk-chip" x-text="re"></span>
-                </template>
-              </div>
-            </div>
-            <div class="bulk-detail-row" x-show="$store.app.bulkViewedRun?.include_eval">
-              <span class="bulk-label">Judge</span>
-              <span class="bulk-chip mono" x-text="$store.app.bulkViewedRun?.judge_model || 'enabled'"></span>
-            </div>
-          </div>
-
-        </div>
-      </div><!-- end detail sub-view -->
-
-      <!-- Error banner + Results (shared: new run and detail view) -->
-      <div x-show="$store.app.bulkSubView === 'new' || $store.app.bulkSubView === 'detail'">
-
-        <!-- Error banner -->
-        <div class="bulk-error-banner"
-             x-show="$store.app.bulkErrorCount > 0 && !$store.app.bulkRunning">
-          <i data-lucide="alert-triangle"></i>
-          <span x-text="$store.app.bulkErrorCount + ' of ' + $store.app.bulkTotalRuns + ' runs failed'"></span>
-        </div>
-
-        <!-- Results -->
-        <div x-show="$store.app.bulkResults.length > 0">
-          <div class="bulk-results-header">
-            <span class="bulk-results-title"
-                  x-text="$store.app.bulkResultGroups.length + ' test case' + ($store.app.bulkResultGroups.length !== 1 ? 's' : '') + ' · ' + $store.app.bulkResults.length + ' runs'"></span>
-            <div class="bulk-export-split" @click.outside="$store.app.bulkExportOpen = false">
-              <button class="btn btn-ghost btn-sm" @click="$store.app.exportBulkRun('csv')">Export CSV</button>
-              <button class="btn btn-ghost btn-sm bulk-export-chevron"
-                      @click="$store.app.bulkExportOpen = !$store.app.bulkExportOpen">
-                <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-              <div class="bulk-export-menu" x-show="$store.app.bulkExportOpen">
-                <button @click="$store.app.exportBulkRun('tsv'); $store.app.bulkExportOpen = false">TSV</button>
-                <button @click="$store.app.exportBulkRun('xlsx'); $store.app.bulkExportOpen = false">Excel</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Results grouped by test case -->
-          <div class="bulk-result-list">
-            <template x-for="group in $store.app.bulkResultGroups" :key="group.tcName">
-              <div class="bulk-group">
-
-                <!-- Group header: test case name + run count -->
-                <div class="bulk-group-header">
-                  <span class="bulk-group-tc" x-text="group.tcName"></span>
-                  <span class="bulk-group-count"
-                        x-text="group.rows.length + ' run' + (group.rows.length !== 1 ? 's' : '')"></span>
-                </div>
-
-                <!-- Variant rows (one per model/param combo) -->
-                <div class="bulk-group-rows">
-                  <template x-for="row in group.rows" :key="row.run_id || row.id">
-                    <div class="bulk-result-card" x-data="{ open: false }"
-                         :class="{ 'brc-success': row.outcome === 'success', 'brc-error': row.outcome === 'error' }">
-
-                      <!-- Summary row -->
-                      <button class="bulk-result-header" @click="open = !open">
-                        <!-- Left: model name -->
-                        <div class="bulk-result-main">
-                          <span class="bulk-result-model" x-text="row.model_used || row.model_selected || '—'"></span>
-                        </div>
-                        <!-- Middle: metric chips -->
-                        <div class="bulk-result-metrics">
-                          <span class="brm-chip" x-show="row.temperature != null"
-                                x-text="'T=' + row.temperature?.toFixed(1)"></span>
-                          <span class="brm-chip" x-show="row.reasoning_effort"
-                                x-text="row.reasoning_effort"></span>
-                          <span class="brm-chip" x-show="row.latency_ms"
-                                x-text="(row.latency_ms / 1000).toFixed(1) + 's'"></span>
-                          <span class="brm-chip" x-show="row.estimated_cost != null"
-                                x-text="'$' + (row.estimated_cost || 0).toFixed(4)"></span>
-                          <span class="brm-chip brm-score" x-show="row.score != null"
-                                :style="'color:' + scoreColor(row.score) + '; border-color:' + scoreColor(row.score) + '55; background:' + scoreColor(row.score) + '18'"
-                                x-text="row.score?.toFixed(1) + ' / 5'"></span>
-                        </div>
-                        <!-- Right: outcome badge + chevron -->
-                        <div class="bulk-result-right">
-                          <span class="bulk-result-badge"
-                                :class="{ 'brb-success': row.outcome === 'success', 'brb-error': row.outcome === 'error' }"
-                                x-text="row.outcome || '—'"></span>
-                          <i data-lucide="chevron-right" class="brc-chevron" :class="{ open }"></i>
-                        </div>
-                      </button>
-
-                      <!-- Expandable detail -->
-                      <div class="bulk-result-body" x-show="open" x-transition.duration.100ms>
-
-                        <!-- Output -->
-                        <div class="brd-section" x-show="row.output">
-                          <div class="brd-section-header">
-                            <div class="brd-label">Output</div>
-                            <button class="copy-btn copy-btn-sm"
-                                    @click.stop="$store.app.copyToClipboard(row.output, $event)"
-                                    title="Copy output">
-                              <i data-lucide="copy"></i>
-                            </button>
-                          </div>
-                          <pre class="brd-output" x-text="row.output"></pre>
-                        </div>
-
-                        <!-- Tool calls -->
-                        <div class="brd-section" x-show="(row.tool_calls || []).filter(tc => tc.tool_name !== 'final_result').length">
-                          <div class="brd-label">Tool Calls</div>
-                          <template x-for="(tc, ti) in (row.tool_calls || []).filter(tc => tc.tool_name !== 'final_result')" :key="ti">
-                            <div class="brd-tool" x-data="{ tcOpen: false }">
-                              <button class="brd-tool-header" @click="tcOpen = !tcOpen">
-                                <span class="brd-tool-name" x-text="tc.tool_name"></span>
-                                <i data-lucide="chevron-right" style="width:11px;height:11px;color:var(--muted);transition:transform .15s;"
-                                   :style="tcOpen ? 'transform:rotate(90deg)' : ''"></i>
-                              </button>
-                              <div class="brd-tool-body" x-show="tcOpen">
-                                <div x-show="tc.args && Object.keys(tc.args || {}).length" class="brd-subsection">
-                                  <div class="brd-section-header">
-                                    <div class="brd-sublabel">Args</div>
-                                    <button class="copy-btn copy-btn-sm"
-                                            @click.stop="$store.app.copyToClipboard(JSON.stringify(tc.args, null, 2), $event)"
-                                            title="Copy args">
-                                      <i data-lucide="copy"></i>
-                                    </button>
-                                  </div>
-                                  <pre class="brd-code" x-text="JSON.stringify(tc.args, null, 2)"></pre>
-                                </div>
-                                <div x-show="tc.return_value" class="brd-subsection">
-                                  <div class="brd-section-header">
-                                    <div class="brd-sublabel">Return</div>
-                                    <button class="copy-btn copy-btn-sm"
-                                            @click.stop="$store.app.copyToClipboard(typeof tc.return_value === 'string' ? tc.return_value : JSON.stringify(tc.return_value, null, 2), $event)"
-                                            title="Copy return value">
-                                      <i data-lucide="copy"></i>
-                                    </button>
-                                  </div>
-                                  <div class="brd-code" x-text="tc.return_value"></div>
-                                </div>
-                              </div>
-                            </div>
-                          </template>
-                        </div>
-
-                        <!-- Judge score + reasoning -->
-                        <div class="brd-section brd-judge-section" x-show="row.score != null">
-                          <div class="brd-judge-header">
-                            <span class="brd-label" style="margin:0">Judge Score</span>
-                            <span class="brd-score-badge"
-                                  :style="'background:' + scoreColor(row.score) + '22; color:' + scoreColor(row.score) + '; border-color:' + scoreColor(row.score) + '55'"
-                                  x-text="(row.score?.toFixed(1) || '—') + ' / 5'"></span>
-                            <button class="copy-btn copy-btn-sm"
-                                    style="margin-left:auto"
-                                    x-show="row.score_reasoning"
-                                    @click.stop="$store.app.copyToClipboard(row.score_reasoning, $event)"
-                                    title="Copy reasoning">
-                              <i data-lucide="copy"></i>
-                            </button>
-                          </div>
-                          <div class="brd-reasoning" x-show="row.score_reasoning" x-text="row.score_reasoning"></div>
-                        </div>
-                        <!-- No judge score — prompt to enable -->
-                        <div class="brd-section brd-no-score" x-show="row.score == null && row.outcome === 'success'">
-                          <span>No judge score — enable "Auto-Evaluate" in Options before running.</span>
-                        </div>
-
-                        <!-- Tokens + cost -->
-                        <div class="brd-section brd-meta-row">
-                          <span x-show="row.input_tokens" x-text="'In: ' + (row.input_tokens || 0).toLocaleString() + ' tokens'"></span>
-                          <span x-show="row.output_tokens" x-text="'Out: ' + (row.output_tokens || 0).toLocaleString() + ' tokens'"></span>
-                          <span x-show="row.latency_ms" x-text="(row.latency_ms / 1000).toFixed(2) + 's'"></span>
-                          <span x-show="row.estimated_cost != null" x-text="'$' + (row.estimated_cost || 0).toFixed(5) + ' est. cost'"></span>
-                        </div>
-
-                        <!-- Error message -->
-                        <div class="brd-section brd-error-msg" x-show="row.error_message" x-text="row.error_message"></div>
-
-                      </div>
-                    </div>
-                  </template>
-                </div>
-
-              </div>
-            </template>
+          <div class="code-body">
+<pre><span class="sh">uv add biscotti</span></pre>
           </div>
         </div>
       </div>
 
-      <!-- ======================== HISTORY SUB-VIEW ======================== -->
-      <div x-show="$store.app.bulkSubView === 'history'">
-        <div x-show="$store.app.bulkHistory.length === 0" class="bulk-empty bulk-history-empty">
-          No bulk runs yet. Start one from the New Run tab.
+      <div class="step">
+        <p class="step-label"><span class="step-number">2</span> Decorate your agent</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">app.py</span>
+            <button class="copy-btn" data-code="from biscotti import Biscotti, biscotti
+
+@biscotti(name=&quot;my agent&quot;, default_system_prompt=&quot;You are helpful.&quot;)
+async def my_agent(user_message: str, system_prompt: str) -> str:
+    # Your existing agent code
+    ...
+
+bi = Biscotti()
+app.mount(&quot;/biscotti&quot;, bi.app)">Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="kw">from</span> <span class="cls">biscotti</span> <span class="kw">import</span> Biscotti, biscotti
+
+<span class="dec">@biscotti</span>(<span class="par">name</span><span class="op">=</span><span class="str">"my agent"</span>, <span class="par">default_system_prompt</span><span class="op">=</span><span class="str">"You are helpful."</span>)
+<span class="kw">async def</span> <span class="fn">my_agent</span>(<span class="par">user_message</span>: <span class="cls">str</span>, <span class="par">system_prompt</span>: <span class="cls">str</span>) <span class="op">-></span> <span class="cls">str</span>:
+    <span class="cm"># Your existing agent code</span>
+    ...
+
+bi <span class="op">=</span> <span class="cls">Biscotti</span>()
+app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)</pre>
+          </div>
         </div>
-        <div class="bulk-history-list" x-show="$store.app.bulkHistory.length > 0">
-          <template x-for="run in $store.app.bulkHistory" :key="run.id">
-            <div class="bulk-history-row"
-                 role="button"
-                 tabindex="0"
-                 @click="$store.app.viewBulkRun(run.id)"
-                 @keydown.enter.prevent="$store.app.viewBulkRun(run.id)"
-                 @keydown.space.prevent="$store.app.viewBulkRun(run.id)">
-              <span class="bulk-history-date mono" x-text="formatDate(run.created_at)"></span>
-              <span class="bulk-history-config"
-                    x-text="$store.app.formatBulkConfig(run)"></span>
-              <span class="bulk-history-status"
-                    :class="'status-' + run.status"
-                    x-text="run.status"></span>
-              <div class="bulk-history-actions">
-                <button class="btn btn-ghost btn-sm"
-                        @click.stop="$store.app.exportBulkRun('csv', run.id)">Export</button>
-                <button class="btn btn-ghost btn-sm bulk-history-delete"
-                        title="Delete this bulk run"
-                        @click.stop="$store.app.deleteBulkRun(run.id)">
-                  <i data-lucide="trash-2"></i>
-                </button>
-              </div>
-            </div>
-          </template>
+      </div>
+
+      <div class="step">
+        <p class="step-label"><span class="step-number">3</span> Open the UI</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="lang">terminal</span>
+            <button class="copy-btn" data-code="biscotti dev">Copy</button>
+          </div>
+          <div class="code-body">
+<pre><span class="sh">biscotti dev</span></pre>
+          </div>
         </div>
+      </div>
+
+      <div class="claude-badge">
+        <svg class="claude-logo" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="m3.127 10.604 3.135-1.76.053-.153-.053-.085H6.11l-.525-.032-1.791-.048-1.554-.065-1.505-.08-.38-.081L0 7.832l.036-.234.32-.214.455.04 1.009.069 1.513.105 1.097.064 1.626.17h.259l.036-.105-.089-.065-.068-.064-1.566-1.062-1.695-1.121-.887-.646-.48-.327-.243-.306-.104-.67.435-.48.585.04.15.04.593.456 1.267.981 1.654 1.218.242.202.097-.068.012-.049-.109-.181-.9-1.626-.96-1.655-.428-.686-.113-.411a2 2 0 0 1-.068-.484l.496-.674L4.446 0l.662.089.279.242.411.94.666 1.48 1.033 2.014.302.597.162.553.06.17h.105v-.097l.085-1.134.157-1.392.154-1.792.052-.504.25-.605.497-.327.387.186.319.456-.045.294-.19 1.23-.37 1.93-.243 1.29h.142l.161-.16.654-.868 1.097-1.372.484-.545.565-.601.363-.287h.686l.505.751-.226.775-.707.895-.585.759-.839 1.13-.524.904.048.072.125-.012 1.897-.403 1.024-.186 1.223-.21.553.258.06.263-.218.536-1.307.323-1.533.307-2.284.54-.028.02.032.04 1.029.098.44.024h1.077l2.005.15.525.346.315.424-.053.323-.807.411-3.631-.863-.872-.218h-.12v.073l.726.71 1.331 1.202 1.667 1.55.084.383-.214.302-.226-.032-1.464-1.101-.565-.497-1.28-1.077h-.084v.113l.295.432 1.557 2.34.08.718-.112.234-.404.141-.444-.08-.911-1.28-.94-1.44-.759-1.291-.093.053-.448 4.821-.21.246-.484.186-.403-.307-.214-.496.214-.98.258-1.28.21-1.016.19-1.263.112-.42-.008-.028-.092.012-.953 1.307-1.448 1.957-1.146 1.227-.274.109-.477-.247.045-.44.266-.39 1.586-2.018.956-1.25.617-.723-.004-.105h-.036l-4.212 2.736-.75.096-.324-.302.04-.496.154-.162 1.267-.871z"/>
+        </svg>
+        <span>Works with <strong>Claude Code</strong> -- run <code style="font-family:var(--font-mono);color:var(--accent);font-size:13px;">biscotti init-claude</code> to set up integration</span>
       </div>
 
     </div>
   </div>
+</section>
 
-</div>
-
-<!-- ============================================================
-     MODALS
-     ============================================================ -->
-
-<div id="confirm-overlay" :class="{ open: $store.app.confirmOpen }" @click.self="$store.app.resolveConfirm(false)">
-  <div id="confirm-modal">
-    <p x-text="$store.app.confirmMsg"></p>
-    <div class="confirm-actions">
-      <button class="btn-cancel" @click="$store.app.resolveConfirm(false)">Cancel</button>
-      <button class="btn-confirm" :class="{ destructive: $store.app.confirmDestructive }"
-              @click="$store.app.resolveConfirm(true)"
-              x-text="$store.app.confirmDestructive ? 'Delete' : 'Confirm'"></button>
+<!-- CLOSING CTA -->
+<section class="cta-bar">
+  <h2>Ready to ship better prompts?</h2>
+  <div class="cta-actions">
+    <div class="cta-install">
+      <code>uv add biscotti</code>
+      <button class="copy-btn" data-code="uv add biscotti" aria-label="Copy install command">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      </button>
     </div>
+    <a href="/docs" class="btn btn-primary">Read the Docs</a>
   </div>
-</div>
+</section>
 
-<!-- API Key Modal -->
-<div id="key-modal-overlay" x-show="$store.app.keyModalOpen" x-transition.opacity.duration.150ms
-     @click.self="$store.app.closeKeyModal()" style="display:none;">
-  <div id="key-modal">
-    <h3 x-show="$store.app.keyModalCallback">API Key Required</h3>
-    <h3 x-show="!$store.app.keyModalCallback">API Keys</h3>
+<!-- FOOTER -->
+<footer class="footer">
+  <p>
+    MIT License
+  </p>
+</footer>
 
-    <p x-show="$store.app.keyModalCallback" class="key-modal-desc">
-      Connect your <span x-text="$store.app.providerLabel($store.app.keyModalProvider)" style="font-weight:600;color:var(--text);"></span> API key to use this feature.
-    </p>
-
-    <!-- Connected providers + add button -->
-    <div class="key-modal-connected" x-show="!$store.app.keyModalCallback">
-      <div class="field-label" style="margin-bottom:6px;">Connected</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
-        <template x-for="p in $store.app.connectedProviders" :key="p">
-          <span class="provider-pill">
-            <span class="provider-pill-dot"></span>
-            <span x-text="$store.app.providerLabel(p)"></span>
-            <button class="provider-pill-x" @click="$store.app.disconnectProvider(p)" title="Disconnect">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </span>
-        </template>
-        <!-- + button to add another provider -->
-        <button x-show="$store.app.disconnectedProviders.length && !$store.app.keyModalAddingProvider"
-                class="provider-add-btn"
-                @click="$store.app.keyModalAddingProvider = true"
-                title="Add provider">+</button>
-      </div>
-    </div>
-
-    <!-- Collapsible add-provider form -->
-    <div x-show="$store.app.keyModalAddingProvider" class="key-modal-form">
-      <!-- Provider dropdown (outside scroll wrapper so it doesn't clip) -->
-      <div class="key-modal-form-row">
-        <div class="provider-select-wrap" @click.outside="$store.app.keyModalProviderDropdownOpen = false">
-          <button class="provider-select-trigger" @click="$store.app.keyModalProviderDropdownOpen = !$store.app.keyModalProviderDropdownOpen">
-            <span x-text="$store.app.providerLabel($store.app.keyModalProvider)"></span>
-            <svg class="tc-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="provider-select-dropdown" :class="{ open: $store.app.keyModalProviderDropdownOpen }">
-            <template x-for="prov in $store.app.disconnectedProviders" :key="prov">
-              <div class="provider-select-item"
-                   :class="{ selected: $store.app.keyModalProvider === prov }"
-                   @click="$store.app.keyModalProvider = prov; $store.app.keyModalProviderDropdownOpen = false"
-                   x-text="$store.app.providerLabel(prov)"></div>
-            </template>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Scrollable form content -->
-    <div id="key-modal-scroll">
-      <!-- Standard API key input (non-Azure providers) -->
-      <div x-show="$store.app.keyModalAddingProvider && $store.app.keyModalProvider !== 'azure_foundry'" class="key-modal-form-row">
-        <input type="password" class="key-input" style="flex:1;"
-               x-model="$store.app.keyModalValue"
-               placeholder="Paste API key..."
-               @keydown.enter="$store.app.submitModalKey()"
-               @keydown.escape="$store.app.closeKeyModal()">
-        <button class="btn btn-primary btn-sm" @click="$store.app.submitModalKey()">Connect</button>
-      </div>
-
-      <!-- Azure Foundry form (shown when Azure Foundry selected) -->
-      <div x-show="$store.app.keyModalAddingProvider && $store.app.keyModalProvider === 'azure_foundry'" style="display:flex;flex-direction:column;">
-        <div>
-          <div class="field-label" style="margin-bottom:6px;">Endpoint</div>
-          <input type="text" class="key-input" style="width:100%;"
-                 x-model="$store.app.azureEndpoint"
-                 placeholder="https://myresource.openai.azure.com/">
-        </div>
-        <div style="margin-top:20px;">
-          <div class="field-label" style="margin-bottom:6px;">API Key</div>
-          <input type="password" class="key-input" style="width:100%;"
-                 x-model="$store.app.azureKey"
-                 :placeholder="$store.app.azureConfigured ? '(saved - enter new to update)' : 'sk-...'"
-                 @keydown.escape="$store.app.closeKeyModal()">
-        </div>
-        <div style="margin-top:20px;">
-          <div class="field-label" style="margin-bottom:6px;">API Version</div>
-          <input type="text" class="key-input" style="width:100%;"
-                 x-model="$store.app.azureApiVersion"
-                 placeholder="2024-10-21">
-        </div>
-        <div style="margin-top:20px;">
-          <div class="field-label" style="margin-bottom:8px;">Deployments</div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <template x-for="(dep, idx) in $store.app.azureDeployments" :key="idx">
-              <div style="display:flex;gap:8px;align-items:center;">
-                <input type="text" class="key-input" style="flex:1;"
-                       :value="dep"
-                       @input="$store.app.azureDeployments[idx] = $event.target.value"
-                       placeholder="deployment-name">
-                <button class="btn btn-ghost btn-sm" style="padding:4px 8px;flex-shrink:0;" @click="$store.app.removeAzureDeployment(idx)" title="Remove">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
-            </template>
-            <button class="btn btn-ghost btn-sm" style="font-size:11px;align-self:flex-start;" @click="$store.app.addAzureDeployment()">+ Add Deployment</button>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:20px;">
-          <button class="btn btn-primary btn-sm" @click="$store.app.submitAzureConfig()">Connect</button>
-          <template x-if="$store.app.azureConfigured">
-            <button class="btn btn-ghost btn-sm" @click="$store.app.disconnectAzure()">Disconnect</button>
-          </template>
-        </div>
-      </div>
-
-      <!-- All connected message -->
-      <div x-show="!$store.app.disconnectedProviders.length"
-           style="font-size:12px;color:var(--text-secondary);padding:4px 0;">
-        All providers connected.
-      </div>
-    </div>
-
-    <div class="key-modal-actions">
-      <button class="btn btn-ghost" @click="$store.app.closeKeyModal()"
-              x-text="$store.app.keyModalCallback ? 'Cancel' : 'Done'"></button>
-    </div>
-  </div>
-</div>
-
-<div id="toast"></div>
-
-<!-- Panel resize (vanilla JS) -->
 <script>
-(function() {
-  const handle = document.getElementById('panel-resize-handle');
-  const editor = document.getElementById('editor-panel');
-  const right = document.getElementById('right-panel');
-  const panels = document.getElementById('panels');
-  let dragging = false;
-  handle.addEventListener('mousedown', e => { e.preventDefault(); dragging = true; handle.classList.add('dragging'); document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; });
-  document.addEventListener('mousemove', e => { if (!dragging) return; const r = panels.getBoundingClientRect(); const p = Math.max(20, Math.min(80, ((e.clientX - r.left) / r.width) * 100)); editor.style.flex = 'none'; editor.style.width = p + '%'; right.style.flex = 'none'; right.style.width = (100 - p) + '%'; });
-  document.addEventListener('mouseup', () => { if (!dragging) return; dragging = false; handle.classList.remove('dragging'); document.body.style.cursor = ''; document.body.style.userSelect = ''; });
-  document.addEventListener('scroll', e => { if (e.target.id === 'prompt-editor') { document.getElementById('prompt-backdrop').scrollTop = e.target.scrollTop; } }, true);
+(function () {
+  // Theme toggle -- shared with main app via localStorage
+  var savedTheme = localStorage.getItem('biscotti-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  var toggle = document.getElementById('themeToggle');
+  if (toggle) {
+    toggle.addEventListener('click', function () {
+      var current = document.documentElement.getAttribute('data-theme');
+      var next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('biscotti-theme', next);
+    });
+  }
+
+  // Nav scroll border -- IntersectionObserver on hero
+  var nav = document.getElementById('nav');
+  var hero = document.getElementById('hero');
+  if (nav && hero) {
+    var observer = new IntersectionObserver(function (entries) {
+      nav.classList.toggle('scrolled', !entries[0].isIntersecting);
+    }, { threshold: 0, rootMargin: '-56px 0px 0px 0px' });
+    observer.observe(hero);
+  }
+
+  // Copy buttons with animated feedback
+  document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var code = btn.getAttribute('data-code');
+      if (!code) return;
+      navigator.clipboard.writeText(code).then(function () {
+        var orig = btn.innerHTML;
+        var isIconBtn = btn.querySelector('svg');
+        if (isIconBtn) {
+          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        } else {
+          btn.textContent = 'Copied';
+        }
+        btn.classList.add('copied');
+        setTimeout(function () {
+          btn.innerHTML = orig;
+          btn.classList.remove('copied');
+        }, 1500);
+      });
+    });
+  });
 })();
 </script>
-
-<!-- Coach drawer removed — replaced by inline review mode -->
 
 </body>
 </html>
