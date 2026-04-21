@@ -412,7 +412,7 @@ a:hover { color: var(--accent-hover); }
   max-width: 1120px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 24px;
 }
 
@@ -763,6 +763,22 @@ app.<span class="fn">mount</span>(<span class="str">"/biscotti"</span>, bi.app)<
       </div>
       <h3>Score with AI Judges</h3>
       <p>Auto-generate criteria, batch-evaluate, and track scores across versions.</p>
+    </div>
+
+    <div class="feature-item">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      </div>
+      <h3>Sweep with Bulk Runs</h3>
+      <p>Run a matrix of models, temperatures, and test cases in one click. Stream results, auto-score, export CSV.</p>
+    </div>
+
+    <div class="feature-item">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.39 4.84L20 8l-4 3.9.94 5.5L12 14.8l-4.94 2.6L8 11.9 4 8l5.61-1.16L12 2z"/></svg>
+      </div>
+      <h3>Improve with Coach</h3>
+      <p>After an eval, get AI-suggested prompt edits targeted at the criteria that scored lowest.</p>
     </div>
 
   </div>
