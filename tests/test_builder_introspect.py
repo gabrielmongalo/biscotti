@@ -118,3 +118,57 @@ def test_multiple_locals_from_same_dict():
     result = introspect_builder(build)
     assert result["variables"] == ["a", "b", "c"]
     assert result["template"] == "{{a}}-{{b}}-{{c}}"
+
+
+def test_signature_fallback_for_typed_positional_args():
+    """Builders with typed positional args (no dict.get pattern) fall back
+    to the function signature to extract variables."""
+    def format_wine_notes(
+        wine_name: str,
+        vintage: int | None,
+        current_notes: list,
+        wine_type: str | None = None,
+    ) -> str:
+        parts = [f"Target — {wine_name}"]
+        return "\n\n".join(parts)
+
+    result = introspect_builder(format_wine_notes)
+    assert set(result["variables"]) == {"wine_name", "vintage", "current_notes", "wine_type"}
+    for v in ("wine_name", "vintage", "current_notes", "wine_type"):
+        assert "{{" + v + "}}" in result["template"]
+    # wine_type has default None → captured as ""
+    assert result["defaults"]["wine_type"] == ""
+
+
+def test_signature_fallback_captures_non_none_defaults():
+    def build(name: str = "Anonymous", count: int = 3) -> str:
+        return f"{name} × {count}"
+
+    result = introspect_builder(build)
+    assert set(result["variables"]) == {"name", "count"}
+    assert result["defaults"]["name"] == "Anonymous"
+    assert result["defaults"]["count"] == "3"
+
+
+def test_signature_fallback_excludes_extras_kwargs():
+    """Param names passed via extras= should not appear as variables — they're
+    bind-time overrides, not user-facing inputs."""
+    def build(wine_name: str, include_vintage: bool = False) -> str:
+        return f"Name: {wine_name}"
+
+    result = introspect_builder(build, extras={"include_vintage": True})
+    assert "include_vintage" not in result["variables"]
+    assert "wine_name" in result["variables"]
+
+
+def test_dict_patterns_still_win_when_present():
+    """When dict patterns are found, signature fallback is NOT used."""
+    def build(info: dict) -> str:
+        name = info.get("wine", "Unknown")
+        return f"Wine: {name}"
+
+    result = introspect_builder(build)
+    # 'info' (the param name) should NOT leak into variables; only 'wine' (dict key)
+    assert result["variables"] == ["wine"]
+    assert "{{info}}" not in result["template"]
+    assert "{{wine}}" in result["template"]

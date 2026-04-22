@@ -84,6 +84,14 @@ def introspect_builder(
             "template": f"[biscotti] Could not introspect {fn.__name__} — edit this template in the UI.",
         }
 
+    # Signature fallback for builders that use typed positional args (no
+    # dict-access pattern). Tried when the AST walker finds nothing.
+    if not variables:
+        sig_vars, sig_defaults = _signature_fallback(fn, extras)
+        if sig_vars:
+            template = "\n".join(f"{v}: {{{{{v}}}}}" for v in sig_vars)
+            return {"variables": sig_vars, "defaults": sig_defaults, "template": template}
+
     try:
         template = _ast_rewrite(fn, variables, extras)
         return {"variables": variables, "defaults": defaults, "template": template}
@@ -99,6 +107,45 @@ def introspect_builder(
     # Approach C — keys-only flat template
     template = "\n".join(f"{v}: {{{{{v}}}}}" for v in variables)
     return {"variables": variables, "defaults": defaults, "template": template}
+
+
+def _signature_fallback(
+    fn: Callable, extras: dict[str, Any]
+) -> tuple[list[str], dict[str, str]]:
+    """Extract variables from a function's signature.
+
+    Used when the AST walker finds no ``dict.get()``/``dict[key]`` patterns —
+    common for builders that take typed positional args instead of a dict::
+
+        def format_wine_notes(
+            wine_name: str,
+            vintage: int | None,
+            wine_type: str | None = None,
+        ) -> str:
+            ...
+
+    Returns parameter names as variables, param defaults (or ``""``) as
+    defaults. Excludes ``*args``, ``**kwargs``, and any param whose name
+    appears in ``extras`` (those are bind-time overrides, not user inputs).
+    """
+    try:
+        sig = inspect.signature(fn)
+    except (ValueError, TypeError):
+        return [], {}
+
+    variables: list[str] = []
+    defaults: dict[str, str] = {}
+    for name, param in sig.parameters.items():
+        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+            continue
+        if name in extras:
+            continue
+        variables.append(name)
+        if param.default is not inspect.Parameter.empty and param.default is not None:
+            defaults[name] = str(param.default)
+        else:
+            defaults[name] = ""
+    return variables, defaults
 
 
 # ---------------------------------------------------------------------------
