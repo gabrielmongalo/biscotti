@@ -23,8 +23,6 @@ from .models import (
     RunOutcome,
     TestCase,
     TestCaseCreate,
-    UserMessageVersion,
-    UserMessageVersionCreate,
 )
 
 _SCHEMA = """
@@ -111,20 +109,6 @@ CREATE TABLE IF NOT EXISTS bulk_runs (
     completed_runs  INTEGER NOT NULL DEFAULT 0,
     status          TEXT    NOT NULL DEFAULT 'running',
     created_at      TEXT    NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS user_message_versions (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    agent_name      TEXT    NOT NULL,
-    version         INTEGER NOT NULL,
-    status          TEXT    NOT NULL DEFAULT 'draft',
-    template        TEXT    NOT NULL,
-    variables       TEXT    NOT NULL DEFAULT '[]',
-    defaults        TEXT    NOT NULL DEFAULT '{}',
-    notes           TEXT    NOT NULL DEFAULT '',
-    created_at      TEXT    NOT NULL,
-    created_by      TEXT    NOT NULL DEFAULT 'unknown',
-    UNIQUE (agent_name, version)
 );
 """
 
@@ -298,108 +282,6 @@ class PromptStore:
 
     async def delete_version(self, id: int) -> None:
         await self.db.execute("DELETE FROM prompt_versions WHERE id = ?", (id,))
-        await self.db.commit()
-
-    # ------------------------------------------------------------------
-    # User message template versions
-    # ------------------------------------------------------------------
-
-    async def create_user_message_version(
-        self, data: UserMessageVersionCreate
-    ) -> UserMessageVersion:
-        now = datetime.now(timezone.utc).isoformat()
-
-        # Build a temporary UserMessageVersion to run validators (auto-detects variables)
-        ump = UserMessageVersion(
-            agent_name=data.agent_name,
-            version=0,
-            status=PromptStatus.draft,
-            template=data.template,
-            variables=data.variables,
-            defaults=data.defaults,
-            notes=data.notes,
-            created_at=datetime.now(timezone.utc),
-            created_by=data.created_by,
-        )
-
-        async with self.db.execute(
-            """INSERT INTO user_message_versions
-               (agent_name, version, status, template, variables, defaults, notes, created_at, created_by)
-               VALUES (?, (SELECT COALESCE(MAX(version), 0) + 1 FROM user_message_versions WHERE agent_name = ?),
-                       ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                ump.agent_name,
-                ump.agent_name,
-                ump.status.value,
-                ump.template,
-                json.dumps(ump.variables),
-                json.dumps(ump.defaults),
-                ump.notes,
-                now,
-                ump.created_by,
-            ),
-        ) as cur:
-            ump.id = cur.lastrowid
-        await self.db.commit()
-        return await self.get_user_message_version(ump.id)
-
-    async def get_user_message_version(self, id: int) -> UserMessageVersion | None:
-        async with self.db.execute(
-            "SELECT * FROM user_message_versions WHERE id = ?", (id,)
-        ) as cur:
-            row = await cur.fetchone()
-        return _row_to_ump(row) if row else None
-
-    async def get_current_user_message(
-        self, agent_name: str
-    ) -> UserMessageVersion | None:
-        async with self.db.execute(
-            "SELECT * FROM user_message_versions WHERE agent_name = ? AND status = 'current' LIMIT 1",
-            (agent_name,),
-        ) as cur:
-            row = await cur.fetchone()
-        return _row_to_ump(row) if row else None
-
-    async def list_user_message_versions(
-        self, agent_name: str
-    ) -> list[UserMessageVersion]:
-        async with self.db.execute(
-            "SELECT * FROM user_message_versions WHERE agent_name = ? ORDER BY version DESC",
-            (agent_name,),
-        ) as cur:
-            rows = await cur.fetchall()
-        return [_row_to_ump(r) for r in rows]
-
-    async def set_user_message_status(
-        self, id: int, status: PromptStatus
-    ) -> UserMessageVersion | None:
-        ump = await self.get_user_message_version(id)
-        if ump is None:
-            return None
-
-        if status == PromptStatus.current:
-            await self.db.execute(
-                "UPDATE user_message_versions SET status = 'archived' WHERE agent_name = ? AND status = 'current'",
-                (ump.agent_name,),
-            )
-
-        await self.db.execute(
-            "UPDATE user_message_versions SET status = ? WHERE id = ?",
-            (status.value, id),
-        )
-        await self.db.commit()
-        return await self.get_user_message_version(id)
-
-    async def update_user_message_notes(self, id: int, notes: str) -> None:
-        await self.db.execute(
-            "UPDATE user_message_versions SET notes = ? WHERE id = ?", (notes, id)
-        )
-        await self.db.commit()
-
-    async def delete_user_message_version(self, id: int) -> None:
-        await self.db.execute(
-            "DELETE FROM user_message_versions WHERE id = ?", (id,)
-        )
         await self.db.commit()
 
     # ------------------------------------------------------------------
@@ -732,11 +614,3 @@ def _row_to_eval_run(row: aiosqlite.Row) -> EvalRun:
     if d.get("case_details") and isinstance(d["case_details"], str):
         d["case_details"] = json.loads(d["case_details"])
     return EvalRun(**d)
-
-
-def _row_to_ump(row: aiosqlite.Row) -> UserMessageVersion:
-    d = dict(row)
-    d["variables"] = json.loads(d["variables"])
-    d["defaults"] = json.loads(d["defaults"])
-    d["created_at"] = datetime.fromisoformat(d["created_at"])
-    return UserMessageVersion(**d)

@@ -14,10 +14,10 @@ biscotti is a Python library that adds a prompt management UI and eval system to
 - **Agent callable**: An async function that takes a user message and system prompt, calls an LLM, and returns the response. biscotti is model-agnostic -- it works with any LLM SDK.
 - **`@biscotti()` decorator**: Registers an agent function in the global registry. The function's docstring (or an explicit `default_system_prompt`) becomes the initial prompt seed. Variables like `{{var}}` are auto-detected.
 - **`biscotti.pydanticai.register()`**: Alternative registration for PydanticAI `Agent` instances. Auto-extracts the system prompt (including `@agent.system_prompt` functions), model, output schema, and tools. Returns an `AgentHandle` that supports `@handle.user_prompt` for binding builder functions.
-- **`@handle.user_prompt`**: Decorator that binds a Python function to an agent's user-message template. The builder is expected to take a dict (positional arg 0) and return a string. biscotti walks the function's AST, extracts dict-access patterns (`info.get("k", "default")`, `info["k"]`), and seeds a `{{var}}` template plus variable defaults for the UI. Prod keeps calling the builder unchanged.
+- **`@handle.user_prompt`**: Decorator that reads a Python builder function's AST, extracts dict-access patterns (`info.get("k", "default")`, `info["k"]`), and writes an auto-generated `{{var}}` template to the agent's `default_message`. The UI shows that template as the starter user message in Ad hoc mode. Prod keeps calling the builder unchanged.
 - **`Biscotti` instance**: The main object. Creates a FastAPI sub-app with the UI, API, and SQLite storage. You mount it with `app.mount()`.
-- **Prompt versioning**: System prompts and user-message templates are versioned in SQLite (two parallel tracks per agent). Each version has a status: `draft`, `current`, or `archived`. The UI lets you edit, diff, and promote versions without code changes.
-- **Test cases**: Saved (user_message, variable_values) pairs that can be replayed against any prompt version. If `user_message` is empty at run time, the runner falls back to the current user-message template.
+- **Prompt versioning**: System prompts are versioned in SQLite. Each version has a status: `draft`, `current`, or `archived`. The UI lets you edit, diff, and promote versions without code changes. User messages are not versioned separately -- iterate by saving variations as named test cases.
+- **Test cases**: Saved (user_message, variable_values) pairs that can be replayed against any prompt version.
 - **Eval system**: PydanticAI-powered judge that auto-generates scoring criteria from the system prompt, scores every run output (1-5), and provides a prompt coach that suggests improvements.
 
 ## Callable Signature
@@ -175,7 +175,8 @@ wine_body = register(wine_agent, name="wine body")
 
 # Bind the builder — biscotti introspects its AST, extracts the dict keys
 # ("wine", "vintage", "producer") and their defaults ("Unknown", "", "Unknown"),
-# and seeds a user-message template with {{wine}}, {{vintage}}, {{producer}}
+# and writes {{wine}}\nVintage: {{vintage}}\nProducer: {{producer}} into the
+# agent's default_message. The UI shows it as the Ad hoc User Message.
 wine_body.user_prompt(_build_wine_prompt)
 
 # Prod code is untouched — still calls _build_wine_prompt(wine_info) directly
@@ -190,8 +191,8 @@ app.mount("/biscotti", bi.app)
 - `agent`: a `pydantic_ai.Agent` instance
 - `name`: unique agent name (required)
 - `description`: shown in the UI agent list
-- `variables`: explicit variable list (auto-detected from prompt + user message if omitted)
-- `default_message`: starter user-message template (`{{var}}` placeholders auto-detected, seeded as UserMessageVersion v1)
+- `variables`: explicit variable list (auto-detected from system prompt and `default_message` if omitted)
+- `default_message`: starter user-message template (manual override when there's no builder); `{{var}}` placeholders auto-detected
 - `tags`: filter tags
 
 `@handle.user_prompt` parameters:
@@ -334,16 +335,15 @@ Key models from `biscotti.models`:
 
 - `AgentMeta(name, description, variables, default_system_prompt, default_message, tags, models)` -- agent registration metadata
 - `PromptVersion(id, agent_name, version, status, system_prompt, variables, notes)` -- a versioned system prompt
-- `UserMessageVersion(id, agent_name, version, status, template, variables, defaults, notes)` -- a versioned user-message template
 - `PromptStatus` -- enum: `draft`, `current`, `archived`
 - `TestCase(id, agent_name, name, user_message, variable_values)` -- a saved test input
-- `RunRequest(agent_name, user_message, variable_values, model, temperature, reasoning_effort)` -- test run input. If `user_message` is empty, runner falls back to the current `UserMessageVersion.template`.
+- `RunRequest(agent_name, user_message, variable_values, model, temperature, reasoning_effort)` -- test run input
 - `RunResponse(run_id, output, outcome, latency_ms, input_tokens, output_tokens, score, model_used, estimated_cost)` -- test run result
 
 Key imports:
 
 ```python
 from biscotti import biscotti, Biscotti
-from biscotti import AgentMeta, PromptVersion, UserMessageVersion, PromptStatus, TestCase, RunRequest, RunResponse
+from biscotti import AgentMeta, PromptVersion, PromptStatus, TestCase, RunRequest, RunResponse
 from biscotti.pydanticai import register, AgentHandle  # PydanticAI integration
 ```

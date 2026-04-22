@@ -164,15 +164,7 @@ async def execute_run(
             pv = await store.set_status(pv.id, PromptStatus.current)
 
     rendered_prompt = _render_prompt(pv.system_prompt, request.variable_values)
-
-    # Resolve user-message template: explicit request wins; otherwise fall back
-    # to the current UserMessageVersion for this agent (seeded from the
-    # builder decorator or default_message at Biscotti startup).
-    user_template = request.user_message
-    if not user_template:
-        ump = await store.get_current_user_message(request.agent_name)
-        user_template = ump.template if ump else ""
-    rendered_user_message = _render_prompt(user_template, request.variable_values)
+    rendered_user_message = _render_prompt(request.user_message, request.variable_values)
 
     # --- Call the agent ---
     callable_fn = get_callable(request.agent_name)

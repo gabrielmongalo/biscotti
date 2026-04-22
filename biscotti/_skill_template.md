@@ -69,7 +69,7 @@ What `@handle.user_prompt` does:
 - Introspects the builder's AST (three tiers: AST rewrite → render-and-replace → keys-only)
 - Extracts dict keys from `info.get("k", "default")` and `info["k"]` patterns
 - Captures defaults from the `.get()` second argument
-- Seeds a `{{var}}` user-message template as `UserMessageVersion` v1 at `Biscotti` startup
+- Writes the `{{var}}` template into the agent's `default_message`; the UI shows it as the Ad hoc User Message
 - Returns the function unchanged — prod keeps calling the builder directly
 
 Stacking decorators to share a builder across agents:
@@ -230,7 +230,7 @@ Biscotti(storage=":memory:")                # In-memory (tests)
 - `name` (required): Unique human-readable name shown in the UI
 - `description`: Short description for the agent list
 - `variables`: Explicitly declare variables (auto-detected from system prompt and `default_message` if omitted)
-- `default_message`: Starter user-message template with `{{var}}` placeholders. Seeded as `UserMessageVersion` v1 at Biscotti startup. Ignored when a `@handle.user_prompt` builder is also bound.
+- `default_message`: Starter user-message template with `{{var}}` placeholders. Shown in the UI as the Ad hoc User Message. Overwritten when a `@handle.user_prompt` builder is bound (the builder's extracted template takes precedence).
 - `tags`: List of tags for filtering
 
 Returns an `AgentHandle` with `.name`, `.meta`, and `.user_prompt(fn, extras=None)`.

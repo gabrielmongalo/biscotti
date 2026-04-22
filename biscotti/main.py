@@ -98,20 +98,11 @@ class Biscotti:
 
     async def _seed_defaults(self) -> None:
         """
-        Seed starter prompts for every registered agent:
-          1. ``default_system_prompt`` → PromptVersion v1 (system prompt)
-          2. PydanticAI builders queued via ``@handle.user_prompt``
-             → UserMessageVersion v1 (flushed from the module-level queue)
-          3. ``default_message`` (set at ``register()`` time) → UserMessageVersion v1
-             for agents that don't have a builder
-
-        All three steps are idempotent — agents with existing versions are
-        skipped so user edits in the UI are never overwritten.
+        For every registered agent that has a default_system_prompt but no
+        versions yet in the store, create v1 and set it as current.
         """
-        from .models import PromptStatus, PromptVersionCreate, UserMessageVersionCreate
-        from .pydanticai import flush_pending_seeds
+        from .models import PromptStatus, PromptVersionCreate
 
-        # 1. System prompts
         for meta in list_agents():
             if not meta.default_system_prompt:
                 continue
@@ -126,27 +117,6 @@ class Biscotti:
                 )
             )
             await self._store.set_status(pv.id, PromptStatus.current)
-
-        # 2. Drain the builder-decorator seed queue
-        await flush_pending_seeds(self._store)
-
-        # 3. Backfill default_message for agents that have one but no builder
-        for meta in list_agents():
-            if not meta.default_message:
-                continue
-            if getattr(meta, "_builder_fn", None) is not None:
-                continue  # already covered by flush_pending_seeds
-            existing = await self._store.list_user_message_versions(meta.name)
-            if existing:
-                continue
-            ump = await self._store.create_user_message_version(
-                UserMessageVersionCreate(
-                    agent_name=meta.name,
-                    template=meta.default_message,
-                    notes="Auto-seeded from default_message",
-                )
-            )
-            await self._store.set_user_message_status(ump.id, PromptStatus.current)
 
     # ------------------------------------------------------------------
     # Internal

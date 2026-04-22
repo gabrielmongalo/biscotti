@@ -118,14 +118,17 @@ def _build_wine_prompt(wine_info: dict) -> str:
 wine_body = register(wine_body_agent, name="wine body")
 
 # Bind the builder — biscotti introspects its AST, extracts dict keys +
-# defaults, and seeds a {{var}} user-message template for the UI
+# defaults, and writes a {{var}} template to the agent's default_message.
+# The UI shows this as the starter user message in Ad hoc mode.
 wine_body.user_prompt(_build_wine_prompt)
 ```
 
-The prompt engineer opens the UI and sees `{{wine}}` and `{{producer}}`
-as fillable variables, auto-extracted from the builder's `.get()` calls.
-Prod keeps calling `_build_wine_prompt(wine_info)` exactly as before — the
-decorator only seeds a starting template; it doesn't change runtime behavior.
+The prompt engineer opens the UI, sees the User Message field pre-filled
+with `Wine: {{wine}}\nProducer: {{producer}}`, and one input per variable
+— all auto-extracted from the builder's `.get()` calls. Edit and save as a
+test case to iterate. Prod keeps calling `_build_wine_prompt(wine_info)`
+exactly as before — the decorator only populates the starter template; it
+doesn't change runtime behavior.
 
 For builders shared across multiple agents or builders with non-dict args
 (e.g. `include_vintage_context=True`), stack decorators and pass `extras=`:
@@ -218,9 +221,7 @@ Available params: `model`, `temperature`, `reasoning_effort`, `variable_values`.
 
 **Bulk Run** — Run a matrix of test cases × models × temperatures (× reasoning efforts) with streaming progress, optional auto-eval scoring, and CSV / TSV / XLSX export. Every run is saved to history with per-row delete.
 
-**Variables** — System prompts support `{{variable}}` placeholders. Test cases carry variable values that are interpolated at run time.
-
-**User-message templates** — Separate `{{var}}` templates for the user message, versioned the same way as system prompts. Register them three ways: `default_message="..."` on the agent decorator, `default_message=` kwarg on `biscotti.pydanticai.register()`, or `@handle.user_prompt(builder_fn)` to auto-extract from a Python dict-based builder.
+**Variables** — System prompts and user messages both support `{{variable}}` placeholders. Test cases carry variable values that are interpolated at run time. Use `default_message="..."` on `biscotti.pydanticai.register()` for a manual starter, or `@handle.user_prompt(builder_fn)` to auto-extract a `{{var}}` template + defaults from a Python dict-based builder's AST.
 
 ---
 
@@ -273,11 +274,6 @@ All endpoints are available under the mount path (e.g. `/biscotti/api/`):
 | PATCH | `/api/agents/{name}/versions/{id}` | Update version notes |
 | DELETE | `/api/agents/{name}/versions/{id}` | Delete a version |
 | POST | `/api/agents/{name}/versions/{id}/promote` | Promote to current |
-| GET | `/api/agents/{name}/user-message-versions` | List user-message template versions |
-| POST | `/api/agents/{name}/user-message-versions` | Create a draft user-message version |
-| PATCH | `/api/agents/{name}/user-message-versions/{id}` | Update status or notes |
-| DELETE | `/api/agents/{name}/user-message-versions/{id}` | Delete a non-current user-message version |
-| POST | `/api/agents/{name}/user-message-versions/{id}/promote` | Promote user-message version to current |
 | GET | `/api/agents/{name}/test-cases` | List test cases |
 | POST | `/api/agents/{name}/test-cases` | Create / update a test case |
 | DELETE | `/api/agents/{name}/test-cases/{name}` | Delete a test case |
@@ -313,12 +309,12 @@ Interactive docs: `/biscotti/openapi`
 
 ## How versioning works
 
-Two parallel version tracks per agent — system prompts and user-message templates — both follow the same rules.
-
-1. On first startup, biscotti seeds `v1` from `default_system_prompt` (system prompt track) and from `default_message` / `@handle.user_prompt`-decorated builders (user-message track). Each is promoted to current.
+1. On first startup, biscotti seeds `v1` from `default_system_prompt` and promotes it to current.
 2. Edits in the UI create new draft versions (`v2`, `v3`, ...).
 3. Promoting a draft sets it as current and archives the previous version.
-4. Your agent callable always receives the current version's rendered prompt at runtime — no restart or redeploy needed. If `RunRequest.user_message` is empty, the runner falls back to the current user-message template for that agent.
+4. Your agent callable always receives the current version's prompt at runtime — no restart or redeploy needed.
+
+User messages are not versioned separately — iterate by saving variations as named test cases.
 
 ---
 
