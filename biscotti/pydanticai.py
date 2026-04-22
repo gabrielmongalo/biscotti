@@ -19,11 +19,135 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Callable
 
-from .models import AgentMeta
+from ._builder_introspect import introspect_builder
+from .models import AgentMeta, PromptStatus, UserMessageVersionCreate
 from .registry import register_agent
 from .runner import register_callable
+
+
+# ---------------------------------------------------------------------------
+# Module-level pending-seed queue
+# ---------------------------------------------------------------------------
+
+@dataclass
+class _PendingSeed:
+    agent_name: str
+    template: str
+    variables: list[str]
+    defaults: dict[str, str]
+    notes: str
+
+
+_PENDING_SEEDS: list[_PendingSeed] = []
+
+
+async def flush_pending_seeds(store) -> int:
+    """Drain ``_PENDING_SEEDS`` into ``UserMessageVersion`` rows.
+
+    Called by ``Biscotti._seed_defaults`` after the store is connected.
+    Idempotent: agents that already have at least one user-message version
+    are skipped (so user-edited templates aren't clobbered on restart).
+    """
+    seeds = list(_PENDING_SEEDS)
+    _PENDING_SEEDS.clear()
+    count = 0
+    for seed in seeds:
+        existing = await store.list_user_message_versions(seed.agent_name)
+        if existing:
+            continue
+        pv = await store.create_user_message_version(
+            UserMessageVersionCreate(
+                agent_name=seed.agent_name,
+                template=seed.template,
+                variables=seed.variables,
+                defaults=seed.defaults,
+                notes=seed.notes,
+            )
+        )
+        await store.set_user_message_status(pv.id, PromptStatus.current)
+        count += 1
+    return count
+
+
+# ---------------------------------------------------------------------------
+# Agent handle — the object returned by register()
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AgentHandle:
+    """A handle to a registered agent.
+
+    Returned by ``register()`` so callers can bind user-prompt builders via
+    ``@handle.user_prompt``. The handle holds no store reference — it's safe
+    to use at module import time, before ``Biscotti()`` is constructed. DB
+    writes from decorators are buffered in a module-level queue and flushed
+    during ``Biscotti._seed_defaults``.
+    """
+    name: str
+    meta: AgentMeta
+
+    def user_prompt(
+        self,
+        fn: Callable | None = None,
+        /,
+        *,
+        extras: dict[str, Any] | None = None,
+    ) -> Callable:
+        """Bind a user-prompt builder function to this agent.
+
+        Usage::
+
+            @handle.user_prompt
+            def builder(info):
+                name = info.get("wine", "Unknown")
+                return f"Wine: {name}"
+
+        With extras (non-dict builder args fixed at bind time)::
+
+            @handle.user_prompt(extras={"include_vintage_context": True})
+            def builder(info, include_vintage_context=False):
+                ...
+
+        Decorators stack when one builder serves multiple agents::
+
+            @wine_body.user_prompt
+            @wine_full_card.user_prompt
+            def builder(info): ...
+        """
+        if fn is not None and callable(fn):
+            # @handle.user_prompt (no parens)
+            return self._apply(fn, extras=None)
+
+        # @handle.user_prompt(extras={...}) — returns a decorator
+        captured_extras = extras or {}
+
+        def _decorator(fn_: Callable) -> Callable:
+            return self._apply(fn_, extras=captured_extras)
+
+        return _decorator
+
+    def _apply(self, fn: Callable, *, extras: dict[str, Any] | None) -> Callable:
+        info = introspect_builder(fn, extras=extras or {})
+        # Merge builder-derived variables into the agent's meta
+        self.meta.variables = list(
+            dict.fromkeys(self.meta.variables + info["variables"])
+        )
+        self.meta._builder_fn = fn  # type: ignore[attr-defined]
+        self.meta._builder_defaults = info["defaults"]  # type: ignore[attr-defined]
+
+        _PENDING_SEEDS.append(
+            _PendingSeed(
+                agent_name=self.name,
+                template=info["template"],
+                variables=info["variables"],
+                defaults=info["defaults"],
+                notes=f"Auto-seeded from {fn.__module__}.{fn.__name__}",
+            )
+        )
+        return fn
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +162,7 @@ def register(
     variables: list[str] | None = None,
     default_message: str = "",
     tags: list[str] | None = None,
-) -> AgentMeta:
+) -> AgentHandle:
     """Register a PydanticAI Agent with biscotti.
 
     Parameters
@@ -52,13 +176,21 @@ def register(
     variables:
         Template variables (``{{var}}``) the system prompt uses.
         Auto-detected from the prompt if omitted.
+    default_message:
+        Starter user-message template shown in the UI when the prompt engineer
+        opens this agent. Auto-seeded as UserMessageVersion v1 during
+        ``Biscotti`` startup. ``{{var}}`` placeholders here are merged into
+        ``variables``.
     tags:
         Optional tags for filtering in the UI.
 
     Returns
     -------
-    AgentMeta
-        The registered metadata object.
+    AgentHandle
+        A handle bound to this agent. Pass to ``@handle.user_prompt`` to bind
+        a builder function. ``handle.meta`` gives access to the underlying
+        ``AgentMeta`` for callers that previously relied on ``register()``
+        returning meta.
     """
     # Extract everything we can from the PydanticAI Agent
     system_prompt = _extract_system_prompt(agent)
@@ -66,9 +198,10 @@ def register(
     output_info = _extract_output_info(agent)
     tools = _extract_tools(agent)
 
-    # Auto-detect variables from the prompt
-    detected = re.findall(r"\{\{(\w+)\}\}", system_prompt)
-    resolved_vars = list(dict.fromkeys((variables or []) + detected))
+    # Auto-detect variables from both system prompt and user-message template
+    detected_sys = re.findall(r"\{\{(\w+)\}\}", system_prompt)
+    detected_user = re.findall(r"\{\{(\w+)\}\}", default_message)
+    resolved_vars = list(dict.fromkeys((variables or []) + detected_sys + detected_user))
 
     # Build the AgentMeta
     meta = AgentMeta(
@@ -92,7 +225,7 @@ def register(
     callable_fn = _build_callable(agent, output_info)
     register_callable(name, callable_fn)
 
-    return meta
+    return AgentHandle(name=name, meta=meta)
 
 
 # ---------------------------------------------------------------------------

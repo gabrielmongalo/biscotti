@@ -89,6 +89,45 @@ class PromptVersionUpdate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# User message template versioning
+# ---------------------------------------------------------------------------
+
+class UserMessageVersion(BaseModel):
+    id: int | None = None
+    agent_name: str
+    version: int
+    status: PromptStatus = PromptStatus.draft
+    template: str
+    variables: list[str] = Field(default_factory=list)
+    defaults: dict[str, str] = Field(default_factory=dict)
+    notes: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str = "unknown"
+
+    @model_validator(mode="after")
+    def _detect_variables(self) -> "UserMessageVersion":
+        """Auto-detect {{var}} placeholders from the template text."""
+        found = re.findall(r"\{\{(\w+)\}\}", self.template)
+        merged = list(dict.fromkeys(self.variables + found))
+        self.variables = merged
+        return self
+
+
+class UserMessageVersionCreate(BaseModel):
+    agent_name: str
+    template: str
+    variables: list[str] = Field(default_factory=list)
+    defaults: dict[str, str] = Field(default_factory=dict)
+    notes: str = ""
+    created_by: str = "unknown"
+
+
+class UserMessageVersionUpdate(BaseModel):
+    status: PromptStatus | None = None
+    notes: str | None = None
+
+
+# ---------------------------------------------------------------------------
 # Test cases
 # ---------------------------------------------------------------------------
 

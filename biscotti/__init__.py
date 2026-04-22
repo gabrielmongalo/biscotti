@@ -39,6 +39,9 @@ from .models import (
     EvalRun,
     Criterion,
     CriterionResult,
+    UserMessageVersion,
+    UserMessageVersionCreate,
+    UserMessageVersionUpdate,
 )
 
 __all__ = [
@@ -60,6 +63,9 @@ __all__ = [
     "EvalRun",
     "Criterion",
     "CriterionResult",
+    "UserMessageVersion",
+    "UserMessageVersionCreate",
+    "UserMessageVersionUpdate",
 ]
 
 __version__ = "0.1.0"
