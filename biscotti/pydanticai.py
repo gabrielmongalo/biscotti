@@ -19,57 +19,13 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from ._builder_introspect import introspect_builder
-from .models import AgentMeta, PromptStatus, UserMessageVersionCreate
+from .models import AgentMeta
 from .registry import register_agent
 from .runner import register_callable
-
-
-# ---------------------------------------------------------------------------
-# Module-level pending-seed queue
-# ---------------------------------------------------------------------------
-
-@dataclass
-class _PendingSeed:
-    agent_name: str
-    template: str
-    variables: list[str]
-    defaults: dict[str, str]
-    notes: str
-
-
-_PENDING_SEEDS: list[_PendingSeed] = []
-
-
-async def flush_pending_seeds(store) -> int:
-    """Drain ``_PENDING_SEEDS`` into ``UserMessageVersion`` rows.
-
-    Called by ``Biscotti._seed_defaults`` after the store is connected.
-    Idempotent: agents that already have at least one user-message version
-    are skipped (so user-edited templates aren't clobbered on restart).
-    """
-    seeds = list(_PENDING_SEEDS)
-    _PENDING_SEEDS.clear()
-    count = 0
-    for seed in seeds:
-        existing = await store.list_user_message_versions(seed.agent_name)
-        if existing:
-            continue
-        pv = await store.create_user_message_version(
-            UserMessageVersionCreate(
-                agent_name=seed.agent_name,
-                template=seed.template,
-                variables=seed.variables,
-                defaults=seed.defaults,
-                notes=seed.notes,
-            )
-        )
-        await store.set_user_message_status(pv.id, PromptStatus.current)
-        count += 1
-    return count
 
 
 # ---------------------------------------------------------------------------
@@ -80,11 +36,9 @@ async def flush_pending_seeds(store) -> int:
 class AgentHandle:
     """A handle to a registered agent.
 
-    Returned by ``register()`` so callers can bind user-prompt builders via
+    Returned by ``register()`` so callers can bind a user-prompt builder via
     ``@handle.user_prompt``. The handle holds no store reference — it's safe
-    to use at module import time, before ``Biscotti()`` is constructed. DB
-    writes from decorators are buffered in a module-level queue and flushed
-    during ``Biscotti._seed_defaults``.
+    to use at module import time, before ``Biscotti()`` is constructed.
     """
     name: str
     meta: AgentMeta
@@ -97,6 +51,12 @@ class AgentHandle:
         extras: dict[str, Any] | None = None,
     ) -> Callable:
         """Bind a user-prompt builder function to this agent.
+
+        biscotti walks the builder's AST, extracts the dict-access pattern
+        (``info.get("k", "default")`` / ``info["k"]``), and writes an
+        auto-generated ``{{var}}`` template to the agent's ``default_message``.
+        The template appears in the UI's User Message field whenever no named
+        test case is selected.
 
         Usage::
 
@@ -135,18 +95,11 @@ class AgentHandle:
         self.meta.variables = list(
             dict.fromkeys(self.meta.variables + info["variables"])
         )
+        # The extracted template becomes the default user message — shown in
+        # the UI whenever no named test case is selected
+        self.meta.default_message = info["template"]
         self.meta._builder_fn = fn  # type: ignore[attr-defined]
         self.meta._builder_defaults = info["defaults"]  # type: ignore[attr-defined]
-
-        _PENDING_SEEDS.append(
-            _PendingSeed(
-                agent_name=self.name,
-                template=info["template"],
-                variables=info["variables"],
-                defaults=info["defaults"],
-                notes=f"Auto-seeded from {fn.__module__}.{fn.__name__}",
-            )
-        )
         return fn
 
 

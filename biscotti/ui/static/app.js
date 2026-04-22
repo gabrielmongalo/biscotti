@@ -112,16 +112,6 @@ document.addEventListener('alpine:init', () => {
     agentKnownVars: [],
     agentDefaultMessage: '',
 
-    // --- User message template (versioned template used when no test case is selected) ---
-    userMessageVersions: [],
-    currentUserMessageVersion: null,
-    userMessageTemplate: '',
-    userMessageTemplateOriginal: '',
-    userMessageTemplateOpen: false,
-    userMessageTemplateDirty: false,
-    _savingUmpInline: false,
-    umpSaveNotes: '',
-
     // --- Test run ---
     userMessage: '',
     varValues: {},
@@ -262,10 +252,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     get variables() {
       const fromPrompt = [...this.prompt.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
       const fromMsg = [...(this.userMessage || '').matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
-      // Include variables from the user-message template (even when it's dirty/unsaved)
-      // so they appear in the variables panel as soon as the engineer types {{new_var}}.
-      const fromTemplate = [...(this.userMessageTemplate || '').matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
-      return [...new Set([...fromPrompt, ...fromMsg, ...fromTemplate, ...this.agentKnownVars])];
+      return [...new Set([...fromPrompt, ...fromMsg, ...this.agentKnownVars])];
     },
     get promptTokens() { return estimateTokens(this.prompt); },
     get msgTokens() { return estimateTokens(this.userMessage); },
@@ -558,7 +545,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
           this.loadTestCases(),
           this.loadModels(),
           this.loadRunHistory(),
-          this.loadUserMessageVersions(),
         ]);
       } catch (e) {
         this.showToast('Failed to load agent: ' + e.message, true);
@@ -569,8 +555,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       const detail = await api(`/api/agents/${encodeURIComponent(name)}`);
       this.agentTools = detail.tools || [];
       this.agentOutputType = (detail.output_type && detail.output_type.type) || 'str';
-      // Prefer the stored current user-message template over the registered default
-      this.agentDefaultMessage = detail.current_user_message_template || detail.default_message || '';
+      this.agentDefaultMessage = detail.default_message || '';
       // Collect known variables: registered metadata + union across all test case templates
       const metaVars = detail.variables || [];
       const tcVars = [];
@@ -725,94 +710,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     onPromptInput() {
       this.isDirty = this.prompt !== this.originalPrompt;
       if (!this.isDirty) this.diffActive = false;
-    },
-
-    // --- User message template versions ---
-    async loadUserMessageVersions() {
-      try {
-        this.userMessageVersions = await api(
-          `/api/agents/${encodeURIComponent(this.currentAgent)}/user-message-versions`
-        );
-        const cur = this.userMessageVersions.find(v => v.status === 'current');
-        this.currentUserMessageVersion = cur || null;
-        this.userMessageTemplate = cur ? cur.template : '';
-        this.userMessageTemplateOriginal = this.userMessageTemplate;
-        this.userMessageTemplateDirty = false;
-      } catch (e) {
-        this.userMessageVersions = [];
-        this.currentUserMessageVersion = null;
-        this.userMessageTemplate = '';
-      }
-    },
-
-    onUserMessageTemplateInput() {
-      this.userMessageTemplateDirty =
-        this.userMessageTemplate !== this.userMessageTemplateOriginal;
-    },
-
-    async saveUserMessageTemplate() {
-      if (!this._savingUmpInline) {
-        this._savingUmpInline = true;
-        this.umpSaveNotes = '';
-        return;
-      }
-      try {
-        const v = await api(
-          `/api/agents/${encodeURIComponent(this.currentAgent)}/user-message-versions`,
-          'POST',
-          {
-            agent_name: this.currentAgent,
-            template: this.userMessageTemplate,
-            notes: this.umpSaveNotes || '',
-          }
-        );
-        // Auto-promote new version to current
-        await api(
-          `/api/agents/${encodeURIComponent(this.currentAgent)}/user-message-versions/${v.id}/promote`,
-          'POST'
-        );
-        await this.loadUserMessageVersions();
-        this.agentDefaultMessage = this.userMessageTemplate;
-        this._savingUmpInline = false;
-        this.umpSaveNotes = '';
-        showToast(`User-message v${v.version} saved and promoted`, 'success');
-      } catch (e) {
-        showToast('Failed to save template: ' + e.message, 'error');
-      }
-    },
-
-    discardUserMessageTemplateChanges() {
-      this.userMessageTemplate = this.userMessageTemplateOriginal;
-      this.userMessageTemplateDirty = false;
-      this._savingUmpInline = false;
-    },
-
-    async selectUserMessageVersion(versionId) {
-      const v = this.userMessageVersions.find(x => x.id === versionId);
-      if (!v) return;
-      this.userMessageTemplate = v.template;
-      this.userMessageTemplateOriginal = v.template;
-      this.userMessageTemplateDirty = false;
-      // Only update agentDefaultMessage if this one is current
-      if (v.status === 'current') {
-        this.agentDefaultMessage = v.template;
-      }
-    },
-
-    async promoteUserMessageVersion(versionId) {
-      await api(
-        `/api/agents/${encodeURIComponent(this.currentAgent)}/user-message-versions/${versionId}/promote`,
-        'POST'
-      );
-      await this.loadUserMessageVersions();
-      this.agentDefaultMessage = this.userMessageTemplate;
-      showToast('Promoted to current', 'success');
-    },
-
-    useTemplateAsUserMessage() {
-      // Copy the template into the test-case user message editor
-      this.userMessage = this.userMessageTemplate;
-      showToast('Applied template to user message', 'success');
     },
 
     // --- Test cases ---
