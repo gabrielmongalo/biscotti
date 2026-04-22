@@ -25,6 +25,9 @@ from .models import (
     RunResponse,
     TestCase,
     TestCaseCreate,
+    UserMessageVersion,
+    UserMessageVersionCreate,
+    UserMessageVersionUpdate,
 )
 from .registry import list_agents, get_agent
 from .runner import execute_run, PRICING, get_callable, detect_model_from_callable
@@ -108,17 +111,26 @@ def build_router(store: PromptStore) -> APIRouter:
         if meta is None:
             raise HTTPException(404, f"Agent '{agent_name}' not registered")
         live = await store.get_current_version(agent_name)
+        user_live = await store.get_current_user_message(agent_name)
         tools = getattr(meta, '_pydanticai_tools', [])
         output_info = getattr(meta, '_pydanticai_output', {"type": "str", "schema": None})
+
+        # Union variables from system prompt + current user-message template
+        merged_vars = list(dict.fromkeys(meta.variables + (user_live.variables if user_live else [])))
+
         return {
             "name": meta.name,
             "description": meta.description,
-            "variables": meta.variables,
+            "variables": merged_vars,
             "default_message": meta.default_message,
             "tags": meta.tags,
             "default_system_prompt": meta.default_system_prompt,
             "current_version": live.version if live else None,
             "current_prompt": live.system_prompt if live else meta.default_system_prompt,
+            "current_user_message_version": user_live.version if user_live else None,
+            "current_user_message_template": user_live.template if user_live else meta.default_message,
+            "current_user_message_variables": user_live.variables if user_live else [],
+            "current_user_message_defaults": user_live.defaults if user_live else {},
             "tools": tools,
             "output_type": output_info,
         }
@@ -188,6 +200,85 @@ def build_router(store: PromptStore) -> APIRouter:
             raise HTTPException(404, "Version not found")
         pv = await store.set_status(version_id, PromptStatus.current)
         return pv
+
+    # ==================================================================
+    # User message template versions
+    # ==================================================================
+
+    @router.get(
+        "/api/agents/{agent_name}/user-message-versions", tags=["user-messages"]
+    )
+    async def list_user_message_versions(agent_name: str) -> list[UserMessageVersion]:
+        _require_agent(agent_name)
+        return await store.list_user_message_versions(agent_name)
+
+    @router.post(
+        "/api/agents/{agent_name}/user-message-versions", tags=["user-messages"]
+    )
+    async def create_user_message_version(
+        agent_name: str, body: UserMessageVersionCreate
+    ) -> UserMessageVersion:
+        _require_agent(agent_name)
+        body.agent_name = agent_name
+        return await store.create_user_message_version(body)
+
+    @router.get(
+        "/api/agents/{agent_name}/user-message-versions/{version_id}",
+        tags=["user-messages"],
+    )
+    async def get_user_message_version(
+        agent_name: str, version_id: int
+    ) -> UserMessageVersion:
+        _require_agent(agent_name)
+        ump = await store.get_user_message_version(version_id)
+        if ump is None or ump.agent_name != agent_name:
+            raise HTTPException(404, "User message version not found")
+        return ump
+
+    @router.patch(
+        "/api/agents/{agent_name}/user-message-versions/{version_id}",
+        tags=["user-messages"],
+    )
+    async def update_user_message_version(
+        agent_name: str, version_id: int, body: UserMessageVersionUpdate
+    ) -> UserMessageVersion:
+        _require_agent(agent_name)
+        ump = await store.get_user_message_version(version_id)
+        if ump is None or ump.agent_name != agent_name:
+            raise HTTPException(404, "User message version not found")
+        if body.status is not None:
+            ump = await store.set_user_message_status(version_id, body.status)
+        if body.notes is not None:
+            await store.update_user_message_notes(version_id, body.notes)
+            ump = await store.get_user_message_version(version_id)
+        return ump
+
+    @router.delete(
+        "/api/agents/{agent_name}/user-message-versions/{version_id}",
+        tags=["user-messages"],
+    )
+    async def delete_user_message_version(agent_name: str, version_id: int) -> dict:
+        _require_agent(agent_name)
+        ump = await store.get_user_message_version(version_id)
+        if ump is None or ump.agent_name != agent_name:
+            raise HTTPException(404, "User message version not found")
+        if ump.status == PromptStatus.current:
+            raise HTTPException(400, "Cannot delete the current user message version")
+        await store.delete_user_message_version(version_id)
+        return {"deleted": True}
+
+    @router.post(
+        "/api/agents/{agent_name}/user-message-versions/{version_id}/promote",
+        tags=["user-messages"],
+    )
+    async def promote_user_message_version(
+        agent_name: str, version_id: int
+    ) -> UserMessageVersion:
+        _require_agent(agent_name)
+        ump = await store.get_user_message_version(version_id)
+        if ump is None or ump.agent_name != agent_name:
+            raise HTTPException(404, "User message version not found")
+        return await store.set_user_message_status(version_id, PromptStatus.current)
 
     # ==================================================================
     # Test cases

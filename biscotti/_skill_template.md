@@ -4,7 +4,9 @@ You are a biscotti integration expert. biscotti is a prompt eval studio for AI a
 
 biscotti is a Python library that mounts into a FastAPI app. You decorate agent functions with `@biscotti`, create a `Biscotti()` instance, and mount it. The UI is then available at `/biscotti`.
 
-## Integration pattern
+## Two integration patterns — choose one per agent
+
+### Pattern A — `@biscotti` decorator (any async callable)
 
 ```python
 from biscotti import Biscotti, biscotti
@@ -28,6 +30,66 @@ The `@biscotti` decorator:
 - Registers both the agent metadata AND the callable (no separate bind step)
 - Auto-detects `{{variable}}` placeholders from the prompt
 - Seeds the first prompt version into the store on startup
+
+### Pattern B — `register()` + `@handle.user_prompt` (PydanticAI with builders)
+
+Use this when the user already has:
+- A `pydantic_ai.Agent(...)` instance with `@agent.system_prompt` decorators
+- A `pydantic.BaseModel` `output_type=`
+- Tools registered on the agent
+- Python builder functions that construct the user prompt from a DB dict (common pattern: `_build_x_prompt(info: dict) -> str`)
+
+```python
+from pydantic_ai import Agent
+from biscotti.pydanticai import register
+
+wine_agent = Agent(output_type=WinePortrait)
+
+@wine_agent.system_prompt
+def _wine_system_prompt() -> str:
+    return "Write a 3-4 sentence portrait of this wine."
+
+def _build_wine_prompt(wine_info: dict) -> str:
+    name     = wine_info.get("wine", "Unknown")
+    producer = wine_info.get("producer", "Unknown")
+    return f"Wine: {name}\nProducer: {producer}"
+
+# register() returns an AgentHandle — holds .meta and exposes .user_prompt
+handle = register(wine_agent, name="wine body")
+handle.user_prompt(_build_wine_prompt)
+```
+
+What `register()` auto-extracts:
+- System prompt text from `@agent.system_prompt` / `instructions=`
+- Model name from `Agent(model=...)`
+- Output schema from `output_type=` (Pydantic `BaseModel` JSON schema surfaced in the UI)
+- Tools from `@agent.tool_plain` / `@agent.tool`
+
+What `@handle.user_prompt` does:
+- Introspects the builder's AST (three tiers: AST rewrite → render-and-replace → keys-only)
+- Extracts dict keys from `info.get("k", "default")` and `info["k"]` patterns
+- Captures defaults from the `.get()` second argument
+- Seeds a `{{var}}` user-message template as `UserMessageVersion` v1 at `Biscotti` startup
+- Returns the function unchanged — prod keeps calling the builder directly
+
+Stacking decorators to share a builder across agents:
+
+```python
+wine_body.user_prompt(_build_wine_prompt)
+wine_full_card.user_prompt(extras={"include_vintage_context": True})(_build_wine_prompt)
+```
+
+The `extras=` kwarg is for non-dict arguments the builder takes — biscotti uses them to fix the builder's template shape at bind time. Useful when one builder serves warm/cold path variants.
+
+### Which pattern to use
+
+| Situation | Pattern |
+|---|---|
+| Any async function calling any LLM SDK | A — `@biscotti` |
+| You're writing a new agent and want minimum friction | A — `@biscotti` |
+| You already have a `pydantic_ai.Agent(...)` with an `output_type=` | B — `register()` |
+| Your user prompts come from `_build_x(info: dict)` functions | B — `register()` + `@handle.user_prompt` |
+| Your system prompt lives in an `.md` file loaded via `@agent.system_prompt` | B — `register()` |
 
 ## Callable signature
 
@@ -114,11 +176,15 @@ When asked to add biscotti to an existing FastAPI project:
 
 1. Find the FastAPI app instance (usually in `main.py` or `app.py`)
 2. Find existing agent/LLM functions
-3. Add `@biscotti(name="...", default_system_prompt="...")` to each agent function
-4. Ensure each function accepts `(user_message: str, system_prompt: str)` and returns `str`
-5. Add `from biscotti import Biscotti, biscotti` to imports
-6. Add `bi = Biscotti()` and `app.mount("/biscotti", bi.app)` after the app definition
-7. Move hardcoded system prompts into `default_system_prompt` with `{{variables}}` for dynamic parts
+3. Pick a pattern per agent:
+   - **Simple async function calling any LLM SDK** → add `@biscotti(name="...", default_system_prompt="...")` to the function. Ensure it accepts `(user_message: str, system_prompt: str)` and returns `str`.
+   - **Existing `pydantic_ai.Agent(...)` instance (especially with `output_type=`, `@agent.system_prompt`, or tools)** → add `handle = register(agent, name="...")` at module scope. Don't modify the agent or its callers.
+   - **Agent with a `_build_X_prompt(info: dict)` builder function** → add `handle.user_prompt(_build_X_prompt)` after the `register()` call. Prod keeps calling the builder as before.
+4. Add imports:
+   - `from biscotti import Biscotti, biscotti` for Pattern A
+   - `from biscotti.pydanticai import register` for Pattern B
+5. Add `bi = Biscotti()` and `app.mount("/biscotti", bi.app)` after the app definition
+6. Move hardcoded system prompts into `default_system_prompt` with `{{variables}}` for dynamic parts (Pattern A only — Pattern B extracts them from the agent automatically)
 
 ## Writing good test cases
 
@@ -149,9 +215,33 @@ Biscotti(storage=":memory:")                # In-memory (tests)
 
 ## Decorator parameters
 
+### `@biscotti` (Pattern A)
+
 - `name` (required): Unique human-readable name shown in the UI
 - `description`: Short description for the agent list
 - `default_system_prompt`: Initial prompt (or use the function's docstring)
 - `variables`: Explicitly declare variables (auto-detected if omitted)
 - `tags`: List of tags for filtering
 - `models`: List of model names this agent supports
+
+### `register()` (Pattern B)
+
+- `agent` (required): a `pydantic_ai.Agent` instance
+- `name` (required): Unique human-readable name shown in the UI
+- `description`: Short description for the agent list
+- `variables`: Explicitly declare variables (auto-detected from system prompt and `default_message` if omitted)
+- `default_message`: Starter user-message template with `{{var}}` placeholders. Seeded as `UserMessageVersion` v1 at Biscotti startup. Ignored when a `@handle.user_prompt` builder is also bound.
+- `tags`: List of tags for filtering
+
+Returns an `AgentHandle` with `.name`, `.meta`, and `.user_prompt(fn, extras=None)`.
+
+### `@handle.user_prompt` (Pattern B)
+
+Usage forms:
+- `@handle.user_prompt` — no arguments, decorator applied directly
+- `handle.user_prompt(fn)` — explicit function call (same as the decorator)
+- `@handle.user_prompt(extras={...})` — parameterized, returns a decorator
+- Stacked: `@a.user_prompt` + `@b.user_prompt` to bind one builder to two agents
+
+Parameters:
+- `extras`: dict of non-dict kwargs the builder takes. Used both to render the template correctly at bind time and to fix the template shape for the bound agent. Common use: one builder produces two template variants based on a flag (warm vs. cold path).
