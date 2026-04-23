@@ -267,45 +267,231 @@ class TestBiscottiMount:
 # ---------------------------------------------------------------------------
 
 class TestAzureModelRouting:
-    def test_resolve_azure_model_returns_openai_model(self):
-        from biscotti.eval import resolve_model
-        from biscotti.key_store import set_azure_config
-        set_azure_config(
+    def _setup(self, *, name="prod", deployments=None):
+        from biscotti.key_store import (
+            add_azure_connection,
+            set_azure_deployments,
+            remove_azure_connection,
+        )
+        remove_azure_connection(name)
+        add_azure_connection(
+            name,
             endpoint="https://test.openai.azure.com/",
+            auth="key",
             key="test-key",
             api_version="2024-10-21",
-            deployments=["my-gpt4o"],
         )
-        model = resolve_model("azure:my-gpt4o")
-        # Should return an OpenAIModel instance, not a string
-        assert model is not None
-        assert not isinstance(model, str)
+        if deployments:
+            set_azure_deployments(name, deployments)
+
+    def test_resolve_azure_openai_wire_returns_openai_model(self):
+        from biscotti.eval import resolve_model
+        from pydantic_ai.models.openai import OpenAIChatModel
+        self._setup(deployments=[{"name": "my-gpt4o", "model": "gpt-4o", "wire": "openai", "version": None}])
+        model = resolve_model("azure:prod:my-gpt4o")
+        assert isinstance(model, OpenAIChatModel)
+        assert model.model_name == "my-gpt4o"
+
+    def test_resolve_azure_anthropic_wire_returns_anthropic_model(self):
+        from biscotti.eval import resolve_model
+        from pydantic_ai.models.anthropic import AnthropicModel
+        self._setup(deployments=[{"name": "insights-chat", "model": "claude-opus-4-6", "wire": "anthropic", "version": None}])
+        model = resolve_model("azure:prod:insights-chat")
+        assert isinstance(model, AnthropicModel)
+        assert model.model_name == "insights-chat"
+        # Base URL should route to /anthropic, not /openai
+        base_url = str(getattr(model._provider, "base_url", ""))
+        assert base_url.rstrip("/").endswith("/anthropic"), f"expected /anthropic route, got {base_url!r}"
 
     def test_resolve_non_azure_model_returns_string(self):
         from biscotti.eval import resolve_model
         result = resolve_model("anthropic:claude-sonnet-4-6")
         assert result == "anthropic:claude-sonnet-4-6"
 
-    def test_resolve_azure_model_not_configured_raises(self):
+    def test_resolve_azure_bad_shape_raises(self):
         import pytest
         from biscotti.eval import resolve_model
-        from biscotti.key_store import remove_azure_config
-        remove_azure_config()
+        with pytest.raises(ValueError, match="azure:<connection>:<deployment>"):
+            resolve_model("azure:some-deploy")  # missing deployment
+
+    def test_resolve_azure_connection_not_configured_raises(self):
+        import pytest
+        from biscotti.eval import resolve_model
+        from biscotti.key_store import remove_azure_connection
+        remove_azure_connection("ghost")
         with pytest.raises(ValueError, match="not configured"):
-            resolve_model("azure:some-deploy")
+            resolve_model("azure:ghost:some-deploy")
 
     def test_resolve_azure_unknown_deployment_raises(self):
         import pytest
         from biscotti.eval import resolve_model
-        from biscotti.key_store import set_azure_config
-        set_azure_config(
-            endpoint="https://test.openai.azure.com/",
+        self._setup(deployments=[{"name": "my-gpt4o", "model": "gpt-4o", "wire": "openai", "version": None}])
+        with pytest.raises(ValueError, match="Deployment 'unknown-deploy' not found"):
+            resolve_model("azure:prod:unknown-deploy")
+
+
+class TestAzureRoundTrip:
+    """Issue #1 + #4: the model ID the UI displays must round-trip back
+    through resolve_model() without the user adding prefixes by hand."""
+
+    def test_extract_and_resolve_round_trip(self):
+        from biscotti.key_store import (
+            add_azure_connection,
+            set_azure_deployments,
+            remove_azure_connection,
+        )
+        from biscotti.eval import resolve_model
+        from biscotti.pydanticai import _extract_model_name
+        from pydantic_ai import Agent
+
+        remove_azure_connection("prod")
+        add_azure_connection(
+            "prod",
+            endpoint="https://test.openai.azure.com",
+            auth="key",
             key="test-key",
             api_version="2024-10-21",
-            deployments=["my-gpt4o"],
         )
-        with pytest.raises(ValueError, match="not configured"):
-            resolve_model("azure:unknown-deploy")
+        set_azure_deployments(
+            "prod",
+            [{"name": "insights-chat", "model": "gpt-4o", "wire": "openai", "version": None}],
+        )
+        model = resolve_model("azure:prod:insights-chat")
+        agent = Agent(model)
+        # _extract_model_name must return the three-part form, not the bare deployment
+        assert _extract_model_name(agent) == "azure:prod:insights-chat"
+
+
+class TestAzureDiscoveryParser:
+    """Unit-test the pure parsing logic in azure_discovery without hitting
+    the network — pass canned Azure responses through _normalize_deployment."""
+
+    def test_openai_wire_from_format(self):
+        from biscotti.azure_discovery import _normalize_deployment
+        result = _normalize_deployment({
+            "id": "insights-gpt",
+            "model": {"format": "OpenAI", "name": "gpt-4o", "version": "2024-08-06"},
+        })
+        assert result == {
+            "name": "insights-gpt",
+            "model": "gpt-4o",
+            "wire": "openai",
+            "version": "2024-08-06",
+        }
+
+    def test_anthropic_wire_from_format(self):
+        from biscotti.azure_discovery import _normalize_deployment
+        result = _normalize_deployment({
+            "id": "insights-claude",
+            "model": {"format": "Anthropic", "name": "claude-opus-4-6"},
+        })
+        assert result["wire"] == "anthropic"
+        assert result["model"] == "claude-opus-4-6"
+
+    def test_defaults_to_openai_when_format_missing(self):
+        from biscotti.azure_discovery import _normalize_deployment
+        result = _normalize_deployment({"id": "anon", "model": {"name": "gpt-4o"}})
+        assert result["wire"] == "openai"
+
+
+class TestAzureLegacyMigration:
+    """The legacy set_azure_config() API should map to a 'default' connection
+    so any straggler callers keep working."""
+
+    def test_legacy_set_creates_default_connection(self):
+        from biscotti.key_store import (
+            set_azure_config,
+            get_azure_connection,
+            remove_azure_connection,
+        )
+        remove_azure_connection("default")
+        set_azure_config(
+            endpoint="https://legacy.openai.azure.com",
+            key="legacy-key",
+            deployments=["foo", "bar"],
+        )
+        conn = get_azure_connection("default")
+        assert conn is not None
+        assert conn["auth"] == "key"
+        assert [d["name"] for d in conn["deployments"]] == ["foo", "bar"]
+        assert all(d["wire"] == "openai" for d in conn["deployments"])
+
+
+class TestListModelsFilter:
+    """Issue #3: list_models should hide models whose provider isn't connected."""
+
+    async def test_unconnected_providers_hidden(self, tmp_path, monkeypatch):
+        import httpx
+        from httpx import ASGITransport
+        from fastapi import FastAPI
+        from biscotti.store import PromptStore
+        from biscotti.router import build_router
+        from biscotti.registry import _REGISTRY, AgentMeta
+        from biscotti.key_store import _KEYS, set_key, _AZURE_CONNECTIONS
+
+        for p in [
+            "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY",
+            "MISTRAL_API_KEY", "COHERE_API_KEY", "GROQ_API_KEY",
+            "XAI_API_KEY", "TOGETHER_API_KEY", "DEEPSEEK_API_KEY",
+            "AZURE_OPENAI_API_KEY",
+        ]:
+            monkeypatch.delenv(p, raising=False)
+        _KEYS.clear()
+        _AZURE_CONNECTIONS.clear()
+
+        # Connect only Anthropic.
+        set_key("anthropic", "test-key")
+
+        _REGISTRY["demo"] = AgentMeta(
+            name="demo", prompt="", variables=[], models=[],
+            default_model=None, default_user_message=None, output=None, tools=None,
+        )
+
+        store = PromptStore(str(tmp_path / "db.sqlite"))
+        await store.connect()
+        app = FastAPI()
+        app.include_router(build_router(store))
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/api/agents/demo/models")
+        assert resp.status_code == 200
+        all_models = resp.json()["all"]
+        # Anthropic models visible; OpenAI hidden
+        assert any(m.startswith("claude-") or m.startswith("anthropic:") for m in all_models), all_models
+        assert not any(m.startswith("gpt-") or m.startswith("openai:") for m in all_models), all_models
+        await store.close()
+
+
+class TestAzurePricing:
+    def test_estimate_cost_resolves_azure_underlying_model(self):
+        from biscotti.key_store import (
+            add_azure_connection,
+            set_azure_deployments,
+            remove_azure_connection,
+        )
+        from biscotti.runner import estimate_cost
+        remove_azure_connection("prod")
+        add_azure_connection("prod", endpoint="https://x.openai.azure.com", auth="key", key="k")
+        set_azure_deployments("prod", [
+            {"name": "insights", "model": "gpt-4o", "wire": "openai", "version": None}
+        ])
+        cost = estimate_cost("azure:prod:insights", 1_000_000, 1_000_000)
+        # gpt-4o: $2.50 input + $10.00 output per 1M = $12.50
+        assert cost == 12.5
+
+    def test_estimate_cost_none_when_underlying_unknown(self):
+        from biscotti.key_store import (
+            add_azure_connection,
+            set_azure_deployments,
+            remove_azure_connection,
+        )
+        from biscotti.runner import estimate_cost
+        remove_azure_connection("prod")
+        add_azure_connection("prod", endpoint="https://x.openai.azure.com", auth="key", key="k")
+        set_azure_deployments("prod", [
+            {"name": "mystery", "model": None, "wire": "openai", "version": None}
+        ])
+        assert estimate_cost("azure:prod:mystery", 1000, 1000) is None
 
 
 def test_build_judge_criteria_prompt():

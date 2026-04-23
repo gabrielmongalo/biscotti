@@ -49,7 +49,25 @@ PRICING: dict[str, dict[str, float]] = {
 
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:
-    """Estimate cost in USD. Returns None if model is not in pricing table."""
+    """Estimate cost in USD. Returns None if model is not in pricing table.
+
+    For ``azure:<conn>:<deployment>`` IDs, looks up the underlying canonical
+    model captured by discovery and prices against that. Returns None if the
+    deployment hasn't been discovered yet (user needs to click Refresh).
+    """
+    if model.startswith("azure:"):
+        parts = model.split(":", 2)
+        if len(parts) == 3:
+            from .key_store import get_azure_connection
+            conn = get_azure_connection(parts[1])
+            if conn is not None:
+                dep = next(
+                    (d for d in conn.get("deployments", []) if d["name"] == parts[2]),
+                    None,
+                )
+                if dep and dep.get("model"):
+                    model = dep["model"]
+
     # Try exact match, then prefix match (e.g. "gpt-4o-2024-08-06" → "gpt-4o")
     prices = PRICING.get(model)
     if prices is None:

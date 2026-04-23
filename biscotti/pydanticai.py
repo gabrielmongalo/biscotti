@@ -250,25 +250,67 @@ def _extract_system_prompt(agent: Any) -> str:
 def _extract_model_name(agent: Any) -> str:
     """Extract the default model name from a PydanticAI Agent.
 
-    Checks ``agent._model`` for a ``.model_name`` attribute, falling back
-    to ``str(model)`` if needed. Returns empty string if no model is set.
+    For agents whose provider is an Azure Foundry resource, returns the
+    three-part ``azure:<connection>:<deployment>`` form so the value
+    round-trips back through ``resolve_model()``. Falls back to the bare
+    ``model_name`` / ``model_id`` / ``str(model)`` for non-Azure agents.
     """
     model = getattr(agent, "_model", None)
     if model is None:
         return ""
 
-    # Most PydanticAI model objects have .model_name
-    model_name = getattr(model, "model_name", None)
-    if isinstance(model_name, str) and model_name:
-        return model_name
+    bare_name = getattr(model, "model_name", None)
+    if not isinstance(bare_name, str) or not bare_name:
+        model_id = getattr(model, "model_id", None)
+        if isinstance(model_id, str) and model_id:
+            return model_id
+        return str(model)
 
-    # Fallback: model_id (e.g. "openai:gpt-4o")
-    model_id = getattr(model, "model_id", None)
-    if isinstance(model_id, str) and model_id:
-        return model_id
+    azure_id = _maybe_azure_model_id(model, bare_name)
+    if azure_id is not None:
+        return azure_id
 
-    # Last resort
-    return str(model)
+    return bare_name
+
+
+def _maybe_azure_model_id(model: Any, bare_name: str) -> str | None:
+    """If the model is backed by an Azure Foundry resource, return its
+    canonical ``azure:<conn>:<dep>`` id. Otherwise None."""
+    provider = getattr(model, "_provider", None) or getattr(model, "provider", None)
+    if provider is None:
+        return None
+
+    # Surface the endpoint from whichever provider shape we're looking at.
+    endpoint = _provider_endpoint(provider)
+    if not endpoint:
+        return None
+
+    normalized = endpoint.rstrip("/").removesuffix("/anthropic").removesuffix("/openai")
+
+    from .key_store import list_azure_connections
+    for conn_name, conn in list_azure_connections().items():
+        if conn["endpoint"].rstrip("/") == normalized:
+            return f"azure:{conn_name}:{bare_name}"
+    return None
+
+
+def _provider_endpoint(provider: Any) -> str:
+    """Best-effort extraction of the provider's base URL / endpoint."""
+    for attr in ("base_url", "_base_url", "endpoint", "_endpoint", "azure_endpoint"):
+        val = getattr(provider, attr, None)
+        if val:
+            return str(val)
+    # AsyncAzureOpenAI client is nested under OpenAIProvider.openai_client
+    client = getattr(provider, "openai_client", None) or getattr(provider, "_client", None)
+    if client is not None:
+        base = getattr(client, "base_url", None) or getattr(client, "_base_url", None)
+        if base:
+            return str(base)
+        # AzureOpenAI stores the resource URL here
+        azure_endpoint = getattr(client, "_azure_endpoint", None)
+        if azure_endpoint:
+            return str(azure_endpoint)
+    return ""
 
 
 def _extract_output_info(agent: Any) -> dict[str, Any]:
@@ -381,10 +423,12 @@ def _build_callable(
             "instructions": system_prompt,
         }
 
-        # Model override
+        # Model override — resolve azure:<conn>:<dep> through the same path
+        # the eval agents use, so Foundry deployments and wire formats work.
         model_override = params.get("model")
         if model_override:
-            run_kwargs["model"] = model_override
+            from .eval import resolve_model
+            run_kwargs["model"] = resolve_model(model_override)
 
         if model_settings:
             run_kwargs["model_settings"] = model_settings

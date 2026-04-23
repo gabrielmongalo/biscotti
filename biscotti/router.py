@@ -33,6 +33,34 @@ from .store import PromptStore
 _UI_DIR = Path(__file__).parent / "ui" / "static"
 
 
+# Provider inference for bare model names (no colon prefix). Order matters —
+# longest prefix wins. Used by list_models() to filter out models whose
+# backing provider isn't connected.
+# Keep in sync with the client classifier in biscotti/ui/static/app.js
+# (_BARE_PREFIX_PROVIDER / _BARE_EXACT_PROVIDER). If the two diverge, the
+# server may filter out a model as unreachable while the UI still groups
+# it under a known provider — or vice versa.
+_BARE_PREFIX_PROVIDER: list[tuple[str, str]] = [
+    ("gpt-", "openai"),
+    ("o1", "openai"),
+    ("o3", "openai"),
+    ("o4", "openai"),
+    ("claude-", "anthropic"),
+    ("gemini-", "gemini"),
+    ("mixtral-", "mistral"),
+    ("mistral-", "mistral"),
+    ("command-", "cohere"),
+    ("deepseek-", "deepseek"),
+    ("grok-", "xai"),
+]
+
+_BARE_MODEL_PROVIDER: dict[str, str] = {
+    "chatgpt-4o-latest": "openai",
+    "deepseek-chat": "deepseek",
+    "deepseek-reasoner": "deepseek",
+}
+
+
 def build_router(store: PromptStore) -> APIRouter:
     """Return a configured APIRouter wired to the given store."""
 
@@ -252,45 +280,79 @@ def build_router(store: PromptStore) -> APIRouter:
         if callable_fn:
             detected = detect_model_from_callable(callable_fn)
 
-        # Include Azure Foundry deployments
-        from .key_store import get_azure_config
-        azure_config = get_azure_config()
-        azure_models = [f"azure:{d}" for d in azure_config["deployments"]] if azure_config else []
+        # Include Azure Foundry deployments (multi-connection)
+        from .key_store import iter_azure_models, available_providers
+        azure_models = iter_azure_models()
 
         # Merge: detected first, then declared, then historical, then azure, then pricing defaults.
         # Normalize + dedupe: strip the provider prefix when the bare model name is a known
         # entry in PRICING (PydanticAI accepts both forms). "anthropic:claude-haiku-4-5" and
-        # "claude-haiku-4-5" collapse to a single bare "claude-haiku-4-5". Unknown-provider
-        # strings (e.g. "azure:my-deployment") keep their prefix so the provider is still
-        # visible to the user.
+        # "claude-haiku-4-5" collapse to a single bare "claude-haiku-4-5". azure:<conn>:<dep>
+        # stays as-is so the user sees which Foundry connection serves it.
         def _canonical(m: str) -> str:
+            if m.startswith("azure:"):
+                return m
             if ":" in m:
                 _, rest = m.split(":", 1)
                 if rest in PRICING:
                     return rest
             return m
 
+        # Hide models whose backing provider isn't configured. Unknown-provider
+        # strings (custom model names) stay visible so historical runs remain
+        # selectable even when the provider was disconnected.
+        connected = {p for p, ok in available_providers().items() if ok}
+
+        def _provider_of(m: str) -> str | None:
+            if m.startswith("azure:"):
+                return "azure_foundry"
+            if ":" in m:
+                return m.split(":", 1)[0]
+            # Bare model name — derive provider from prefix. PRICING doesn't
+            # tag provider, so we can't rely on it here.
+            if m in _BARE_MODEL_PROVIDER:
+                return _BARE_MODEL_PROVIDER[m]
+            for prefix, prov in _BARE_PREFIX_PROVIDER:
+                if m.startswith(prefix):
+                    return prov
+            return None  # keep unknown-provider entries visible
+
+        def _is_reachable(m: str) -> bool:
+            prov = _provider_of(m)
+            if prov is None:
+                return True  # keep unknowns visible
+            return prov in connected
+
         seen: set[str] = set()
         merged: list[str] = []
         for m in ([detected] if detected else []) + declared + historical + azure_models + pricing_models:
             canon = _canonical(m)
-            if canon not in seen:
-                seen.add(canon)
-                merged.append(canon)
+            if canon in seen:
+                continue
+            if not _is_reachable(canon):
+                continue
+            seen.add(canon)
+            merged.append(canon)
 
         # Dedupe historical too so downstream code doesn't see both forms
         hist_seen: set[str] = set()
         hist_canon: list[str] = []
         for h in historical:
             ch = _canonical(h)
-            if ch not in hist_seen:
-                hist_seen.add(ch)
-                hist_canon.append(ch)
+            if ch in hist_seen or not _is_reachable(ch):
+                continue
+            hist_seen.add(ch)
+            hist_canon.append(ch)
+
+        hint = None
+        if not connected:
+            hint = "Connect a provider in API Keys to enable model overrides."
 
         return {
             "detected": _canonical(detected) if detected else None,
             "historical": hist_canon,
             "all": merged,
+            "hint": hint,
         }
 
     # ==================================================================
@@ -593,44 +655,180 @@ def build_router(store: PromptStore) -> APIRouter:
         return {"status": "ok", "providers": available_providers()}
 
     # ==================================================================
-    # Settings: Azure Foundry
+    # Settings: Azure Foundry (multi-connection)
     # ==================================================================
 
-    @router.post("/api/settings/azure", tags=["settings"])
-    async def set_azure(body: dict) -> dict:
-        from .key_store import set_azure_config, available_providers
-        endpoint = (body.get("endpoint") or "").strip()
-        key = (body.get("key") or "").strip()
-        api_version = (body.get("api_version") or "2024-10-21").strip()
-        deployments = body.get("deployments") or []
-        if not endpoint:
-            raise HTTPException(400, "Endpoint URL is required")
-        if not key:
-            raise HTTPException(400, "API key is required")
-        if not deployments:
-            raise HTTPException(400, "At least one deployment is required")
-        set_azure_config(endpoint=endpoint, key=key, api_version=api_version, deployments=deployments)
-        return {"status": "ok", "providers": available_providers()}
-
-    @router.get("/api/settings/azure", tags=["settings"])
-    async def get_azure() -> dict:
-        from .key_store import get_azure_config
-        config = get_azure_config()
-        if config is None:
-            return {"configured": False}
+    def _render_connection(name: str, conn: dict) -> dict:
+        """Public-safe view of a connection (no key exposed)."""
         return {
-            "configured": True,
-            "endpoint": config["endpoint"],
-            "api_version": config["api_version"],
-            "deployments": config["deployments"],
-            # Don't expose the key
+            "name": name,
+            "endpoint": conn["endpoint"],
+            "auth": conn.get("auth", "key"),
+            "api_version": conn["api_version"],
+            "deployments": [
+                {
+                    "name": d["name"],
+                    "endpoint": d.get("endpoint"),
+                    "model": d.get("model"),
+                    "wire": d.get("wire", "openai"),
+                    "version": d.get("version"),
+                }
+                for d in conn.get("deployments", [])
+            ],
+            "discovered_at": conn.get("discovered_at"),
+            "discovery_error": conn.get("discovery_error"),
         }
 
-    @router.delete("/api/settings/azure", tags=["settings"])
-    async def remove_azure() -> dict:
-        from .key_store import remove_azure_config, available_providers
-        remove_azure_config()
+    @router.get("/api/settings/azure/connections", tags=["settings"])
+    async def list_azure() -> dict:
+        from .key_store import list_azure_connections
+        conns = list_azure_connections()
+        return {
+            "connections": [_render_connection(n, c) for n, c in conns.items()],
+        }
+
+    @router.post("/api/settings/azure/connections", tags=["settings"])
+    async def create_azure_connection(body: dict) -> dict:
+        from .key_store import (
+            add_azure_connection,
+            get_azure_connection,
+            remove_azure_connection,
+            set_azure_deployments,
+            available_providers,
+        )
+        from .azure_discovery import discover_deployments, DiscoveryError
+        import time
+
+        from .azure_discovery import _normalize_endpoint
+        name = (body.get("name") or "").strip()
+        raw_endpoint = (body.get("endpoint") or "").strip()
+        endpoint = _normalize_endpoint(raw_endpoint) if raw_endpoint else ""
+        auth = (body.get("auth") or "key").strip()
+        key = (body.get("key") or "").strip() or None
+        api_version = (body.get("api_version") or "2024-10-21").strip()
+
+        if not name:
+            raise HTTPException(400, "Connection name is required")
+        if not endpoint:
+            raise HTTPException(400, "Endpoint is required")
+        if auth not in ("key", "aad"):
+            raise HTTPException(400, f"auth must be 'key' or 'aad', got {auth!r}")
+        if auth == "key" and not key:
+            raise HTTPException(400, "Key auth requires a non-empty 'key'")
+        if get_azure_connection(name) is not None:
+            raise HTTPException(409, f"Connection {name!r} already exists. Disconnect first to recreate.")
+
+        try:
+            conn = add_azure_connection(
+                name,
+                endpoint=endpoint,
+                auth=auth,
+                key=key,
+                api_version=api_version,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+        # We used to auto-run discovery here, but on most Foundry resources
+        # the data-plane listing endpoints are not exposed (404s across the
+        # board). Save the connection and let the user add deployments
+        # manually. Refresh remains available if they want to try listing.
+        return {
+            "status": "ok",
+            "connection": _render_connection(name, conn),
+            "providers": available_providers(),
+        }
+
+    @router.post("/api/settings/azure/connections/{name}/refresh", tags=["settings"])
+    async def refresh_azure_connection(name: str) -> dict:
+        from .key_store import get_azure_connection, set_azure_deployments
+        from .azure_discovery import discover_deployments, DiscoveryError
+        import time
+
+        conn = get_azure_connection(name)
+        if conn is None:
+            raise HTTPException(404, f"Connection {name!r} not found")
+        try:
+            deployments = await discover_deployments(
+                conn["endpoint"],
+                auth=conn.get("auth", "key"),
+                key=conn.get("key"),
+                api_version=conn["api_version"],
+            )
+            set_azure_deployments(name, deployments, discovered_at=time.time())
+        except DiscoveryError as exc:
+            set_azure_deployments(name, conn.get("deployments", []), discovery_error=str(exc))
+            raise HTTPException(502, str(exc))
+        return {"status": "ok", "connection": _render_connection(name, conn)}
+
+    @router.delete("/api/settings/azure/connections/{name}", tags=["settings"])
+    async def delete_azure_connection(name: str) -> dict:
+        from .key_store import remove_azure_connection, available_providers
+        remove_azure_connection(name)
         return {"status": "ok", "providers": available_providers()}
+
+    @router.post("/api/settings/azure/connections/{name}/deployments", tags=["settings"])
+    async def add_azure_deployment_manual(name: str, body: dict) -> dict:
+        """Manually append a deployment to a connection.
+
+        The connection's base endpoint + the underlying model name together
+        determine where requests go — we infer wire from the model
+        (``claude*`` → anthropic, else openai) and derive the URL from there.
+        Per-deployment endpoint overrides and explicit wires remain supported
+        as escape hatches via the ``endpoint`` / ``wire`` body fields."""
+        from .key_store import get_azure_connection, set_azure_deployments
+        from .eval import infer_azure_wire
+
+        conn = get_azure_connection(name)
+        if conn is None:
+            raise HTTPException(404, f"Connection {name!r} not found")
+
+        dep_name = (body.get("name") or "").strip()
+        model = (body.get("model") or "").strip() or None
+        # These two are optional overrides for edge cases.
+        endpoint = (body.get("endpoint") or "").strip() or None
+        explicit_wire = (body.get("wire") or "").strip() or None
+        version = (body.get("version") or "").strip() or None
+
+        if not dep_name:
+            raise HTTPException(400, "Deployment name is required")
+
+        wire = explicit_wire or infer_azure_wire(endpoint=endpoint or "",
+                                                 model=model)
+        if wire not in ("openai", "anthropic"):
+            raise HTTPException(400, f"wire must be 'openai' or 'anthropic', got {wire!r}")
+
+        existing = list(conn.get("deployments", []))
+        if any(d["name"] == dep_name for d in existing):
+            raise HTTPException(409, f"Deployment {dep_name!r} already exists on {name!r}")
+        existing.append({
+            "name": dep_name,
+            "endpoint": endpoint,
+            "model": model,
+            "wire": wire,
+            "version": version,
+        })
+        set_azure_deployments(
+            name, existing,
+            discovered_at=conn.get("discovered_at"),
+            discovery_error=conn.get("discovery_error"),
+        )
+        return {"status": "ok", "connection": _render_connection(name, conn)}
+
+    @router.delete("/api/settings/azure/connections/{name}/deployments/{dep_name}", tags=["settings"])
+    async def remove_azure_deployment_manual(name: str, dep_name: str) -> dict:
+        from .key_store import get_azure_connection, set_azure_deployments
+
+        conn = get_azure_connection(name)
+        if conn is None:
+            raise HTTPException(404, f"Connection {name!r} not found")
+        existing = [d for d in conn.get("deployments", []) if d["name"] != dep_name]
+        set_azure_deployments(
+            name, existing,
+            discovered_at=conn.get("discovered_at"),
+            discovery_error=conn.get("discovery_error"),
+        )
+        return {"status": "ok", "connection": _render_connection(name, conn)}
 
     # ==================================================================
     # Bulk Runs

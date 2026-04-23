@@ -1561,9 +1561,9 @@
     border: 1px solid var(--border2);
     border-radius: var(--radius-lg);
     padding: 32px 36px;
-    width: 540px;
-    max-width: 90vw;
-    max-height: 85vh;
+    width: 720px;
+    max-width: 92vw;
+    max-height: 88vh;
     overflow: visible;
     display: flex;
     flex-direction: column;
@@ -1629,6 +1629,8 @@
     color: var(--green);
     font-weight: 500;
   }
+  .provider-pill.clickable { cursor: pointer; }
+  .provider-pill.clickable:hover { filter: brightness(1.1); }
   .provider-pill-dot {
     width: 6px;
     height: 6px;
@@ -2819,51 +2821,6 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
-  }
-
-  /* Model split row (provider dropdown + name input) */
-  .model-split-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-  .model-provider-select {
-    position: relative;
-    flex-shrink: 0;
-    width: 160px;
-  }
-  .model-provider-select select {
-    width: 100%;
-  }
-
-  /* Split model: provider combobox + model name combobox */
-  .split-model-wrap {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-  }
-  .split-model-provider {
-    flex: 0 0 180px;
-    min-width: 180px;
-  }
-  .split-model-name {
-    flex: 1;
-    min-width: 0;
-  }
-
-  /* Provider typeahead item with sub-label (id slug) */
-  .typeahead-item-provider {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .typeahead-item-sub {
-    font-size: 10px;
-    font-family: var(--mono);
-    color: var(--muted);
-    opacity: 0.75;
-    flex-shrink: 0;
   }
 
   /* Compact criteria rows */
@@ -4256,5 +4213,350 @@
   max-height: 120px;
   overflow-y: auto;
   font-family: var(--mono);
+}
+
+/* --- Azure Foundry multi-connection UI --- */
+.azure-conn-card {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.azure-conn-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.azure-conn-ident {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.azure-conn-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.azure-conn-name {
+  font-weight: 600;
+  color: var(--text);
+}
+.azure-conn-auth {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--mono);
+}
+.azure-conn-endpoint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.azure-conn-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.azure-conn-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.azure-conn-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border2);
+}
+.azure-conn-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.azure-conn-toggle:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+.azure-conn-toggle svg {
+  transition: transform 0.18s ease;
+}
+.azure-conn-toggle svg.open {
+  transform: rotate(180deg);
+}
+
+/* Low-weight text-button links for the action row. Subdued by default,
+   with a dedicated .danger variant for destructive actions. */
+.btn-ghost-link {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+.btn-ghost-link:hover:not(:disabled) {
+  color: var(--text);
+}
+.btn-ghost-link:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.btn-ghost-link.danger:hover {
+  color: var(--error, #e57373);
+}
+
+.azure-conn-body {
+  border-top: 1px solid var(--border2);
+  padding: 12px 14px 14px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Soft, non-alarming info block for discovery failure. Replaces the old
+   red-text error. Full details are behind a toggle so the card breathes. */
+.azure-conn-info {
+  border-left: 2px solid var(--border2);
+  padding: 2px 0 2px 10px;
+}
+.azure-conn-info-summary {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+}
+.azure-conn-info-summary:hover { color: var(--text); }
+.azure-conn-info-summary svg {
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+}
+.azure-conn-info-summary svg.open {
+  transform: rotate(180deg);
+}
+.azure-conn-info-detail {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--mono);
+  margin-top: 6px;
+  padding-left: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.azure-dep-table {
+  width: 100%;
+  font-size: 12px;
+  border-collapse: collapse;
+}
+.azure-dep-table th {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  text-align: left;
+  font-weight: 500;
+  padding: 4px 8px 6px 0;
+  border-bottom: 1px solid var(--border2);
+}
+.azure-dep-table td {
+  padding: 7px 10px 7px 0;
+  border-bottom: 1px solid var(--border2);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  vertical-align: middle;
+}
+.azure-dep-table tr:last-child td { border-bottom: none; }
+.azure-dep-unknown { color: var(--text-secondary); font-style: italic; }
+.azure-dep-name {
+  /* Deployment names can be long like "insights-claude-sonnet-4-5-2".
+     Allow break-word so they wrap cleanly inside narrow cells. */
+  word-break: break-word;
+  max-width: 280px;
+}
+.azure-dep-wire {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.azure-add-form {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 14px;
+}
+.azure-form-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+.info-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  font-family: var(--mono);
+  cursor: help;
+  line-height: 1;
+  user-select: none;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.info-dot:hover {
+  color: var(--text);
+  border-color: var(--text-secondary);
+}
+.azure-form-hint code {
+  font-family: var(--mono);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+/* Manual add form. When .prominent (empty-state), it gets its own framed
+   card so it becomes the visual center of the expanded body. */
+.azure-manual-form {
+  padding-top: 4px;
+}
+.azure-manual-form.prominent {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.azure-manual-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.azure-manual-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.azure-manual-grid > .key-input {
+  width: 100%;
+}
+.azure-manual-controls {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  justify-content: space-between;
+}
+.azure-manual-controls > .btn {
+  flex-shrink: 0;
+}
+
+.azure-wire-toggle {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  height: 30px;
+}
+.azure-wire-toggle button {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 0 14px;
+  cursor: pointer;
+  height: 100%;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.azure-wire-toggle button:hover:not(.active) {
+  color: var(--text);
+}
+.azure-wire-toggle button.active {
+  background: var(--surface2);
+  color: var(--accent);
+}
+.azure-wire-toggle button + button {
+  border-left: 1px solid var(--border2);
+}
+.azure-auth-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+.azure-auth-radio input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border2);
+  border-radius: 50%;
+  background: var(--surface);
+  position: relative;
+  cursor: pointer;
+  margin: 0;
+}
+.azure-auth-radio input[type="radio"]:checked {
+  border-color: var(--accent);
+}
+.azure-auth-radio input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 

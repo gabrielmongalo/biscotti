@@ -152,8 +152,6 @@ document.addEventListener('alpine:init', () => {
     judgeConfigOpen: false,
     providerStatus: {},
     judgeModel: '',
-    judgeModelProvider: '',
-    judgeModelName: '',
     judgeCriteria: '',
     criteriaRows: [],
     _savedJudgeModel: '',
@@ -177,8 +175,6 @@ document.addEventListener('alpine:init', () => {
     coachError: null,
     coachPanelOpen: false,
     coachModel: '',
-    coachModelProvider: '',
-    coachModelName: '',
     coachReviewMode: false,
     coachSuggestions: [],
     coachExpandedIdx: -1,
@@ -212,12 +208,20 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     keyModalProviderDropdownOpen: false,
     keyModalAddingProvider: false,
 
-    // Azure Foundry
-    azureEndpoint: '',
-    azureKey: '',
-    azureApiVersion: '2024-10-21',
-    azureDeployments: [''],
-    azureConfigured: false,
+    // Azure Foundry (multi-connection)
+    azureConnections: [],        // [{name, endpoint, auth, api_version, deployments, discovered_at, discovery_error}]
+    azureExpanded: {},           // {connectionName: bool} — UI expansion state per card
+    azureAdding: false,          // is the "Add connection" form visible?
+    // Add-form state
+    azureForm: {
+      name: '',
+      endpoint: '',
+      auth: 'key',
+      key: '',
+      api_version: '2024-10-21',
+    },
+    azureFormBusy: false,
+    azureRefreshBusy: {},        // {connectionName: bool}
 
     // --- Bulk Run ---
     bulkSubView: 'new',
@@ -244,15 +248,20 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     _bulkEventSource: null,
     bulkConfigCollapsed: false,
     _bulkModelSearch: '',
+    _bulkJudgeModelSearch: '',
 
     // --- Computed ---
     get evalSettingsDirty() {
       return this.judgeModel !== this._savedJudgeModel || this.serializeCriteria(this.criteriaRows) !== this._savedJudgeCriteria;
     },
     get variables() {
+      // Only reflect what's live in the system prompt and user message.
+      // Agent-declared/historical vars are tracked in agentKnownVars for
+      // other uses but don't pollute the input list — if you delete
+      // {{founded}} from the text, its input disappears.
       const fromPrompt = [...this.prompt.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
       const fromMsg = [...(this.userMessage || '').matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
-      return [...new Set([...fromPrompt, ...fromMsg, ...this.agentKnownVars])];
+      return [...new Set([...fromPrompt, ...fromMsg])];
     },
     get promptTokens() { return estimateTokens(this.prompt); },
     get msgTokens() { return estimateTokens(this.userMessage); },
@@ -264,108 +273,42 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       return Object.entries(this.providerStatus).filter(([, ok]) => !ok).map(([id]) => id)
         .sort((a, b) => (this._PROVIDER_LABELS[a] || a).localeCompare(this._PROVIDER_LABELS[b] || b));
     },
-    get _suggestedModels() {
-      return [
-        // Anthropic
-        'anthropic:claude-opus-4-6',
-        'anthropic:claude-opus-4-5',
-        'anthropic:claude-sonnet-4-6',
-        'anthropic:claude-sonnet-4-5',
-        'anthropic:claude-haiku-4-5',
-        'anthropic:claude-3-5-sonnet-20241022',
-        'anthropic:claude-3-5-haiku-20241022',
-        'anthropic:claude-3-opus-20240229',
-        // OpenAI
-        'openai:gpt-4.5',
-        'openai:gpt-4.1',
-        'openai:gpt-4.1-mini',
-        'openai:gpt-4o',
-        'openai:gpt-4o-mini',
-        'openai:o4-mini',
-        'openai:o3',
-        'openai:o3-mini',
-        'openai:o1',
-        // Google Gemini
-        'gemini:gemini-2.5-pro',
-        'gemini:gemini-2.0-flash',
-        'gemini:gemini-1.5-pro',
-        'gemini:gemini-1.5-flash',
-        // Mistral
-        'mistral:mistral-large-latest',
-        'mistral:mistral-small-latest',
-        'mistral:codestral-latest',
-        // Groq
-        'groq:llama-3.3-70b-versatile',
-        'groq:llama-3.1-8b-instant',
-        'groq:gemma2-9b-it',
-        // DeepSeek
-        'deepseek:deepseek-chat',
-        'deepseek:deepseek-reasoner',
-        // xAI
-        'xai:grok-3',
-        'xai:grok-3-mini',
-        'xai:grok-2',
-        // Cohere
-        'cohere:command-r-plus',
-        'cohere:command-r',
-      ];
+    // Normalize a saved/external model string for display in a picker:
+    //  1. Collapse redundant provider prefix (mirrors router.py::_canonical) so
+    //     a historically-saved "anthropic:claude-haiku-4-5" matches the bare
+    //     canonical "claude-haiku-4-5" surfaced in availableModels.
+    //  2. If the result still isn't in availableModels (provider key was
+    //     removed, model retired, etc.), return '' so the picker starts empty
+    //     and the user must reselect from what's actually reachable.
+    _canonicalModel(m) {
+      if (!m) return '';
+      if (m.startsWith('azure:')) {
+        return this.availableModels.includes(m) ? m : '';
+      }
+      if (m.includes(':')) {
+        const bare = m.slice(m.indexOf(':') + 1);
+        if (bare && this.availableModels.includes(bare)) return bare;
+      }
+      return this.availableModels.includes(m) ? m : '';
     },
-    get judgeProviderOptions() {
-      return Object.entries(this._PROVIDER_LABELS)
-        .map(([id, label]) => ({ id, label }))
-        .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
-    },
-    get judgeFilteredProviders() {
-      const q = (this.judgeModelProvider || '').toLowerCase();
-      if (!q) return this.judgeProviderOptions;
-      return this.judgeProviderOptions.filter(p =>
-        p.id.toLowerCase().includes(q) || p.label.toLowerCase().includes(q)
+    // Shared filter helper for every model-picker dropdown. `query` is the
+    // search string bound to the input; `excluded` is an optional list of
+    // models to hide (used by Bulk Run to drop already-selected chips).
+    _filterModelsByQuery(query, excluded = null) {
+      const q = (query || '').toLowerCase().trim();
+      return this.availableModels.filter(m =>
+        (!excluded || !excluded.includes(m))
+        && (!q || m.toLowerCase().includes(q))
       );
     },
-    get judgeFilteredModelNames() {
-      const provider = (this.judgeModelProvider || '').toLowerCase();
-      const q = (this.judgeModelName || '').toLowerCase();
-      return this._suggestedModels
-        .filter(m => {
-          const [p, ...rest] = m.split(':');
-          if (provider && p !== provider) return false;
-          const modelPart = rest.join(':') || m;
-          return !q || modelPart.toLowerCase().includes(q);
-        })
-        .map(m => {
-          const [, ...rest] = m.split(':');
-          return rest.length ? rest.join(':') : m;
-        });
-    },
-    get judgeModelOptions() {
-      const q = (this.judgeModel || '').toLowerCase();
-      return this._suggestedModels.filter(m => !q || m.toLowerCase().includes(q));
-    },
-    get judgeModelGrouped() {
-      const groups = {};
-      for (const m of this.judgeModelOptions) {
-        const provider = m.split(':')[0] || 'other';
-        if (!groups[provider]) groups[provider] = [];
-        groups[provider].push(m);
-      }
-      return groups;
-    },
-    get coachFilteredModels() {
-      const q = (this.coachModel || '').toLowerCase().trim();
-      return this.availableModels.filter(m => !q || m.toLowerCase().includes(q));
-    },
-    get coachGroupedModels() {
-      const groups = {};
-      for (const m of this.coachFilteredModels) {
-        let provider = 'other';
-        if (m.startsWith('gpt-') || m.startsWith('o3') || m.startsWith('o4')) provider = 'openai';
-        else if (m.startsWith('claude-')) provider = 'anthropic';
-        else if (m.startsWith('gemini-')) provider = 'google';
-        if (!groups[provider]) groups[provider] = [];
-        groups[provider].push(m);
-      }
-      return groups;
-    },
+    get judgeFilteredModels()     { return this._filterModelsByQuery(this.judgeModel); },
+    get judgeGroupedModels()      { return this.groupModelsByProvider(this.judgeFilteredModels); },
+    get coachFilteredModels()     { return this._filterModelsByQuery(this.coachModel); },
+    get coachGroupedModels()      { return this.groupModelsByProvider(this.coachFilteredModels); },
+    get bulkFilteredModels()      { return this._filterModelsByQuery(this._bulkModelSearch, this.bulkSelectedModels); },
+    get bulkGroupedModels()       { return this.groupModelsByProvider(this.bulkFilteredModels); },
+    get bulkJudgeFilteredModels() { return this._filterModelsByQuery(this._bulkJudgeModelSearch); },
+    get bulkJudgeGroupedModels()  { return this.groupModelsByProvider(this.bulkJudgeFilteredModels); },
     get formattedCriteria() {
       if (!this.judgeCriteria) return '';
       return this.judgeCriteria.split('\n').map(line => {
@@ -412,52 +355,6 @@ Always provide a complete revised_prompt with all suggestions applied.`,
         }
         return `- ${name}: ${desc}`;
       }).join('\n');
-    },
-
-    syncJudgeModel() {
-      this.judgeModel = (this.judgeModelProvider && this.judgeModelName)
-        ? this.judgeModelProvider + ':' + this.judgeModelName
-        : '';
-    },
-
-    syncCoachModel() {
-      this.coachModel = (this.coachModelProvider && this.coachModelName)
-        ? this.coachModelProvider + ':' + this.coachModelName
-        : '';
-    },
-
-    selectJudgeProvider(providerId) {
-      this.judgeModelProvider = providerId;
-      // Clear model name if it doesn't belong to this provider
-      const names = this._suggestedModels
-        .filter(m => m.split(':')[0] === providerId)
-        .map(m => { const [, ...r] = m.split(':'); return r.join(':'); });
-      if (this.judgeModelName && !names.includes(this.judgeModelName)) {
-        this.judgeModelName = '';
-      }
-      this.syncJudgeModel();
-    },
-
-    selectJudgeModelName(modelName) {
-      this.judgeModelName = modelName;
-      this.syncJudgeModel();
-    },
-
-    selectCoachProvider(providerId) {
-      this.coachModelProvider = providerId;
-      // Clear model name if it doesn't belong to this provider
-      const names = this._suggestedModels
-        .filter(m => m.split(':')[0] === providerId)
-        .map(m => { const [, ...r] = m.split(':'); return r.join(':'); });
-      if (this.coachModelName && !names.includes(this.coachModelName)) {
-        this.coachModelName = '';
-      }
-      this.syncCoachModel();
-    },
-
-    selectCoachModelName(modelName) {
-      this.coachModelName = modelName;
-      this.syncCoachModel();
     },
 
     toggleCriterion(idx) {
@@ -816,23 +713,8 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       try { JSON.parse(this.output); return true; } catch { return false; }
     },
 
-    get filteredModels() {
-      const q = (this.modelInput || '').toLowerCase().trim();
-      return this.availableModels.filter(m => !q || m.toLowerCase().includes(q));
-    },
-
-    get groupedModels() {
-      const groups = {};
-      for (const m of this.filteredModels) {
-        let provider = 'other';
-        if (m.startsWith('gpt-') || m.startsWith('o3') || m.startsWith('o4')) provider = 'openai';
-        else if (m.startsWith('claude-')) provider = 'anthropic';
-        else if (m.startsWith('gemini-')) provider = 'google';
-        if (!groups[provider]) groups[provider] = [];
-        groups[provider].push(m);
-      }
-      return groups;
-    },
+    get filteredModels() { return this._filterModelsByQuery(this.modelInput); },
+    get groupedModels()  { return this.groupModelsByProvider(this.filteredModels); },
 
     selectModel(name) {
       this.modelInput = name;
@@ -928,11 +810,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       if (!this.currentAgent) return;
       try {
         const s = await api(`/api/agents/${encodeURIComponent(this.currentAgent)}/settings`);
-        // Parse judge_model into provider + name split
-        const [jProvider, ...jRest] = (s.judge_model || '').split(':');
-        this.judgeModelProvider = jRest.length ? jProvider : '';
-        this.judgeModelName = jRest.length ? jRest.join(':') : (s.judge_model || '');
-        this.judgeModel = s.judge_model || '';
+        this.judgeModel = this._canonicalModel(s.judge_model || '');
         this.judgeCriteria = s.judge_criteria || '';
         this._savedJudgeModel = this.judgeModel;
         this._savedJudgeCriteria = this.judgeCriteria;
@@ -945,24 +823,22 @@ Always provide a complete revised_prompt with all suggestions applied.`,
           this.bulkAdvancedOpen = true;
         }
         // Coach model: use saved setting, or fall back to first available model
-        this.coachModel = s.coach_model || (this.availableModels.length ? this.availableModels[0] : '');
+        this.coachModel = this._canonicalModel(s.coach_model || '')
+          || (this.availableModels.length ? this.availableModels[0] : '');
         this.providerStatus = await api('/api/settings/status');
       } catch { /* ignore on first load */ }
     },
 
+    // Judge model is saved alongside criteria via the Evals "Save" button
+    // (saveEvalSettings), so picking one only dirties state.
     selectJudgeModel(name) {
       this.judgeModel = name;
-      const [p, ...r] = (name || '').split(':');
-      this.judgeModelProvider = r.length ? p : '';
-      this.judgeModelName = r.length ? r.join(':') : (name || '');
     },
 
+    // Coach model is a standalone preference — persist immediately so the
+    // choice carries across reloads without requiring a separate save action.
     selectCoachModel(name) {
       this.coachModel = name;
-      const [p, ...r] = (name || '').split(':');
-      this.coachModelProvider = r.length ? p : '';
-      this.coachModelName = r.length ? r.join(':') : (name || '');
-      // Persist to backend
       if (this.currentAgent) {
         api(`/api/agents/${encodeURIComponent(this.currentAgent)}/settings`, 'PUT', {
           coach_model: name,
@@ -970,10 +846,13 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       }
     },
 
-    // --- Provider detection ---
+    // --- Provider classification (single source of truth) ---
+    // Every place in the app that needs to classify a model by provider
+    // (grouped dropdowns, API-key prompts, labels) goes through providerOf() /
+    // groupModelsByProvider() / _PROVIDER_ORDER below. Aligned with
+    // router.py::_provider_of for the prefix buckets both sides care about.
     _PROVIDER_LABELS: {
       'anthropic': 'Anthropic',
-      'azure': 'Azure OpenAI',
       'cohere': 'Cohere',
       'deepseek': 'DeepSeek',
       'gemini': 'Google (Gemini)',
@@ -987,6 +866,28 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       'xai': 'xAI (Grok)',
       'azure_foundry': 'Azure Foundry',
     },
+    // Order provider groups appear in dropdowns. Anything not in this list
+    // (or an unknown bucket like 'other') is appended to the end.
+    _PROVIDER_ORDER: [
+      'anthropic', 'openai', 'gemini', 'mistral', 'groq',
+      'deepseek', 'xai', 'cohere', 'together', 'meta',
+      'azure_foundry', 'ollama', 'openai-compatible',
+    ],
+    // Bare-name classification fallback. Ordered: longest/most specific first.
+    _BARE_PREFIX_PROVIDER: [
+      ['gpt-', 'openai'], ['o1', 'openai'], ['o3', 'openai'], ['o4', 'openai'],
+      ['claude-', 'anthropic'],
+      ['gemini-', 'gemini'],
+      ['mixtral-', 'mistral'], ['mistral-', 'mistral'],
+      ['command-', 'cohere'],
+      ['deepseek-', 'deepseek'],
+      ['grok-', 'xai'],
+    ],
+    _BARE_EXACT_PROVIDER: {
+      'chatgpt-4o-latest': 'openai',
+      'deepseek-chat': 'deepseek',
+      'deepseek-reasoner': 'deepseek',
+    },
     providerLabel(id) {
       return this._PROVIDER_LABELS[id] || (id.charAt(0).toUpperCase() + id.slice(1));
     },
@@ -994,48 +895,64 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       const regular = this.disconnectedProviders.filter(p => p !== 'azure_foundry');
       return regular.length ? regular[0] : (this.disconnectedProviders[0] || 'anthropic');
     },
-    detectProvider(modelStr) {
-      if (!modelStr) return null;
-      const s = modelStr.trim().toLowerCase();
-      // Explicit prefix (PydanticAI format: "provider:model")
-      if (s.includes(':')) {
-        const prefix = s.split(':')[0];
-        return this._PROVIDER_LABELS[prefix] || prefix;
+    // Classify a model string → lowercase provider id. `fallback` is returned
+    // for ambiguous bare names (e.g. "llama3" could be groq/together/ollama).
+    // Use '' when the caller needs to detect ambiguity (requireKey); use
+    // 'other' when grouping for display.
+    providerOf(modelStr, fallback = 'other') {
+      if (!modelStr) return fallback;
+      const s = String(modelStr).trim().toLowerCase();
+      // azure:* is always Foundry (single- and multi-connection both live under
+      // the same key_store bucket). Must be checked before the generic split.
+      if (s.startsWith('azure:')) return 'azure_foundry';
+      if (s.includes(':')) return s.split(':', 1)[0] || fallback;
+      if (this._BARE_EXACT_PROVIDER[s]) return this._BARE_EXACT_PROVIDER[s];
+      for (const [prefix, prov] of this._BARE_PREFIX_PROVIDER) {
+        if (s.startsWith(prefix)) return prov;
       }
-      // Heuristics for bare model names
-      if (s.startsWith('gpt-') || s.startsWith('o1') || s.startsWith('o3') || s.startsWith('o4') || s === 'chatgpt-4o-latest') return 'OpenAI';
-      if (s.startsWith('claude-')) return 'Anthropic';
-      if (s.startsWith('gemini-')) return 'Google';
-      if (s.startsWith('mistral-') || s.startsWith('mixtral-')) return 'Mistral';
-      if (s.startsWith('llama') || s.startsWith('qwen') || s.startsWith('phi-') || s.startsWith('deepseek')) return 'Ollama / Local';
-      return null;
+      return fallback;
+    },
+    // Group a flat list of model strings into { providerId: [model, ...] }.
+    // Used by every provider-grouped dropdown in the app.
+    groupModelsByProvider(models) {
+      const groups = {};
+      for (const m of models) {
+        const p = this.providerOf(m);
+        (groups[p] ||= []).push(m);
+      }
+      return groups;
+    },
+    // Ordered list of provider ids present in `groups`, respecting
+    // _PROVIDER_ORDER and appending unknown buckets at the end.
+    orderedProviderIds(groups) {
+      const present = Object.keys(groups);
+      const known = this._PROVIDER_ORDER.filter(p => present.includes(p));
+      const extras = present.filter(p => !this._PROVIDER_ORDER.includes(p)).sort();
+      return [...known, ...extras];
+    },
+    // Display string for a model inside a provider-grouped dropdown. Strips the
+    // redundant provider prefix when the row is already under that provider's
+    // header (e.g. "anthropic:claude-haiku-4-5" → "claude-haiku-4-5" under
+    // "Anthropic", "azure:prod:insights-..." → "prod:insights-..." under
+    // "Azure Foundry"). The stored value stays full-qualified.
+    modelDisplayName(model, providerId) {
+      if (!model) return '';
+      if (providerId === 'azure_foundry' && model.startsWith('azure:')) {
+        return model.slice('azure:'.length);
+      }
+      if (providerId && model.startsWith(providerId + ':')) {
+        return model.slice(providerId.length + 1);
+      }
+      return model;
     },
 
     // --- API Key Modal ---
     extractProvider(modelStr) {
-      // Returns the lowercase provider ID (e.g. "anthropic") used as the key in
-      // providerStatus / _PROVIDER_LABELS. Handles both the prefixed form
-      // ("anthropic:claude-haiku-4-5") and the bare canonical form
-      // ("claude-haiku-4-5") — model names are now stored without the prefix
-      // after the de-duplication canonicalization in router.py, so the bare
-      // form is the common case.
-      if (!modelStr) return '';
-      const s = modelStr.trim().toLowerCase();
-      if (s.includes(':')) {
-        return s.split(':')[0] || '';
-      }
-      // Bare model name → infer from well-known prefixes
-      if (s.startsWith('claude-')) return 'anthropic';
-      if (s.startsWith('gpt-') || s.startsWith('o1') || s.startsWith('o3') ||
-          s.startsWith('o4') || s === 'chatgpt-4o-latest') return 'openai';
-      if (s.startsWith('gemini-')) return 'gemini';
-      if (s.startsWith('mistral-') || s.startsWith('mixtral-')) return 'mistral';
-      if (s.startsWith('deepseek-') || s === 'deepseek-chat' || s === 'deepseek-reasoner') return 'deepseek';
-      if (s.startsWith('command-')) return 'cohere';
-      if (s.startsWith('grok-')) return 'xai';
-      // Ambiguous (llama/qwen/phi could be groq, together, or ollama) →
-      // return empty so requireKey falls through to showing the picker.
-      return '';
+      // Returns the lowercase provider ID used as the key in providerStatus /
+      // _PROVIDER_LABELS, or '' for ambiguous names (so requireKey falls
+      // through to the picker).
+      const p = this.providerOf(modelStr, '');
+      return p === 'other' ? '' : p;
     },
 
     async requireKey(provider, callback) {
@@ -1104,62 +1021,135 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.keyModalProviderDropdownOpen = false;
     },
 
-    addAzureDeployment() {
-      this.azureDeployments.push('');
-    },
-
-    removeAzureDeployment(idx) {
-      this.azureDeployments.splice(idx, 1);
-      if (!this.azureDeployments.length) this.azureDeployments.push('');
+    // --- Azure Foundry (multi-connection) ---
+    _resetAzureForm() {
+      this.azureForm = { name: '', endpoint: '', auth: 'key', key: '', api_version: '2024-10-21' };
     },
 
     async loadAzureConfig() {
       try {
-        const data = await api('/api/settings/azure');
-        if (data.configured) {
-          this.azureEndpoint = data.endpoint;
-          this.azureApiVersion = data.api_version;
-          this.azureDeployments = data.deployments.length ? data.deployments : [''];
-          this.azureConfigured = true;
-        } else {
-          this.azureConfigured = false;
-        }
-      } catch {}
+        const data = await api('/api/settings/azure/connections');
+        this.azureConnections = Array.isArray(data.connections) ? data.connections : [];
+      } catch {
+        this.azureConnections = [];
+      }
     },
 
-    async submitAzureConfig() {
-      const endpoint = this.azureEndpoint.trim();
-      const key = this.azureKey.trim();
-      const deployments = this.azureDeployments.map(d => d.trim()).filter(Boolean);
+    toggleAzureCard(name) {
+      this.azureExpanded = { ...this.azureExpanded, [name]: !this.azureExpanded[name] };
+    },
+
+    azureLastRefreshed(conn) {
+      if (!conn.discovered_at) return 'never';
+      const secs = Math.max(0, Math.floor(Date.now() / 1000 - conn.discovered_at));
+      if (secs < 60) return `${secs}s ago`;
+      if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+      if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+      return `${Math.floor(secs / 86400)}d ago`;
+    },
+
+    async submitAzureConnection() {
+      const name = (this.azureForm.name || '').trim();
+      const endpoint = (this.azureForm.endpoint || '').trim();
+      const auth = this.azureForm.auth === 'aad' ? 'aad' : 'key';
+      const key = (this.azureForm.key || '').trim();
+      const api_version = (this.azureForm.api_version || '').trim() || '2024-10-21';
+
+      if (!name) { showToast('Enter a connection name', 'error'); return; }
       if (!endpoint) { showToast('Enter an endpoint URL', 'error'); return; }
-      if (!key) { showToast('Enter an API key', 'error'); return; }
-      if (!deployments.length) { showToast('Add at least one deployment', 'error'); return; }
+      if (auth === 'key' && !key) { showToast('Enter an API key', 'error'); return; }
+
+      this.azureFormBusy = true;
       try {
-        await api('/api/settings/azure', 'POST', {
-          endpoint,
-          key,
-          api_version: this.azureApiVersion.trim() || '2024-10-21',
-          deployments,
+        const res = await api('/api/settings/azure/connections', 'POST', {
+          name, endpoint, auth,
+          key: auth === 'key' ? key : null,
+          api_version,
         });
-        this.azureKey = '';
-        this.azureConfigured = true;
-        showToast('Azure Foundry connected', 'success');
+        // Add returned connection to list
+        if (res.connection) {
+          this.azureConnections = [
+            ...this.azureConnections.filter(c => c.name !== res.connection.name),
+            res.connection,
+          ];
+          this.azureExpanded = { ...this.azureExpanded, [res.connection.name]: true };
+          if (res.connection.discovery_error) {
+            showToast(`Connected, but discovery failed: ${res.connection.discovery_error}`, 'error');
+          } else {
+            const n = (res.connection.deployments || []).length;
+            showToast(`Connected — found ${n} deployment${n === 1 ? '' : 's'}`, 'success');
+          }
+        }
+        this.azureAdding = false;
+        this._resetAzureForm();
         try { this.providerStatus = await api('/api/settings/status'); } catch {}
+        await this.loadModels();
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      } finally {
+        this.azureFormBusy = false;
+      }
+    },
+
+    async refreshAzureConnection(name) {
+      this.azureRefreshBusy = { ...this.azureRefreshBusy, [name]: true };
+      try {
+        const res = await api(`/api/settings/azure/connections/${encodeURIComponent(name)}/refresh`, 'POST');
+        if (res.connection) {
+          this.azureConnections = this.azureConnections.map(c =>
+            c.name === name ? res.connection : c
+          );
+          const n = (res.connection.deployments || []).length;
+          showToast(`${name} refreshed — ${n} deployment${n === 1 ? '' : 's'}`, 'success');
+        }
+        await this.loadModels();
+      } catch (e) {
+        showToast('Refresh failed: ' + e.message, 'error');
+      } finally {
+        this.azureRefreshBusy = { ...this.azureRefreshBusy, [name]: false };
+      }
+    },
+
+    async addAzureDeploymentManual(connName, payload) {
+      try {
+        const res = await api(
+          `/api/settings/azure/connections/${encodeURIComponent(connName)}/deployments`,
+          'POST', payload
+        );
+        if (res.connection) {
+          this.azureConnections = this.azureConnections.map(c =>
+            c.name === connName ? res.connection : c
+          );
+        }
+        showToast(`Added deployment ${payload.name}`, 'success');
         await this.loadModels();
       } catch (e) {
         showToast('Failed: ' + e.message, 'error');
       }
     },
 
-    async disconnectAzure() {
+    async removeAzureDeploymentManual(connName, depName) {
       try {
-        await api('/api/settings/azure', 'DELETE');
-        this.azureEndpoint = '';
-        this.azureKey = '';
-        this.azureApiVersion = '2024-10-21';
-        this.azureDeployments = [''];
-        this.azureConfigured = false;
-        showToast('Azure Foundry disconnected', 'success');
+        const res = await api(
+          `/api/settings/azure/connections/${encodeURIComponent(connName)}/deployments/${encodeURIComponent(depName)}`,
+          'DELETE'
+        );
+        if (res.connection) {
+          this.azureConnections = this.azureConnections.map(c =>
+            c.name === connName ? res.connection : c
+          );
+        }
+        await this.loadModels();
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
+    },
+
+    async disconnectAzureConnection(name) {
+      try {
+        await api(`/api/settings/azure/connections/${encodeURIComponent(name)}`, 'DELETE');
+        this.azureConnections = this.azureConnections.filter(c => c.name !== name);
+        showToast(`${name} disconnected`, 'success');
         try { this.providerStatus = await api('/api/settings/status'); } catch {}
         await this.loadModels();
       } catch (e) {
@@ -1168,6 +1158,25 @@ Always provide a complete revised_prompt with all suggestions applied.`,
     },
 
     async disconnectProvider(provider) {
+      // Azure Foundry is multi-connection — disconnect removes ALL of them.
+      if (provider === 'azure_foundry') {
+        const n = this.azureConnections.length;
+        if (!n) return;
+        const label = `${n} Foundry connection${n === 1 ? '' : 's'}`;
+        if (!await this.showConfirm(`Remove all ${label}? You can re-add them later.`, true)) return;
+        try {
+          for (const c of [...this.azureConnections]) {
+            await api(`/api/settings/azure/connections/${encodeURIComponent(c.name)}`, 'DELETE');
+          }
+          this.azureConnections = [];
+          showToast(`Removed ${label}`, 'success');
+          try { this.providerStatus = await api('/api/settings/status'); } catch {}
+          await this.loadModels();
+        } catch (e) {
+          showToast('Failed: ' + e.message, 'error');
+        }
+        return;
+      }
       if (!await this.showConfirm(`Disconnect ${provider.charAt(0).toUpperCase() + provider.slice(1)}? The API key will be removed from memory.`, true)) return;
       try {
         await api(`/api/settings/api-key/${encodeURIComponent(provider)}`, 'DELETE');
@@ -1945,7 +1954,7 @@ Always provide a complete revised_prompt with all suggestions applied.`,
       this.bulkSelectedTemps = [...(cm.temperatures || [])];
       this.bulkReasoningEfforts = [...(cm.reasoning_efforts || [])];
       this.bulkIncludeEval = run.include_eval || false;
-      this.bulkJudgeModel = run.judge_model || '';
+      this.bulkJudgeModel = this._canonicalModel(run.judge_model || '');
       this.bulkResults = [];
       this.bulkCompleted = 0;
       this.bulkTotalRuns = 0;

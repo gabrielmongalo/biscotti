@@ -11,7 +11,7 @@ def _clean_global_state():
     reg_snapshot = dict(_REGISTRY)
     call_snapshot = dict(_AGENT_CALLABLES)
     keys_snapshot = dict(_KEYS)
-    azure_snapshot = _ks._AZURE_CONFIG
+    azure_snapshot = dict(_ks._AZURE_CONNECTIONS)
     yield
     _REGISTRY.clear()
     _REGISTRY.update(reg_snapshot)
@@ -19,4 +19,5 @@ def _clean_global_state():
     _AGENT_CALLABLES.update(call_snapshot)
     _KEYS.clear()
     _KEYS.update(keys_snapshot)
-    _ks._AZURE_CONFIG = azure_snapshot
+    _ks._AZURE_CONNECTIONS.clear()
+    _ks._AZURE_CONNECTIONS.update(azure_snapshot)

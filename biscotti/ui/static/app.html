@@ -6,10 +6,10 @@
 <title>biscotti</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=21">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
-<script src="app.js?v=35"></script>
+<script src="app.js?v=45"></script>
 <script src="components.js?v=3"></script>
 </head>
 <body x-data x-init="$store.app.init()">
@@ -173,19 +173,17 @@
               <template x-if="!$store.app.coachFilteredModels.length">
                 <div class="typeahead-empty">No matching models</div>
               </template>
-              <template x-for="provider in ['anthropic', 'openai', 'google', 'other']" :key="provider">
-                <template x-if="$store.app.coachGroupedModels[provider]">
-                  <div>
-                    <div class="typeahead-group" x-text="provider"></div>
-                    <template x-for="m in $store.app.coachGroupedModels[provider]" :key="m">
-                      <div class="typeahead-item"
-                           :class="{ highlighted: $store.app.coachFilteredModels.indexOf(m) === highlightIdx }"
-                           @mousedown.prevent="_select({ key: m, label: m, value: m })"
-                           @mouseenter="highlightIdx = $store.app.coachFilteredModels.indexOf(m)"
-                           x-text="m"></div>
-                    </template>
-                  </div>
-                </template>
+              <template x-for="provider in $store.app.orderedProviderIds($store.app.coachGroupedModels)" :key="provider">
+                <div>
+                  <div class="typeahead-group" x-text="$store.app.providerLabel(provider)"></div>
+                  <template x-for="m in $store.app.coachGroupedModels[provider]" :key="m">
+                    <div class="typeahead-item"
+                         :class="{ highlighted: $store.app.coachFilteredModels.indexOf(m) === highlightIdx }"
+                         @mousedown.prevent="_select({ key: m, label: m, value: m })"
+                         @mouseenter="highlightIdx = $store.app.coachFilteredModels.indexOf(m)"
+                         x-text="$store.app.modelDisplayName(m, provider)"></div>
+                  </template>
+                </div>
               </template>
             </div>
           </div>
@@ -445,19 +443,17 @@
                     <template x-if="!$store.app.filteredModels.length">
                       <div class="typeahead-empty">No matching models</div>
                     </template>
-                    <template x-for="provider in ['anthropic', 'openai', 'google', 'other']" :key="provider">
-                      <template x-if="$store.app.groupedModels[provider]">
-                        <div>
-                          <div class="typeahead-group" x-text="provider"></div>
-                          <template x-for="m in $store.app.groupedModels[provider]" :key="m">
-                            <div class="typeahead-item"
-                                 :class="{ highlighted: $store.app.filteredModels.indexOf(m) === highlightIdx }"
-                                 @mousedown.prevent="_select({ key: m, label: m, value: m })"
-                                 @mouseenter="highlightIdx = $store.app.filteredModels.indexOf(m)"
-                                 x-text="m"></div>
-                          </template>
-                        </div>
-                      </template>
+                    <template x-for="provider in $store.app.orderedProviderIds($store.app.groupedModels)" :key="provider">
+                      <div>
+                        <div class="typeahead-group" x-text="$store.app.providerLabel(provider)"></div>
+                        <template x-for="m in $store.app.groupedModels[provider]" :key="m">
+                          <div class="typeahead-item"
+                               :class="{ highlighted: $store.app.filteredModels.indexOf(m) === highlightIdx }"
+                               @mousedown.prevent="_select({ key: m, label: m, value: m })"
+                               @mouseenter="highlightIdx = $store.app.filteredModels.indexOf(m)"
+                               x-text="$store.app.modelDisplayName(m, provider)"></div>
+                        </template>
+                      </div>
                     </template>
                   </div>
                 </div>
@@ -817,51 +813,37 @@
         </button>
         <div class="settings-body" :class="{ open: $store.app._evalConfigOpen }">
           <div class="eval-content">
-            <!-- Judge Model (split provider combobox + model name combobox) -->
+            <!-- Judge Model (single grouped dropdown — same pattern as Playground) -->
             <div>
               <div class="field-label">Judge Model</div>
-              <div class="split-model-wrap">
-                <!-- Provider combobox -->
-                <div class="typeahead-wrap split-model-provider"
-                     x-data="typeahead({
-                       items: () => $store.app.judgeFilteredProviders.map(p => ({ key: p.id, label: p.label, value: p.id })),
-                       onSelect: (id) => { $store.app.selectJudgeProvider(id); },
-                       placeholder: 'Provider',
-                       searchable: true,
-                       inputStyle: 'font-size:12px',
-                       fixed: true,
-                     })"
-                     @click.outside="close()"
-                     x-effect="query = $store.app.judgeModelProvider">
-                  <input class="model-input" x-bind="input"
-                         @input="$store.app.judgeModelProvider = query; $store.app.syncJudgeModel()"
-                         @blur="$store.app.syncJudgeModel()">
-                  <div class="typeahead-dropdown fixed-dropdown" :class="{ open }"
-                       :style="_rect ? 'top:'+(_rect.bottom+4)+'px;left:'+_rect.left+'px;width:'+_rect.width+'px;' : ''">
-                    <template x-for="(item, idx) in filtered" :key="item.key">
-                      <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
-                    </template>
-                  </div>
-                </div>
-                <!-- Model name combobox -->
-                <div class="typeahead-wrap split-model-name"
-                     x-data="typeahead({
-                       items: () => $store.app.judgeFilteredModelNames,
-                       onSelect: (m) => { $store.app.selectJudgeModelName(m); },
-                       placeholder: 'Model name',
-                       searchable: true,
-                       inputStyle: 'font-size:12px',
-                     })"
-                     @click.outside="close()"
-                     x-effect="query = $store.app.judgeModelName">
-                  <input class="model-input" x-bind="input"
-                         @input="$store.app.judgeModelName = query; $store.app.syncJudgeModel()"
-                         @blur="$store.app.syncJudgeModel()">
-                  <div class="typeahead-dropdown" :class="{ open }">
-                    <template x-for="(item, idx) in filtered" :key="item.key">
-                      <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
-                    </template>
-                  </div>
+              <div class="typeahead-wrap"
+                   x-data="typeahead({
+                     items: () => $store.app.judgeFilteredModels,
+                     onSelect: (m) => { $store.app.selectJudgeModel(m); },
+                     placeholder: 'Select a model',
+                     searchable: true,
+                     inputStyle: 'width:100%',
+                   })"
+                   @click.outside="close()"
+                   x-effect="query = $store.app.judgeModel">
+                <input class="model-input" x-bind="input"
+                       @input="$store.app.judgeModel = query">
+                <div class="typeahead-dropdown" :class="{ open }">
+                  <template x-if="!$store.app.judgeFilteredModels.length">
+                    <div class="typeahead-empty">No matching models</div>
+                  </template>
+                  <template x-for="provider in $store.app.orderedProviderIds($store.app.judgeGroupedModels)" :key="provider">
+                    <div>
+                      <div class="typeahead-group" x-text="$store.app.providerLabel(provider)"></div>
+                      <template x-for="m in $store.app.judgeGroupedModels[provider]" :key="m">
+                        <div class="typeahead-item"
+                             :class="{ highlighted: $store.app.judgeFilteredModels.indexOf(m) === highlightIdx }"
+                             @mousedown.prevent="_select({ key: m, label: m, value: m })"
+                             @mouseenter="highlightIdx = $store.app.judgeFilteredModels.indexOf(m)"
+                             x-text="$store.app.modelDisplayName(m, provider)"></div>
+                      </template>
+                    </div>
+                  </template>
                 </div>
               </div>
             </div>
@@ -1097,24 +1079,33 @@
                   <div class="bulk-label">Models</div>
                   <div class="typeahead-wrap"
                        x-data="typeahead({
-                         items: () => $store.app.availableModels.filter(m => !$store.app.bulkSelectedModels.includes(m)),
-                         onSelect: (m) => { $store.app.bulkSelectedModels.push(m); },
+                         items: () => $store.app.bulkFilteredModels,
+                         onSelect: (m) => { $store.app.bulkAddModel(m); },
                          placeholder: 'Search models...',
                          searchable: true,
                          inputClass: 'model-input bulk-model-trigger',
                        })"
-                       @click.outside="close()">
-                    <input class="model-input" x-bind="input">
+                       @click.outside="close()"
+                       x-effect="query = $store.app._bulkModelSearch">
+                    <input class="model-input bulk-model-trigger" x-bind="input"
+                           @input="$store.app._bulkModelSearch = query">
                     <div class="typeahead-dropdown" :class="{ open }">
-                      <template x-for="(item, idx) in filtered" :key="item.key">
-                        <div class="typeahead-item"
-                             :class="{ highlighted: idx === highlightIdx }"
-                             @mousedown.prevent="_select(item)"
-                             @mouseenter="highlightIdx = idx"
-                             x-text="item.label"></div>
+                      <template x-if="!$store.app.bulkFilteredModels.length">
+                        <div class="typeahead-empty"
+                             x-text="$store.app.availableModels.length === $store.app.bulkSelectedModels.length ? 'All models selected' : 'No matching models'"></div>
                       </template>
-                      <div x-bind="empty"
-                           x-text="$store.app.availableModels.length === $store.app.bulkSelectedModels.length ? 'All models selected' : 'No matching models'"></div>
+                      <template x-for="provider in $store.app.orderedProviderIds($store.app.bulkGroupedModels)" :key="provider">
+                        <div>
+                          <div class="typeahead-group" x-text="$store.app.providerLabel(provider)"></div>
+                          <template x-for="m in $store.app.bulkGroupedModels[provider]" :key="m">
+                            <div class="typeahead-item"
+                                 :class="{ highlighted: $store.app.bulkFilteredModels.indexOf(m) === highlightIdx }"
+                                 @mousedown.prevent="_select({ key: m, label: m, value: m })"
+                                 @mouseenter="highlightIdx = $store.app.bulkFilteredModels.indexOf(m)"
+                                 x-text="$store.app.modelDisplayName(m, provider)"></div>
+                          </template>
+                        </div>
+                      </template>
                     </div>
                   </div>
                   <div class="bulk-chip-container">
@@ -1187,7 +1178,7 @@
                   <span class="bulk-label bulk-label--inline">Judge Model</span>
                   <div class="typeahead-wrap bulk-judge-wrap"
                        x-data="typeahead({
-                         items: () => $store.app.availableModels,
+                         items: () => $store.app.bulkJudgeFilteredModels,
                          selected: () => $store.app.bulkJudgeModel,
                          onSelect: (m) => { $store.app.bulkJudgeModel = m; },
                          placeholder: 'Search models...',
@@ -1195,11 +1186,25 @@
                          clearOnSelect: false,
                          inputClass: 'model-input bulk-judge-input',
                        })"
-                       @click.outside="close()">
-                    <input class="model-input" x-bind="input">
+                       @click.outside="close()"
+                       x-effect="query = $store.app._bulkJudgeModelSearch">
+                    <input class="model-input" x-bind="input"
+                           @input="$store.app._bulkJudgeModelSearch = query">
                     <div class="typeahead-dropdown" :class="{ open }">
-                      <template x-for="(item, idx) in filtered" :key="item.key">
-                        <div class="typeahead-item" x-bind="option(idx)" x-text="item.label"></div>
+                      <template x-if="!$store.app.bulkJudgeFilteredModels.length">
+                        <div class="typeahead-empty">No matching models</div>
+                      </template>
+                      <template x-for="provider in $store.app.orderedProviderIds($store.app.bulkJudgeGroupedModels)" :key="provider">
+                        <div>
+                          <div class="typeahead-group" x-text="$store.app.providerLabel(provider)"></div>
+                          <template x-for="m in $store.app.bulkJudgeGroupedModels[provider]" :key="m">
+                            <div class="typeahead-item"
+                                 :class="{ highlighted: $store.app.bulkJudgeFilteredModels.indexOf(m) === highlightIdx }"
+                                 @mousedown.prevent="_select({ key: m, label: m, value: m })"
+                                 @mouseenter="highlightIdx = $store.app.bulkJudgeFilteredModels.indexOf(m)"
+                                 x-text="$store.app.modelDisplayName(m, provider)"></div>
+                          </template>
+                        </div>
                       </template>
                     </div>
                   </div>
@@ -1563,10 +1568,11 @@
       <div class="field-label" style="margin-bottom:6px;">Connected</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
         <template x-for="p in $store.app.connectedProviders" :key="p">
-          <span class="provider-pill">
+          <span class="provider-pill" :class="{ clickable: p === 'azure_foundry' }"
+                @click="if (p === 'azure_foundry') { $store.app.keyModalProvider = 'azure_foundry'; $store.app.keyModalAddingProvider = true; }">
             <span class="provider-pill-dot"></span>
-            <span x-text="$store.app.providerLabel(p)"></span>
-            <button class="provider-pill-x" @click="$store.app.disconnectProvider(p)" title="Disconnect">
+            <span x-text="$store.app.providerLabel(p) + (p === 'azure_foundry' ? ` (${$store.app.azureConnections.length})` : '')"></span>
+            <button class="provider-pill-x" @click.stop="$store.app.disconnectProvider(p)" title="Disconnect">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </span>
@@ -1579,10 +1585,12 @@
       </div>
     </div>
 
-    <!-- Collapsible add-provider form -->
+    <!-- Collapsible add-provider form. The provider dropdown is only for the
+         "add new provider" flow — when the user is managing Azure connections
+         specifically, we hide it to reduce chrome. -->
     <div x-show="$store.app.keyModalAddingProvider" class="key-modal-form">
-      <!-- Provider dropdown (outside scroll wrapper so it doesn't clip) -->
-      <div class="key-modal-form-row">
+      <div class="key-modal-form-row"
+           x-show="!($store.app.keyModalProvider === 'azure_foundry' && $store.app.azureConnections.length)">
         <div class="provider-select-wrap" @click.outside="$store.app.keyModalProviderDropdownOpen = false">
           <button class="provider-select-trigger" @click="$store.app.keyModalProviderDropdownOpen = !$store.app.keyModalProviderDropdownOpen">
             <span x-text="$store.app.providerLabel($store.app.keyModalProvider)"></span>
@@ -1612,49 +1620,147 @@
         <button class="btn btn-primary btn-sm" @click="$store.app.submitModalKey()">Connect</button>
       </div>
 
-      <!-- Azure Foundry form (shown when Azure Foundry selected) -->
-      <div x-show="$store.app.keyModalAddingProvider && $store.app.keyModalProvider === 'azure_foundry'" style="display:flex;flex-direction:column;">
-        <div>
-          <div class="field-label" style="margin-bottom:6px;">Endpoint</div>
-          <input type="text" class="key-input" style="width:100%;"
-                 x-model="$store.app.azureEndpoint"
-                 placeholder="https://myresource.openai.azure.com/">
-        </div>
-        <div style="margin-top:20px;">
-          <div class="field-label" style="margin-bottom:6px;">API Key</div>
-          <input type="password" class="key-input" style="width:100%;"
-                 x-model="$store.app.azureKey"
-                 :placeholder="$store.app.azureConfigured ? '(saved - enter new to update)' : 'sk-...'"
-                 @keydown.escape="$store.app.closeKeyModal()">
-        </div>
-        <div style="margin-top:20px;">
-          <div class="field-label" style="margin-bottom:6px;">API Version</div>
-          <input type="text" class="key-input" style="width:100%;"
-                 x-model="$store.app.azureApiVersion"
-                 placeholder="2024-10-21">
-        </div>
-        <div style="margin-top:20px;">
-          <div class="field-label" style="margin-bottom:8px;">Deployments</div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <template x-for="(dep, idx) in $store.app.azureDeployments" :key="idx">
-              <div style="display:flex;gap:8px;align-items:center;">
-                <input type="text" class="key-input" style="flex:1;"
-                       :value="dep"
-                       @input="$store.app.azureDeployments[idx] = $event.target.value"
-                       placeholder="deployment-name">
-                <button class="btn btn-ghost btn-sm" style="padding:4px 8px;flex-shrink:0;" @click="$store.app.removeAzureDeployment(idx)" title="Remove">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
+      <!-- Azure Foundry (shown when Azure Foundry selected) -->
+      <div x-show="$store.app.keyModalAddingProvider && $store.app.keyModalProvider === 'azure_foundry'" style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Existing connection cards -->
+        <template x-for="conn in $store.app.azureConnections" :key="conn.name"
+                  x-data="{ errOpen: false }">
+          <div class="azure-conn-card">
+            <div class="azure-conn-head">
+              <div class="azure-conn-ident">
+                <div class="azure-conn-title-row">
+                  <span class="provider-pill-dot"></span>
+                  <span class="azure-conn-name" x-text="conn.name"></span>
+                  <span class="azure-conn-auth" x-text="conn.auth === 'aad' ? 'AAD' : 'key'"></span>
+                </div>
+                <div class="azure-conn-endpoint" x-text="conn.endpoint"></div>
+                <div class="azure-conn-meta">
+                  <span x-text="(conn.deployments || []).length + ' deployment' + ((conn.deployments || []).length === 1 ? '' : 's')"></span>
+                  <span> · refreshed </span><span x-text="$store.app.azureLastRefreshed(conn)"></span>
+                </div>
               </div>
-            </template>
-            <button class="btn btn-ghost btn-sm" style="font-size:11px;align-self:flex-start;" @click="$store.app.addAzureDeployment()">+ Add Deployment</button>
+              <div class="azure-conn-actions">
+                <button class="btn-ghost-link"
+                        :disabled="$store.app.azureRefreshBusy[conn.name]"
+                        @click="$store.app.refreshAzureConnection(conn.name)"
+                        x-text="$store.app.azureRefreshBusy[conn.name] ? 'Refreshing…' : 'Refresh'"></button>
+                <button class="azure-conn-toggle"
+                        @click="$store.app.toggleAzureCard(conn.name)"
+                        :title="$store.app.azureExpanded[conn.name] ? 'Collapse' : 'Expand details'"
+                        :aria-expanded="$store.app.azureExpanded[conn.name] ? 'true' : 'false'">
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none"
+                       :class="{ open: $store.app.azureExpanded[conn.name] }">
+                    <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <span class="azure-conn-sep"></span>
+                <button class="btn-ghost-link danger"
+                        @click="$store.app.disconnectAzureConnection(conn.name)">Disconnect</button>
+              </div>
+            </div>
+            <div x-show="$store.app.azureExpanded[conn.name]" class="azure-conn-body">
+
+              <!-- Deployments table (only when present) -->
+              <template x-if="(conn.deployments || []).length">
+                <table class="azure-dep-table">
+                  <thead>
+                    <tr>
+                      <th>Deployment</th>
+                      <th>Underlying model</th>
+                      <th>Wire</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="dep in conn.deployments" :key="dep.name">
+                      <tr>
+                        <td class="azure-dep-name"><span x-text="dep.name"></span></td>
+                        <td><span x-text="dep.model || '—'" :class="{'azure-dep-unknown': !dep.model}"></span></td>
+                        <td><span class="azure-dep-wire" x-text="dep.wire || 'openai'"></span></td>
+                        <td style="text-align:right;">
+                          <button class="btn-ghost-link danger"
+                                  @click="$store.app.removeAzureDeploymentManual(conn.name, dep.name)"
+                                  title="Remove">Remove</button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </template>
+
+              <!-- Manual add form. Just name + underlying model — the
+                   endpoint lives on the connection, and wire is auto-inferred
+                   from the model name (claude* → anthropic). -->
+              <div class="azure-manual-form"
+                   :class="{ prominent: !(conn.deployments || []).length }"
+                   x-data="{
+                     name: '', model: '',
+                     submit() {
+                       if (!this.name.trim()) return;
+                       $store.app.addAzureDeploymentManual(conn.name, {
+                         name: this.name.trim(),
+                         model: this.model.trim() || null,
+                       });
+                       this.name = ''; this.model = '';
+                     }
+                   }">
+                <div class="azure-manual-title">Add deployment</div>
+                <div class="azure-manual-grid">
+                  <input type="text" class="key-input" placeholder="deployment name (e.g. insights-claude-opus-4-6-2)" x-model="name"
+                         @keydown.enter="submit()">
+                  <div class="azure-manual-controls">
+                    <input type="text" class="key-input"
+                           placeholder="underlying model (e.g. claude-opus-4-6, gpt-4o)"
+                           x-model="model" @keydown.enter="submit()">
+                    <button class="btn btn-primary btn-sm" @click="submit()" :disabled="!name.trim()">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+        </template>
+
+        <!-- Add connection form -->
+        <div x-show="!$store.app.azureAdding" style="display:flex;justify-content:flex-start;">
+          <button class="btn btn-ghost btn-sm" @click="$store.app.azureAdding = true; $store.app._resetAzureForm()">+ Add Foundry Connection</button>
         </div>
-        <div style="display:flex;gap:8px;margin-top:20px;">
-          <button class="btn btn-primary btn-sm" @click="$store.app.submitAzureConfig()">Connect</button>
-          <template x-if="$store.app.azureConfigured">
-            <button class="btn btn-ghost btn-sm" @click="$store.app.disconnectAzure()">Disconnect</button>
-          </template>
+
+        <div x-show="$store.app.azureAdding" class="azure-add-form">
+          <div>
+            <div class="field-label" style="margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+              <span>Connection name</span>
+              <span class="info-dot" title="Your label — used to tell multiple Foundry resources apart (e.g. dev / staging / prod).">?</span>
+            </div>
+            <input type="text" class="key-input" style="width:100%;"
+                   x-model="$store.app.azureForm.name"
+                   placeholder="prod-foundry">
+          </div>
+          <div style="margin-top:14px;">
+            <div class="field-label" style="margin-bottom:6px;">Endpoint</div>
+            <input type="text" class="key-input" style="width:100%;"
+                   x-model="$store.app.azureForm.endpoint"
+                   placeholder="https://myresource.services.ai.azure.com">
+          </div>
+          <div style="margin-top:14px;">
+            <div class="field-label" style="margin-bottom:6px;">API key</div>
+            <input type="password" class="key-input" style="width:100%;"
+                   x-model="$store.app.azureForm.key"
+                   placeholder="sk-...">
+          </div>
+          <div style="margin-top:14px;">
+            <div class="field-label" style="margin-bottom:6px;">API version</div>
+            <input type="text" class="key-input" style="width:100%;"
+                   x-model="$store.app.azureForm.api_version"
+                   placeholder="2024-10-21">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:18px;">
+            <button class="btn btn-primary btn-sm"
+                    :disabled="$store.app.azureFormBusy"
+                    @click="$store.app.submitAzureConnection()"
+                    x-text="$store.app.azureFormBusy ? 'Saving…' : 'Save connection'"></button>
+            <button class="btn btn-ghost btn-sm" @click="$store.app.azureAdding = false">Cancel</button>
+          </div>
         </div>
       </div>
 

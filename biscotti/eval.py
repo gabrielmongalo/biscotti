@@ -39,31 +39,174 @@ def build_judge_generation_prompt(system_prompt: str, variables: list[str]) -> s
     return f"System prompt to evaluate:\n\n{system_prompt}{var_section}"
 
 
+def infer_azure_wire(endpoint: str = "", model: str | None = None) -> str:
+    """Infer the Foundry wire route.
+
+    Preference order:
+      1. ``/anthropic`` in the endpoint URL path → anthropic wire.
+      2. Model name starts with ``claude`` (anywhere in the string) → anthropic.
+      3. Default → openai.
+    """
+    url = (endpoint or "").lower()
+    if "/anthropic" in url:
+        return "anthropic"
+    m = (model or "").lower()
+    if "claude" in m:
+        return "anthropic"
+    return "openai"
+
+
+def derive_azure_endpoint(base: str, wire: str) -> str:
+    """Given a connection's base endpoint and a target wire, return the URL
+    that biscotti should hit for requests.
+
+    - Anthropic wire: append ``/anthropic`` if not already present.
+    - OpenAI wire: use the base URL as-is (AsyncAzureOpenAI builds paths
+      itself from ``azure_endpoint``).
+    """
+    base = (base or "").rstrip("/")
+    if wire == "anthropic" and not base.endswith("/anthropic"):
+        return f"{base}/anthropic"
+    if wire == "openai" and base.endswith("/anthropic"):
+        return base[: -len("/anthropic")]
+    return base
+
+
 def resolve_model(model: str):
-    """Resolve a model string. Returns an OpenAIModel for azure:* strings, else the string as-is."""
+    """Resolve a model string.
+
+    For ``azure:<connection>:<deployment>`` IDs, builds a PydanticAI model
+    bound to the right Foundry resource and wire route. Everything else is
+    returned as-is (PydanticAI parses bare ``provider:model`` strings).
+    """
     if not model.startswith("azure:"):
         return model
 
-    from .key_store import get_azure_config
-    config = get_azure_config()
-    if config is None:
-        raise ValueError("Azure Foundry not configured. Add config in API Keys settings.")
+    parts = model.split(":", 2)
+    if len(parts) != 3 or not parts[1] or not parts[2]:
+        raise ValueError(
+            f"Invalid azure model id {model!r}. "
+            "Expected 'azure:<connection>:<deployment>'."
+        )
+    _, conn_name, dep_name = parts
 
-    deployment = model.removeprefix("azure:")
-    if deployment not in config["deployments"]:
-        raise ValueError(f"Azure deployment '{deployment}' not configured. Known deployments: {config['deployments']}")
+    from .key_store import get_azure_connection
+    conn = get_azure_connection(conn_name)
+    if conn is None:
+        raise ValueError(
+            f"Azure connection {conn_name!r} not configured. "
+            "Add it under Settings → Azure Foundry."
+        )
 
+    dep = next((d for d in conn.get("deployments", []) if d["name"] == dep_name), None)
+    if dep is None:
+        known = [d["name"] for d in conn.get("deployments", [])]
+        raise ValueError(
+            f"Deployment {dep_name!r} not found on Azure connection {conn_name!r}. "
+            f"Known deployments: {known or '(add one under Settings → Azure Foundry)'}."
+        )
+
+    # Base URL lives on the connection. Wire is inferred from the deployment's
+    # underlying model name (claude* → anthropic, else openai), and the
+    # effective URL is derived from base + wire. A per-deployment endpoint
+    # override is still respected for edge cases.
+    base = (conn.get("endpoint") or "").rstrip("/")
+    if not base:
+        raise ValueError(
+            f"Azure connection {conn_name!r} has no endpoint set."
+        )
+
+    wire = dep.get("wire") or infer_azure_wire(endpoint=dep.get("endpoint") or "",
+                                                model=dep.get("model"))
+    endpoint = dep.get("endpoint") or derive_azure_endpoint(base, wire)
+    conn_view = {**conn, "endpoint": endpoint}
+    dep_view = {**dep, "endpoint": endpoint, "wire": wire}
+
+    if wire == "anthropic":
+        return _build_azure_anthropic_model(conn_view, dep_view)
+    return _build_azure_openai_model(conn_view, dep_view)
+
+
+def _build_azure_openai_model(conn: dict, dep: dict):
     from openai import AsyncAzureOpenAI
     from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
 
-    client = AsyncAzureOpenAI(
-        azure_endpoint=config["endpoint"],
-        api_key=config["key"],
-        api_version=config["api_version"],
-    )
-    provider = OpenAIProvider(openai_client=client)
-    return OpenAIChatModel(deployment, provider=provider)
+    client_kwargs: dict = {
+        "azure_endpoint": conn["endpoint"],
+        "api_version": conn["api_version"],
+    }
+    if conn.get("auth") == "aad":
+        client_kwargs["azure_ad_token_provider"] = _make_sync_aad_token_provider()
+    else:
+        client_kwargs["api_key"] = conn["key"]
+
+    client = AsyncAzureOpenAI(**client_kwargs)
+    return OpenAIChatModel(dep["name"], provider=OpenAIProvider(openai_client=client))
+
+
+def _build_azure_anthropic_model(conn: dict, dep: dict):
+    from pydantic_ai.models.anthropic import AnthropicModel
+    from pydantic_ai.providers.anthropic import AnthropicProvider
+
+    # If the user pasted an endpoint that already ends in /anthropic (common on
+    # Foundry), use it as-is. Otherwise derive the /anthropic sibling route
+    # from the /openai path or bare resource URL.
+    endpoint = conn["endpoint"].rstrip("/")
+    if endpoint.endswith("/anthropic"):
+        anthropic_base = endpoint
+    else:
+        if endpoint.endswith("/openai"):
+            endpoint = endpoint[: -len("/openai")]
+        anthropic_base = f"{endpoint}/anthropic"
+
+    if conn.get("auth") == "aad":
+        # Anthropic SDK does not expose a token-provider hook, so for AAD
+        # we acquire a token up-front and pass it as the api_key. Tokens
+        # expire (typically 1h); users on long-running sessions will need
+        # to re-open the agent or restart to refresh.
+        token = _sync_fetch_aad_token()
+        provider = AnthropicProvider(api_key=token, base_url=anthropic_base)
+    else:
+        provider = AnthropicProvider(api_key=conn["key"], base_url=anthropic_base)
+
+    return AnthropicModel(dep["name"], provider=provider)
+
+
+def _sync_fetch_aad_token() -> str:
+    """Fetch an AAD bearer token synchronously. Uses the sync
+    DefaultAzureCredential so it's safe to call from inside an async context."""
+    try:
+        from azure.identity import DefaultAzureCredential
+    except ImportError as exc:
+        raise ValueError(
+            "AAD auth requires the 'azure-identity' package. "
+            "Install with: pip install biscotti[azure]"
+        ) from exc
+    credential = DefaultAzureCredential()
+    try:
+        return credential.get_token("https://cognitiveservices.azure.com/.default").token
+    finally:
+        credential.close()
+
+
+def _make_sync_aad_token_provider():
+    """Token provider for AsyncAzureOpenAI. Called on every request; the
+    SDK caches short-term. DefaultAzureCredential handles expiry on repeat
+    get_token() calls."""
+    try:
+        from azure.identity import DefaultAzureCredential
+    except ImportError as exc:
+        raise ValueError(
+            "AAD auth requires the 'azure-identity' package. "
+            "Install with: pip install biscotti[azure]"
+        ) from exc
+    credential = DefaultAzureCredential()
+
+    def _provider() -> str:
+        return credential.get_token("https://cognitiveservices.azure.com/.default").token
+
+    return _provider
 
 
 def make_judge_generator(model: str | None = None) -> Agent:
